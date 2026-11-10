@@ -407,8 +407,8 @@ function StudioContent() {
     Boolean(draft.bio.ar.trim()),
     Boolean(draft.avatar && !draft.avatar.includes("placeholder")),
     draft.projects.length > 0,
-    draft.skills.length > 0,
-    draft.links.length > 0,
+    (draft.skills?.length ?? 0) > 0,
+    (draft.links?.length ?? 0) > 0,
   ];
   const profileCompletion = Math.round(
     (profileCompletionChecks.filter(Boolean).length / profileCompletionChecks.length) * 100
