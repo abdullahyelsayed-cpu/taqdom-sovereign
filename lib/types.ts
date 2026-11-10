@@ -54,6 +54,7 @@ export type CanvasSectionLayout = {
   y: number;
   width: number;
   scale: number;
+  hidden?: boolean;
 };
 
 export type PortfolioCanvasSettings = {
