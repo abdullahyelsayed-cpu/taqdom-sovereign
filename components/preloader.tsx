@@ -11,7 +11,7 @@ export function Preloader() {
   useEffect(() => {
     try {
       const seen = sessionStorage.getItem("taqdom_preloader_done");
-      if (seen === "1") {
+      if (seen === "1" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setVisible(false);
         return;
       }
@@ -23,7 +23,7 @@ export function Preloader() {
 
     let current = 0;
     const timer = setInterval(() => {
-      current += 16;
+      current += 25;
       if (current >= 100) {
         setProgress(100);
         clearInterval(timer);
@@ -34,12 +34,12 @@ export function Preloader() {
           } catch {
             // ignore
           }
-          setTimeout(() => setVisible(false), 400);
-        }, 150);
+          setTimeout(() => setVisible(false), 250);
+        }, 60);
       } else {
         setProgress(current);
       }
-    }, 45);
+    }, 24);
 
     return () => clearInterval(timer);
   }, []);
@@ -48,7 +48,7 @@ export function Preloader() {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-between px-8 py-10 transition-all duration-500 ${
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-between px-8 py-10 transition-all duration-250 ${
         closing ? "opacity-0 pointer-events-none scale-105" : "opacity-100"
       }`}
       style={{
