@@ -148,7 +148,7 @@ export default function AuthPage() {
   const flagshipSubdomainHref = getSubdomainUrl("layla", host);
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="auth-experience min-h-screen bg-background text-foreground">
       <Header />
 
       <section className="pt-32 pb-24">

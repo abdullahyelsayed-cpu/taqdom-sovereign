@@ -45,7 +45,7 @@ export default function TemplatesPage() {
     : null;
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="templates-experience min-h-screen bg-background text-foreground">
       <Header />
 
       <section className="pt-32 pb-24">

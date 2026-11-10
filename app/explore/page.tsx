@@ -55,7 +55,7 @@ export default function ExplorePage() {
   });
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="explore-experience min-h-screen bg-background text-foreground">
       <Header />
 
       <section className="pt-32 pb-24">

@@ -68,7 +68,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="dashboard-experience min-h-screen bg-background text-foreground">
       <Header />
 
       <section className="pt-32 pb-24">
@@ -78,7 +78,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-5">
               <div className="relative h-20 w-20 rounded-3xl overflow-hidden border-2 border-[#9A7B4F] dark:border-[#C89D66] shrink-0">
                 <Image
-                  src={draft.avatar || "/images/creators/layla.jpg"}
+                  src={draft.avatar || "/images/taqdom-avatar-placeholder.svg"}
                   alt={t(draft.name.ar, draft.name.en)}
                   fill
                   className="object-cover"
