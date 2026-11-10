@@ -17,15 +17,15 @@ export default function Home() {
       <Preloader />
       <Header />
       <HeroSection />
-      <div data-reveal="01"><PhilosophySection /></div>
-      <div data-reveal="02"><FeaturedProductsSection /></div>
-      <div data-reveal="03"><TechnologySection /></div>
-      <div data-reveal="04"><GallerySection /></div>
-      <div data-reveal="05"><CollectionSection /></div>
-      <div data-reveal="06"><EditorialSection /></div>
-      <div data-reveal="07"><TestimonialsSection /></div>
-      <div data-reveal="08"><GraduationCreditsSection /></div>
-      <div data-reveal="09"><FooterSection /></div>
+      <div data-reveal="1"><PhilosophySection /></div>
+      <div data-reveal="2"><FeaturedProductsSection /></div>
+      <div data-reveal="3"><TechnologySection /></div>
+      <div data-reveal="4"><GallerySection /></div>
+      <div data-reveal="5"><CollectionSection /></div>
+      <div data-reveal="6"><EditorialSection /></div>
+      <div data-reveal="7"><TestimonialsSection /></div>
+      <div data-reveal="8"><GraduationCreditsSection /></div>
+      <div data-reveal="9"><FooterSection /></div>
     </main>
   );
 }
