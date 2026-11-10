@@ -26,12 +26,12 @@ export function FeaturedProductsSection() {
           <div>
             <span className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-[0.25em] text-[#9A7B4F] dark:text-[#C89D66] mb-3">
               <Layers className="h-3.5 w-3.5" />
-              <span>{t("٠٢ • القوالب السيادية السبعة", "02 • SEVEN SOVEREIGN ARCHETYPES")}</span>
+              <span>{t("٠٢ • ستايلات تقدر تبدأ منها", "02 • SEVEN WAYS TO START")}</span>
             </span>
             <h2 className="arabic-diacritics text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
               {t(
-                "سبعة عوالم بصرية متكاملة لكل تخصص أكاديمي ومهني",
-                "Seven Purpose-Built Worlds of Creative & Career Direction"
+                "سبعة ستايلات. مساحة واحدة بطريقتك.",
+                "Seven styles. One space that feels like you."
               )}
             </h2>
           </div>
@@ -39,7 +39,7 @@ export function FeaturedProductsSection() {
             href="/templates"
             className="inline-flex items-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] px-5 py-3 text-sm font-bold text-[#F7F5F0] dark:text-[#0A0A09] transition hover:opacity-95 shrink-0"
           >
-            <span>{t("افتح معرض القوالب السبعة", "Open All 7 Templates")}</span>
+            <span>{t("شاهد الستايلات", "Explore all styles")}</span>
             {lang === "ar" ? <ArrowUpLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
           </Link>
         </div>
