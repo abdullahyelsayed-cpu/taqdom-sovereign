@@ -44,7 +44,7 @@ import {
   BarChart3,
   MessageCircle,
 } from "lucide-react";
-import { PortfolioData, PortfolioProject, getSubdomainUrl } from "@/lib/types";
+import { CanvasSectionId, PortfolioData, PortfolioProject, getSubdomainUrl } from "@/lib/types";
 import { TaqdomLogo } from "@/components/brand/taqdom-logo";
 
 interface PortfolioRendererProps {
@@ -52,6 +52,8 @@ interface PortfolioRendererProps {
   previewLang?: "ar" | "en";
   isStudioPreview?: boolean;
   isLiveSubdomain?: boolean;
+  canvasEditMode?: boolean;
+  selectedCanvasSection?: CanvasSectionId;
 }
 
 export function PortfolioRenderer({
@@ -59,6 +61,8 @@ export function PortfolioRenderer({
   previewLang,
   isStudioPreview = false,
   isLiveSubdomain = false,
+  canvasEditMode = false,
+  selectedCanvasSection,
 }: PortfolioRendererProps) {
   const [lang, setLang] = useState<"ar" | "en">(previewLang || data.defaultLang || "ar");
   const [activeProject, setActiveProject] = useState<PortfolioProject | null>(null);
@@ -188,7 +192,25 @@ export function PortfolioRenderer({
       ? "dark"
       : "light";
   const accent =
-    data.theme?.accent || (themeMode === "dark" ? "#C89D66" : "#9A7B4F");
+    data.theme?.accent || (themeMode === "dark" ? "#A78BFA" : "#6047B7");
+  const canvas = data.canvas || {};
+  const canvasBackground = canvas.backgroundColor || (themeMode === "dark" ? "#10111B" : "#F4F2FA");
+  const canvasOverlay = Math.max(0, Math.min(90, canvas.backgroundOverlay ?? 18)) / 100;
+  const safeBackgroundImage = (canvas.backgroundImage || "").replace(/["\\]/g, "");
+  const canvasBackgroundImage = safeBackgroundImage
+    ? `linear-gradient(rgba(${themeMode === "dark" ? "16,17,27" : "244,242,250"}, ${canvasOverlay}), rgba(${themeMode === "dark" ? "16,17,27" : "244,242,250"}, ${canvasOverlay})), url("${safeBackgroundImage}")`
+    : themeMode === "dark"
+      ? "radial-gradient(ellipse at 12% 0%, rgba(167,139,250,.18), transparent 55%), radial-gradient(ellipse at 92% 22%, rgba(255,131,150,.08), transparent 58%)"
+      : "radial-gradient(ellipse at 12% 0%, rgba(96,71,183,.08), transparent 55%), radial-gradient(ellipse at 92% 22%, rgba(184,55,85,.05), transparent 58%)";
+  const canvasSectionStyle = (id: CanvasSectionId): React.CSSProperties => {
+    const layout = canvas.sections?.[id];
+    return {
+      "--canvas-x": `${layout?.x ?? 0}px`,
+      "--canvas-y": `${layout?.y ?? 0}px`,
+      "--canvas-width": `${layout?.width ?? 100}%`,
+      "--canvas-scale": String(layout?.scale ?? 1),
+    } as React.CSSProperties;
+  };
 
   const subdomainDisplay = `${data.username}.taqdom.me`;
   const subdomainHref = getSubdomainUrl(data.username, host);
@@ -238,10 +260,16 @@ export function PortfolioRenderer({
       data-testid={`portfolio-template-${activeTemplate}`}
       data-theme-mode={themeMode}
       data-theme-accent={accent}
+      data-canvas-editable={canvasEditMode ? "true" : "false"}
       style={
         {
           "--portfolio-accent": accent,
           borderTop: `3px solid ${accent}`,
+          backgroundColor: canvasBackground,
+          backgroundImage: canvasBackgroundImage,
+          backgroundPosition: canvas.backgroundPosition || "center",
+          backgroundSize: canvas.backgroundSize || "cover",
+          backgroundRepeat: "no-repeat",
         } as React.CSSProperties
       }
       className={`min-h-screen w-full transition-colors duration-500 relative overflow-x-hidden ${
@@ -335,7 +363,7 @@ export function PortfolioRenderer({
           TEMPLATE 1: MADAR (مَدَار) — Bento Tech & AI Grad Identity
          ===================================================================== */}
       {activeTemplate === "madar" && (
-        <div className="bg-[#0A0A09] text-[#F4F1EA] min-h-screen py-10 px-4 sm:px-8">
+        <div data-canvas-template-root className="bg-[#0A0A09] text-[#F4F1EA] min-h-screen py-10 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl space-y-6">
             {/* Top Status & Command Strip */}
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#F4F1EA]/10 bg-[#121210] px-5 py-3.5">
@@ -372,7 +400,7 @@ export function PortfolioRenderer({
             {/* Interactive Bento Grid */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
               {/* Bento Cell 1: Engineer Identity & Terminal Bio (8 cols) */}
-              <div className="md:col-span-8 rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden group hover:border-[#C89D66]/50 transition">
+              <div data-canvas-section="hero" className="portfolio-canvas-section md:col-span-8 rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 sm:p-9 flex flex-col justify-between relative overflow-hidden group hover:border-[#C89D66]/50 transition" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 mb-6">
                   <div className="flex items-center gap-4">
                     <div className="relative h-20 w-20 rounded-2xl overflow-hidden border border-[#C89D66]/60 shrink-0">
@@ -428,7 +456,7 @@ export function PortfolioRenderer({
               </div>
 
               {/* Bento Cell 2: Hackathon & Engineering Telemetry (4 cols) */}
-              <div className="md:col-span-4 rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 flex flex-col justify-between">
+              <div data-canvas-section="metrics" className="portfolio-canvas-section md:col-span-4 rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 flex flex-col justify-between" style={canvasSectionStyle("metrics")} data-canvas-selected={selectedCanvasSection === "metrics" ? "true" : "false"}>
                 <div className="flex items-center justify-between mb-4">
                   <span className="font-mono text-xs uppercase tracking-widest text-[#C89D66]">
                     {t("إحصائيات البرمجة والهاكاثونات", "BUILD & HACKATHON TELEMETRY")}
@@ -457,7 +485,7 @@ export function PortfolioRenderer({
               </div>
 
               {/* Bento Cell 3: Interactive Tech Stack & Skill Filter (12 cols) */}
-              <div className="md:col-span-12 rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-6 sm:p-7">
+              <div data-canvas-section="skills" className="portfolio-canvas-section md:col-span-12 rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-6 sm:p-7" style={canvasSectionStyle("skills")} data-canvas-selected={selectedCanvasSection === "skills" ? "true" : "false"}>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2">
                     <Code2 className="h-4 w-4 text-[#C89D66]" />
@@ -502,7 +530,7 @@ export function PortfolioRenderer({
             </div>
 
             {/* Bento Projects Grid */}
-            <div className="pt-4">
+            <div data-canvas-section="projects" className="portfolio-canvas-section pt-4" style={canvasSectionStyle("projects")} data-canvas-selected={selectedCanvasSection === "projects" ? "true" : "false"}>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
                 <h2 className="arabic-diacritics text-2xl sm:text-3xl font-bold">
                   {t("المشاريع البرمجية وأنظمة الذكاء الاصطناعي", "Engineered Systems & AI Repositories")}
@@ -582,7 +610,7 @@ export function PortfolioRenderer({
 
             {/* Education & Internships Timeline */}
             {data.timeline && data.timeline.length > 0 && (
-              <div className="rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 sm:p-9 mt-6">
+              <div data-canvas-section="timeline" className="portfolio-canvas-section rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 sm:p-9 mt-6" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
                 <div className="flex items-center gap-2 mb-6">
                   <GraduationCap className="h-5 w-5 text-[#C89D66]" />
                   <h2 className="arabic-diacritics text-xl sm:text-2xl font-bold">
@@ -705,9 +733,9 @@ export function PortfolioRenderer({
           TEMPLATE 2: ATHAR (أَثَر) — Cinema Scrollytelling & Creative Director
          ===================================================================== */}
       {activeTemplate === "athar" && (
-        <div className="bg-[#080807] text-[#F4F1EA] min-h-screen">
+        <div data-canvas-template-root className="bg-[#080807] text-[#F4F1EA] min-h-screen">
           {/* Pinned Scrollytelling Cinema Stage */}
-          <section className="relative min-h-[82vh] flex flex-col justify-between p-6 sm:p-12 border-b border-[#F4F1EA]/10 overflow-hidden">
+          <section data-canvas-section="hero" className="portfolio-canvas-section relative min-h-[82vh] flex flex-col justify-between p-6 sm:p-12 border-b border-[#F4F1EA]/10 overflow-hidden" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
             <Image
               src={data.projects[0]?.images[0] || data.cover}
               alt={t(data.name.ar, data.name.en)}
@@ -813,7 +841,7 @@ export function PortfolioRenderer({
           </section>
 
           {/* True Horizontal Scroll Showcase Rail (Pinned / Snap Cinema Track) */}
-          <section className="py-16 px-4 sm:px-10">
+          <section data-canvas-section="projects" className="portfolio-canvas-section py-16 px-4 sm:px-10" style={canvasSectionStyle("projects")} data-canvas-selected={selectedCanvasSection === "projects" ? "true" : "false"}>
             <div className="mx-auto max-w-7xl space-y-12">
               <div className="sticky top-16 z-20 rounded-2xl bg-[#080807]/90 backdrop-blur-md border border-[#F4F1EA]/10 px-5 py-4 flex flex-wrap items-center justify-between gap-4">
                 <div>
@@ -921,7 +949,7 @@ export function PortfolioRenderer({
 
               {/* Creative Direction Craft & Post-Production Suite */}
               {skillsList.length > 0 && (
-                <div className="rounded-3xl border border-[#F4F1EA]/12 bg-[#121210] p-7">
+                <div data-canvas-section="skills" className="portfolio-canvas-section rounded-3xl border border-[#F4F1EA]/12 bg-[#121210] p-7" style={canvasSectionStyle("skills")} data-canvas-selected={selectedCanvasSection === "skills" ? "true" : "false"}>
                   <p className="font-mono text-xs uppercase tracking-widest text-[#C89D66] mb-3">
                     {t("أدوات الإخراج، المونتاج، والتلوين السينمائي", "DIRECTING, COLOR GRADING & VFX SUITE")}
                   </p>
@@ -967,10 +995,10 @@ export function PortfolioRenderer({
           TEMPLATE 3: HAVEN (مَلاذ) — Quiet Luxury Architecture & Engineering
          ===================================================================== */}
       {activeTemplate === "haven" && (
-        <div className="bg-[#F7F5F0] text-[#141413] min-h-screen py-14 px-4 sm:px-10">
+        <div data-canvas-template-root className="bg-[#F7F5F0] text-[#141413] min-h-screen py-14 px-4 sm:px-10">
           <div className="mx-auto max-w-6xl space-y-16">
             {/* Quiet Luxury Architectural Monograph Header */}
-            <header className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center border-b border-[#141413]/12 pb-14">
+            <header data-canvas-section="hero" className="portfolio-canvas-section grid grid-cols-1 lg:grid-cols-12 gap-10 items-center border-b border-[#141413]/12 pb-14" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
               <div className="lg:col-span-7 space-y-5">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#9A7B4F]/40 bg-[#EFECE6] px-4 py-1.5 text-xs font-semibold text-[#9A7B4F]">
                   <Compass className="h-3.5 w-3.5" />
@@ -1031,7 +1059,7 @@ export function PortfolioRenderer({
 
             {/* Spatial Engineering Metrics */}
             {data.metrics && (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+              <div data-canvas-section="metrics" className="portfolio-canvas-section grid grid-cols-2 lg:grid-cols-4 gap-5" style={canvasSectionStyle("metrics")} data-canvas-selected={selectedCanvasSection === "metrics" ? "true" : "false"}>
                 {data.metrics.map((m, idx) => (
                   <div
                     key={idx}
@@ -1049,7 +1077,7 @@ export function PortfolioRenderer({
             )}
 
             {/* True Sticky Layered Parallax Architectural Plates */}
-            <div className="space-y-12">
+            <div data-canvas-section="projects" className="portfolio-canvas-section space-y-12" style={canvasSectionStyle("projects")} data-canvas-selected={selectedCanvasSection === "projects" ? "true" : "false"}>
               <div className="flex items-center justify-between">
                 <h2 className="arabic-diacritics text-2xl sm:text-4xl font-extrabold">
                   {t("الأعمال الهندسية والمعمارية المختارة (الشرائح المتراكبة)", "Layered Parallax Architectural & Engineering Plates")}
@@ -1126,7 +1154,7 @@ export function PortfolioRenderer({
 
             {/* Architectural Software & Structural Engineering Matrix */}
             {skillsList.length > 0 && (
-              <div className="rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-7">
+              <div data-canvas-section="skills" className="portfolio-canvas-section rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-7" style={canvasSectionStyle("skills")} data-canvas-selected={selectedCanvasSection === "skills" ? "true" : "false"}>
                 <p className="font-mono text-xs uppercase tracking-widest text-[#9A7B4F] mb-3">
                   {t("البرمجيات الهندسية والمعمارية المعتمدة", "COMPUTATIONAL DESIGN & BIM TOOLS")}
                 </p>
@@ -1145,7 +1173,7 @@ export function PortfolioRenderer({
 
             {/* Academic & Graduation Thesis Timeline */}
             {data.timeline && data.timeline.length > 0 && (
-              <div className="rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-8 sm:p-10">
+              <div data-canvas-section="timeline" className="portfolio-canvas-section rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-8 sm:p-10" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
                 <div className="flex items-center gap-2.5 mb-8">
                   <GraduationCap className="h-6 w-6 text-[#9A7B4F]" />
                   <h2 className="arabic-diacritics text-2xl sm:text-3xl font-extrabold">
@@ -1181,10 +1209,10 @@ export function PortfolioRenderer({
           TEMPLATE 4: SIYADA (سِيَادَة) — Swiss Editorial Grid & Executive Grad
          ===================================================================== */}
       {activeTemplate === "siyada" && (
-        <div className="bg-[#F7F5F0] text-[#141413] min-h-screen py-12 px-4 sm:px-8">
+        <div data-canvas-template-root className="bg-[#F7F5F0] text-[#141413] min-h-screen py-12 px-4 sm:px-8">
           <div className="mx-auto max-w-6xl border border-[#141413]/20 bg-[#F7F5F0]">
             {/* Top Swiss 1px Solid Editorial Masthead */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 border-b border-[#141413]/20">
+            <div data-canvas-section="hero" className="portfolio-canvas-section grid grid-cols-1 lg:grid-cols-12 border-b border-[#141413]/20" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
               <div className="lg:col-span-8 p-8 sm:p-10 border-b lg:border-b-0 lg:border-e border-[#141413]/20 space-y-4">
                 <div className="flex items-center justify-between font-mono text-xs text-[#9A7B4F]">
                   <span>SWISS EDITORIAL DOSSIER • REF #{data.username.toUpperCase()}</span>
@@ -1244,7 +1272,7 @@ export function PortfolioRenderer({
 
             {/* 1px Swiss Metrics Row */}
             {data.metrics && (
-              <div className="grid grid-cols-2 lg:grid-cols-4 border-b border-[#141413]/20">
+              <div data-canvas-section="metrics" className="portfolio-canvas-section grid grid-cols-2 lg:grid-cols-4 border-b border-[#141413]/20" style={canvasSectionStyle("metrics")} data-canvas-selected={selectedCanvasSection === "metrics" ? "true" : "false"}>
                 {data.metrics.map((m, i) => (
                   <div
                     key={i}
@@ -1260,7 +1288,7 @@ export function PortfolioRenderer({
             )}
 
             {/* Case Studies Grid */}
-            <div className="p-8 sm:p-10 border-b border-[#141413]/20">
+            <div data-canvas-section="projects" className="portfolio-canvas-section p-8 sm:p-10 border-b border-[#141413]/20" style={canvasSectionStyle("projects")} data-canvas-selected={selectedCanvasSection === "projects" ? "true" : "false"}>
               <div className="flex items-center justify-between mb-8">
                 <h2 className="arabic-diacritics text-2xl sm:text-3xl font-black">
                   {t("دراسات الحالة والأبحاث الاستراتيجية", "Executive Case Studies & Published Research")}
@@ -1311,7 +1339,7 @@ export function PortfolioRenderer({
 
             {/* Executive Timeline */}
             {data.timeline && (
-              <div className="p-8 sm:p-10">
+              <div data-canvas-section="timeline" className="portfolio-canvas-section p-8 sm:p-10" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
                 <h2 className="arabic-diacritics text-xl font-black mb-6">
                   {t("السجل المهني والأكاديمي", "Executive & Academic Curriculum")}
                 </h2>
@@ -1442,10 +1470,10 @@ export function PortfolioRenderer({
           TEMPLATE 5: WAMEED (وَمِيض) — High-Velocity Tele-Sales & Revenue Closer
          ===================================================================== */}
       {activeTemplate === "wameed" && (
-        <div className="bg-[#0A0A09] text-[#F4F1EA] min-h-screen py-12 px-4 sm:px-8">
+        <div data-canvas-template-root className="bg-[#0A0A09] text-[#F4F1EA] min-h-screen py-12 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl space-y-10">
             {/* Hero Deal Desk Banner */}
-            <div className="rounded-3xl border border-[#C89D66]/35 bg-[#121210] p-7 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div data-canvas-section="hero" className="portfolio-canvas-section rounded-3xl border border-[#C89D66]/35 bg-[#121210] p-7 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
               <div className="lg:col-span-7 space-y-5">
                 <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-4 py-1 text-xs font-bold text-emerald-400">
                   <PhoneCall className="h-3.5 w-3.5" />
@@ -1822,7 +1850,7 @@ export function PortfolioRenderer({
             </div>
 
             {/* Interactive Automation & Data Scraping Pipeline Nodes */}
-            <div className="rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-6">
+            <div data-canvas-section="projects" className="portfolio-canvas-section rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-6" style={canvasSectionStyle("projects")} data-canvas-selected={selectedCanvasSection === "projects" ? "true" : "false"}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <span className="font-mono text-xs uppercase tracking-widest text-[#1E3A2F] font-bold">
@@ -2109,7 +2137,7 @@ export function PortfolioRenderer({
         <div className="bg-[#F7F5F0] text-[#141413] min-h-screen py-12 px-4 sm:px-8">
           <div className="mx-auto max-w-6xl space-y-12">
             {/* Warm Human-Centric HR Hero */}
-            <div className="rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-8 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div data-canvas-section="hero" className="portfolio-canvas-section rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-8 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
               <div className="lg:col-span-8 space-y-4">
                 <div className="inline-flex items-center gap-2 rounded-full bg-[#9A7B4F]/15 border border-[#9A7B4F]/40 px-4 py-1 text-xs font-bold text-[#9A7B4F]">
                   <HeartHandshake className="h-4 w-4" />
@@ -2178,7 +2206,7 @@ export function PortfolioRenderer({
 
             {/* Talent & Culture Journey Timeline ("مِشْوَار") */}
             {data.timeline && (
-              <div className="rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-8 sm:p-10 space-y-6">
+              <div data-canvas-section="timeline" className="portfolio-canvas-section rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-8 sm:p-10 space-y-6" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
                 <div className="flex items-center gap-2.5">
                   <Users className="h-5 w-5 text-[#9A7B4F]" />
                   <h2 className="arabic-diacritics text-2xl sm:text-3xl font-extrabold">
