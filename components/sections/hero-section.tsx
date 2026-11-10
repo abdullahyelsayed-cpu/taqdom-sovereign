@@ -26,49 +26,49 @@ const PORTAL_SHOWCASE_PLATES = [
   {
     src: "/images/ultra/madar-hero.webp",
     titleAr: "مَدَار • علوم الحاسب والذكاء الاصطناعي",
-    titleEn: "Madar • Bento Tech & AI Grad",
+    titleEn: "Orbit • Tech & AI",
     creator: "youssef.taqdom.me",
     tag: "BENTO + CMD+K",
   },
   {
     src: "/images/ultra/athar-hero.webp",
     titleAr: "أَثَر • إخراج بصري وسينمائي",
-    titleEn: "Athar • Cinema Scrollytelling",
+    titleEn: "Frame • Visual stories",
     creator: "farida.taqdom.me",
     tag: "2.39:1 REEL",
   },
   {
     src: "/images/ultra/haven-hero.webp",
     titleAr: "مَلاذ • عمارة وهندسة تطبيقية",
-    titleEn: "Haven • Quiet Luxury Architecture",
+    titleEn: "Forma • Space & design",
     creator: "layla.taqdom.me",
     tag: "SPATIAL PLATES",
   },
   {
     src: "/images/ultra/siyada-hero.webp",
     titleAr: "سِيَادَة • القانون وإدارة الأعمال",
-    titleEn: "Siyada • Swiss 1px Editorial",
+    titleEn: "Index • Research & strategy",
     creator: "karim.taqdom.me",
-    tag: "CV + QR PASS",
+    tag: "CASE STUDIES",
   },
   {
     src: "/images/ultra/wameed-hero.webp",
     titleAr: "وَمِيض • التلي سيلز وإغلاق الصفقات",
-    titleEn: "Wameed • Tele-Sales & Closers",
+    titleEn: "Pulse • Sales & outcomes",
     creator: "tariq.taqdom.me",
     tag: "SALES CASE STUDY",
   },
   {
     src: "/images/ultra/salam-hero.webp",
     titleAr: "سَلَام • تكنولوجيا التسويق والنمو",
-    titleEn: "Salam • MarTech & Growth Tech",
+    titleEn: "Flux • Growth & systems",
     creator: "salma.taqdom.me",
     tag: "GROWTH SYSTEMS",
   },
   {
     src: "/images/ultra/meshwar-hero.webp",
     titleAr: "مِشْوَار • الموارد البشرية والمواهب",
-    titleEn: "Meshwar • Human-Centric HR",
+    titleEn: "Kin • People & culture",
     creator: "nora.taqdom.me",
     tag: "PEOPLE & CULTURE",
   },
@@ -276,7 +276,7 @@ export function HeroSection() {
           </p>
         </div>
 
-        {/* Live Subdomain Reservation Bar in Hero */}
+        {/* Personal address preview */}
         <div className="mx-auto max-w-3xl mb-10">
           <form
             onSubmit={handleLaunchStudio}
@@ -350,7 +350,7 @@ export function HeroSection() {
             </div>
           </form>
 
-          {/* 7 Live Creator Subdomain Showcase Pills */}
+          {/* Sample portfolio links */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
             <span className="text-muted-foreground font-medium">
               {t("أمثلة لاستكشاف القوالب:", "Sample portfolios:")}
