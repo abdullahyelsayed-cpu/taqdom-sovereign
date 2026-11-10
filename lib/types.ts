@@ -47,6 +47,24 @@ export type PortfolioTheme = {
   scene3d: Scene3DSettings;
 };
 
+export type CanvasSectionId = "hero" | "metrics" | "skills" | "projects" | "timeline" | "contact";
+
+export type CanvasSectionLayout = {
+  x: number;
+  y: number;
+  width: number;
+  scale: number;
+};
+
+export type PortfolioCanvasSettings = {
+  backgroundColor?: string;
+  backgroundImage?: string;
+  backgroundOverlay?: number;
+  backgroundPosition?: "center" | "top" | "bottom";
+  backgroundSize?: "cover" | "contain";
+  sections?: Partial<Record<CanvasSectionId, CanvasSectionLayout>>;
+};
+
 export type PortfolioSEO = {
   title?: string;
   description?: string;
@@ -87,6 +105,8 @@ export type PortfolioData = {
   metrics?: PortfolioMetric[];
   timeline?: PortfolioTimelineItem[];
   theme: PortfolioTheme;
+  /** Personal background and section layout controls edited in Studio Canvas. */
+  canvas?: PortfolioCanvasSettings;
   seo: PortfolioSEO;
   defaultLang: "ar" | "en";
   publishedAt?: number;
