@@ -209,6 +209,7 @@ export function PortfolioRenderer({
       "--canvas-y": `${layout?.y ?? 0}px`,
       "--canvas-width": `${layout?.width ?? 100}%`,
       "--canvas-scale": String(layout?.scale ?? 1),
+      display: layout?.hidden ? "none" : undefined,
     } as React.CSSProperties;
   };
 
@@ -1516,7 +1517,7 @@ export function PortfolioRenderer({
               </div>
 
               {/* Quota Attainment Rings */}
-              <div className="lg:col-span-5 grid grid-cols-2 gap-4">
+              <div data-canvas-section="metrics" className="portfolio-canvas-section lg:col-span-5 grid grid-cols-2 gap-4" style={canvasSectionStyle("metrics")} data-canvas-selected={selectedCanvasSection === "metrics" ? "true" : "false"}>
                 {[
                   { pct: "148%", labelAr: "تحقيق التارجت السنوي", labelEn: "Annual Quota Attainment", stroke: 92 },
                   { pct: "31.5%", labelAr: "تحويل المكالمات لإغلاق", labelEn: "Call-to-Close Ratio", stroke: 78 },
@@ -1696,7 +1697,7 @@ export function PortfolioRenderer({
                 </div>
 
                 {/* CRM Mastery Badges */}
-                <div className="pt-4 border-t border-[#F4F1EA]/10">
+                <div data-canvas-section="skills" className="portfolio-canvas-section pt-4 border-t border-[#F4F1EA]/10" style={canvasSectionStyle("skills")} data-canvas-selected={selectedCanvasSection === "skills" ? "true" : "false"}>
                   <p className="font-mono text-[11px] uppercase tracking-wider text-[#A09C94] mb-2.5">
                     {t("أنظمة الـ CRM والاتصال المعتمدة:", "CERTIFIED CRM & VOIP STACK:")}
                   </p>
@@ -1715,7 +1716,7 @@ export function PortfolioRenderer({
             </div>
 
             {/* Wameed Closed Deals & Campaigns */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div data-canvas-section="projects" className="portfolio-canvas-section grid grid-cols-1 md:grid-cols-2 gap-6" style={canvasSectionStyle("projects")} data-canvas-selected={selectedCanvasSection === "projects" ? "true" : "false"}>
               {data.projects.map((proj) => (
                 <div
                   key={proj.id}
@@ -1748,7 +1749,7 @@ export function PortfolioRenderer({
 
             {/* Wameed Sales Leadership Timeline & External Links */}
             {data.timeline && data.timeline.length > 0 && (
-              <div className="rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 space-y-5">
+              <div data-canvas-section="timeline" className="portfolio-canvas-section rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 space-y-5" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="arabic-diacritics text-xl sm:text-2xl font-bold">
                     {t("سجل الإنجازات البيعية وقيادة فرق الإيرادات", "Revenue Leadership & Quota Attainment Record")}
@@ -1797,10 +1798,10 @@ export function PortfolioRenderer({
           TEMPLATE 6: SALAM (سَلَام) — MarTech, Digital Marketing Tech & Growth
          ===================================================================== */}
       {activeTemplate === "salam" && (
-        <div className="bg-[#F7F5F0] text-[#141413] min-h-screen py-12 px-4 sm:px-8">
+        <div data-canvas-template-root className="bg-[#F7F5F0] text-[#141413] min-h-screen py-12 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl space-y-10">
             {/* MarTech Hero Header */}
-            <div className="rounded-3xl bg-[#141413] text-[#F4F1EA] p-8 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div data-canvas-section="hero" className="portfolio-canvas-section rounded-3xl bg-[#141413] text-[#F4F1EA] p-8 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
               <div className="lg:col-span-8 space-y-4">
                 <div className="inline-flex items-center gap-2 rounded-full bg-[#C89D66]/20 border border-[#C89D66]/40 px-3.5 py-1 font-mono text-xs text-[#C89D66]">
                   <Workflow className="h-3.5 w-3.5" />
@@ -1832,7 +1833,7 @@ export function PortfolioRenderer({
                   </div>
                 )}
               </div>
-              <div className="lg:col-span-4 grid grid-cols-2 gap-3">
+              <div data-canvas-section="metrics" className="portfolio-canvas-section lg:col-span-4 grid grid-cols-2 gap-3" style={canvasSectionStyle("metrics")} data-canvas-selected={selectedCanvasSection === "metrics" ? "true" : "false"}>
                 {(data.metrics || []).map((m, i) => (
                   <div
                     key={i}
@@ -2035,7 +2036,7 @@ export function PortfolioRenderer({
             {skillsList.length > 0 && (
               <div
                 data-testid="salam-martech-matrix"
-                className="rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-4"
+                className="portfolio-canvas-section rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-4" data-canvas-section="skills" style={canvasSectionStyle("skills")} data-canvas-selected={selectedCanvasSection === "skills" ? "true" : "false"}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -2070,7 +2071,7 @@ export function PortfolioRenderer({
             )}
 
             {/* MarTech Projects */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div data-canvas-section="projects" className="portfolio-canvas-section grid grid-cols-1 md:grid-cols-2 gap-6" style={canvasSectionStyle("projects")} data-canvas-selected={selectedCanvasSection === "projects" ? "true" : "false"}>
               {data.projects.map((proj) => (
                 <div
                   key={proj.id}
@@ -2103,7 +2104,7 @@ export function PortfolioRenderer({
 
             {/* MarTech Growth Engineering Timeline */}
             {data.timeline && data.timeline.length > 0 && (
-              <div className="rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-5">
+              <div data-canvas-section="timeline" className="portfolio-canvas-section rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-5" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
                 <h2 className="arabic-diacritics text-2xl font-extrabold">
                   {t("المسيرة المهنية في هندسة النمو وتكنولوجيا التسويق", "MarTech & Growth Engineering Track Record")}
                 </h2>
@@ -2134,7 +2135,7 @@ export function PortfolioRenderer({
           TEMPLATE 7: MESHWAR (مِشْوَار) — Human-Centric HR & Talent Acquisition
          ===================================================================== */}
       {activeTemplate === "meshwar" && (
-        <div className="bg-[#F7F5F0] text-[#141413] min-h-screen py-12 px-4 sm:px-8">
+        <div data-canvas-template-root className="bg-[#F7F5F0] text-[#141413] min-h-screen py-12 px-4 sm:px-8">
           <div className="mx-auto max-w-6xl space-y-12">
             {/* Warm Human-Centric HR Hero */}
             <div data-canvas-section="hero" className="portfolio-canvas-section rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-8 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
@@ -2187,7 +2188,7 @@ export function PortfolioRenderer({
 
             {/* Hiring Impact Scorecards */}
             {data.metrics && (
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+              <div data-canvas-section="metrics" className="portfolio-canvas-section grid grid-cols-2 lg:grid-cols-4 gap-5" style={canvasSectionStyle("metrics")} data-canvas-selected={selectedCanvasSection === "metrics" ? "true" : "false"}>
                 {data.metrics.map((m, i) => (
                   <div
                     key={i}
@@ -2239,7 +2240,7 @@ export function PortfolioRenderer({
 
             {/* HR Tech & People Ops Competency Matrix */}
             {skillsList.length > 0 && (
-              <div className="rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-7">
+              <div data-canvas-section="skills" className="portfolio-canvas-section rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-7" style={canvasSectionStyle("skills")} data-canvas-selected={selectedCanvasSection === "skills" ? "true" : "false"}>
                 <p className="font-mono text-xs uppercase tracking-widest text-[#9A7B4F] mb-3">
                   {t("منظومات الموارد البشرية واستقطاب الكفاءات المعتمدة", "PEOPLE OPS, ATS & TALENT ARCHITECTURE MATRIX")}
                 </p>
@@ -2257,7 +2258,7 @@ export function PortfolioRenderer({
             )}
 
             {/* HR Programs & Case Studies */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div data-canvas-section="projects" className="portfolio-canvas-section grid grid-cols-1 md:grid-cols-2 gap-6" style={canvasSectionStyle("projects")} data-canvas-selected={selectedCanvasSection === "projects" ? "true" : "false"}>
               {data.projects.map((proj) => (
                 <div
                   key={proj.id}
