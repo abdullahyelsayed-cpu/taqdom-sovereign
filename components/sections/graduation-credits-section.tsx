@@ -6,7 +6,6 @@ import {
   ArrowUpRight,
   Award,
   GraduationCap,
-  Landmark,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
