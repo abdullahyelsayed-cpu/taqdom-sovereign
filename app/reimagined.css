@@ -1148,3 +1148,175 @@ main:not(.home-experience) :where(button, a, input, textarea, select):focus-visi
   [data-taqdom-studio] aside > div:nth-child(3) { padding: 15px 13px; }
   [data-taqdom-studio] .studio-preview-frame { border-width: 3px; border-radius: 15px; }
 }
+
+
+/* Navigation retains language and light/dark controls in the new system. */
+.neo-header-theme {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--neo-line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--neo-ink);
+  cursor: pointer;
+  transition: color .2s ease, background .2s ease, border-color .2s ease, transform .2s ease;
+}
+.neo-header-theme:hover { color: var(--neo-cobalt); border-color: var(--neo-cobalt); background: rgba(49,91,255,.07); transform: translateY(-1px); }
+
+/* Account entry */
+.auth-experience > section > div > div > div {
+  border-radius: 26px;
+  border-color: var(--neo-line);
+  box-shadow: 0 22px 60px rgba(37,55,122,.08);
+}
+.auth-experience > section > div > div > div:first-child {
+  background: linear-gradient(145deg, #1E43D6 0%, #315BFF 65%, #7187FF 100%);
+  border-color: rgba(255,255,255,.18);
+  color: #FFFFFF;
+}
+.auth-experience > section > div > div > div:first-child h1,
+.auth-experience > section > div > div > div:first-child h2,
+.auth-experience > section > div > div > div:first-child p { color: #FFFFFF; }
+.auth-experience > section > div > div > div:first-child .text-muted-foreground { color: rgba(255,255,255,.72); }
+.auth-experience > section > div > div > div:first-child button,
+.auth-experience > section > div > div > div:first-child a {
+  border-radius: 13px;
+}
+.auth-experience > section > div > div > div:first-child button[data-testid="test-account-login-btn"] {
+  background: var(--neo-lime) !important;
+  color: #171B2B !important;
+  box-shadow: 0 12px 26px rgba(0,0,0,.13);
+}
+.auth-experience > section > div > div > div:last-child {
+  background: #FFFFFF;
+  color: #171B2B;
+  border-color: rgba(49,91,255,.14);
+}
+.dark .auth-experience > section > div > div > div:last-child { background: #19233D; color: #F7F8F3; }
+.auth-experience > section > div > div > div:last-child button[class*="bg-[#9A7B4F]"],
+.auth-experience > section > div > div > div:last-child button[class*="bg-[#C89D66]"] {
+  background: #315BFF !important;
+  color: #FFFFFF !important;
+}
+
+/* Dashboard becomes a clear command center. */
+.dashboard-experience > section > div > div:first-child {
+  overflow: hidden;
+  border: 1px solid rgba(49,91,255,.14);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(216,255,82,.18), transparent 30%),
+    #FFFFFF;
+  box-shadow: 0 20px 58px rgba(37,55,122,.075);
+}
+.dark .dashboard-experience > section > div > div:first-child { background: #19233D; }
+.dashboard-experience > section > div > div:first-child h1 { font-size: clamp(24px, 3vw, 38px); }
+.dashboard-experience > section > div:nth-child(2) > div {
+  min-height: 150px;
+  border: 1px solid var(--neo-line);
+  border-radius: 22px;
+  background: #FFFFFF;
+  box-shadow: 0 12px 35px rgba(37,55,122,.05);
+  transition: transform .25s var(--neo-ease), border-color .25s ease, box-shadow .25s ease;
+}
+.dark .dashboard-experience > section > div:nth-child(2) > div { background: #19233D; }
+.dashboard-experience > section > div:nth-child(2) > div:hover {
+  transform: translateY(-4px);
+  border-color: rgba(49,91,255,.35);
+  box-shadow: var(--neo-shadow);
+}
+.dashboard-experience > section > div:nth-child(3) {
+  border: 1px solid var(--neo-line);
+  border-radius: 23px;
+  background: #FFFFFF;
+}
+.dark .dashboard-experience > section > div:nth-child(3) { background: #19233D; }
+
+/* Template library cards and previews */
+.templates-experience > section > div > div:first-child h1 {
+  max-width: 900px;
+  margin-inline: auto;
+  color: var(--neo-ink);
+  line-height: 1.2;
+}
+.templates-experience > section > div > div:nth-child(3) > div {
+  overflow: hidden;
+  border-radius: 25px;
+  border-color: var(--neo-line);
+  background: #FFFFFF;
+  box-shadow: 0 14px 45px rgba(37,55,122,.065);
+  transition: transform .28s var(--neo-ease), box-shadow .28s var(--neo-ease), border-color .28s ease;
+}
+.dark .templates-experience > section > div > div:nth-child(3) > div { background: #19233D; }
+.templates-experience > section > div > div:nth-child(3) > div:hover {
+  transform: translateY(-4px);
+  border-color: rgba(49,91,255,.36);
+  box-shadow: var(--neo-shadow);
+}
+.templates-experience > section > div > div:nth-child(3) > div > div:first-child {
+  background: #DCE7FF;
+}
+.templates-experience > section > div > div:nth-child(3) > div button[class*="bg-[#9A7B4F]"],
+.templates-experience > section > div > div:nth-child(3) > div button[class*="bg-[#C89D66]"] {
+  min-height: 48px;
+  border-radius: 13px;
+  background: #315BFF !important;
+  color: #FFFFFF !important;
+}
+.dark .templates-experience > section > div > div:nth-child(3) > div button[class*="bg-[#9A7B4F]"],
+.dark .templates-experience > section > div > div:nth-child(3) > div button[class*="bg-[#C89D66]"] {
+  background: #D8FF52 !important;
+  color: #11192D !important;
+}
+
+/* Explore directory */
+.explore-experience > section > div > div:first-child { margin-bottom: 58px; }
+.explore-experience > section > div > div:first-child h1 { color: var(--neo-ink); }
+.explore-experience > section > div > div:nth-child(2) > div:first-child {
+  min-height: 52px;
+  border-color: rgba(49,91,255,.2);
+  border-radius: 14px;
+  background: #FFFFFF;
+  box-shadow: 0 8px 24px rgba(37,55,122,.035);
+}
+.dark .explore-experience > section > div > div:nth-child(2) > div:first-child { background: #19233D; }
+.explore-experience > section > div > div:nth-child(2) button {
+  min-height: 38px;
+  border-radius: 99px;
+  font-weight: 850;
+}
+.explore-experience > section > div > div:nth-child(2) button[class*="bg-[#9A7B4F]"] {
+  background: #315BFF !important;
+  border-color: #315BFF !important;
+  color: #FFFFFF !important;
+}
+.dark .explore-experience > section > div > div:nth-child(2) button[class*="bg-[#9A7B4F]"] {
+  background: #D8FF52 !important;
+  border-color: #D8FF52 !important;
+  color: #11192D !important;
+}
+.explore-experience > section > div > div:nth-child(3) > div {
+  overflow: hidden;
+  border: 1px solid var(--neo-line);
+  border-radius: 23px;
+  background: #FFFFFF;
+  box-shadow: 0 14px 45px rgba(37,55,122,.06);
+  transition: transform .25s var(--neo-ease), box-shadow .25s ease;
+}
+.dark .explore-experience > section > div > div:nth-child(3) > div { background: #19233D; }
+.explore-experience > section > div > div:nth-child(3) > div:hover { transform: translateY(-4px); box-shadow: var(--neo-shadow); }
+.explore-experience > section > div > div:nth-child(3) > div > div:first-child > div:last-child h2 { color: #FFFFFF; }
+.explore-experience > section > div > div:nth-child(3) > div a[class*="bg-foreground"] {
+  background: #315BFF !important;
+  color: #FFFFFF !important;
+}
+.dark .explore-experience > section > div > div:nth-child(3) > div a[class*="bg-foreground"] {
+  background: #D8FF52 !important;
+  color: #11192D !important;
+}
+@media (max-width: 560px) {
+  .neo-header-theme { width: 38px; height: 38px; }
+  .dashboard-experience > section > div > div:first-child { padding: 22px; }
+  .auth-experience > section > div > div > div { padding: 22px; }
+}
