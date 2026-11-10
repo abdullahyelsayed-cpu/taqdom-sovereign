@@ -1,0 +1,82 @@
+name: Deploy to Cloudflare
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: "I understand this deploys the current main branch to the live Taqdom Worker."
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: taqdom-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && inputs.confirm_production == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out production branch
+        uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Verify Cloudflare credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || {
+            echo "::error::Add the CLOUDFLARE_API_TOKEN repository secret before deploying."
+            exit 1
+          }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || {
+            echo "::error::Add the CLOUDFLARE_ACCOUNT_ID repository secret before deploying."
+            exit 1
+          }
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check and run quality guards
+        run: |
+          pnpm typecheck
+          node scripts/quality-guards.mjs
+
+      - name: Build production app
+        run: pnpm build
+
+      - name: Package Cloudflare assets
+        run: pnpm build:cloudflare
+
+      - name: Verify session signing secret is already configured
+        shell: bash
+        run: |
+          SECRET_LIST="$(pnpm dlx wrangler@latest secret list --config wrangler.jsonc)"
+          printf '%s' "$SECRET_LIST" | grep -q 'AUTH_SECRET' || {
+            echo "::error::AUTH_SECRET is missing from the Cloudflare Worker."
+            echo "Set it once with: pnpm dlx wrangler@latest secret put AUTH_SECRET"
+            echo "Do not store the secret value in this repository."
+            exit 1
+          }
+
+      - name: Deploy Taqdom Worker and assets
+        run: pnpm dlx wrangler@latest deploy --config wrangler.jsonc
