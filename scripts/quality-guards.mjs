@@ -24,7 +24,7 @@ assert.match(testimonialsText, /illustrative demo content/i, "Example testimonia
 assert.doesNotMatch(workerText, /taqdom-sovereign-royal-secret-key-2026-egypt/, "No hard-coded session signing secret.");
 assert.match(workerText, /if \(!session\?\.username\) return unauthorized\(\)/, "Protected write endpoints must require a session.");
 assert.match(workerText, /ownsUsername\(body\.portfolio\.username\)/, "Portfolio writes must be scoped to the signed-in owner.");
-assert.match(logoText, /taqdom-mark-gold/, "Brand mark must use the refined inline SVG emblem.");
+assert.match(logoText, /taqdom-mark-spectrum/, "Brand mark must use the refined inline SVG emblem.");
 assert.match(proxyText, /export function proxy\(/, "Next.js 16 routing must use the proxy convention.");
 
 console.log("Taqdom quality guards: PASS");
