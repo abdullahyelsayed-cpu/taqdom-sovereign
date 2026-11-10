@@ -522,7 +522,7 @@ function StudioContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
+    <div data-taqdom-studio className="min-h-screen flex flex-col bg-background text-foreground">
       {/* Top Studio Command Bar */}
       <header className="sticky top-0 z-50 border-b border-border glass-panel px-4 py-2.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
