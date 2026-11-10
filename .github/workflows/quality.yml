@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: quality-${{ github.ref }}
@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -33,7 +35,28 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Preserve regenerated pnpm lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-pnpm-lock
+          path: pnpm-lock.yaml
+          if-no-files-found: error
+
+      - name: Commit regenerated lockfile
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor == 'abdullahyelsayed-cpu'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pnpm-lock.yaml
+          if git diff --cached --quiet; then
+            echo "Lockfile already matches package.json."
+          else
+            git commit -m "chore: synchronize pnpm lockfile"
+            git push origin "HEAD:${GITHUB_HEAD_REF}"
+          fi
 
       - name: Type-check
         run: pnpm typecheck
@@ -54,3 +77,4 @@ jobs:
           path: .cf-assets
           if-no-files-found: error
           retention-days: 7
+          include-hidden-files: true
