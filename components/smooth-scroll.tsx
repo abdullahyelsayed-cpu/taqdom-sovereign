@@ -12,7 +12,7 @@ export function SmoothScrollAndAura({ children }: { children: React.ReactNode })
     let rafCallback: ((time: number) => void) | null = null;
     let disposed = false;
 
-    const revealNodes = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
+    const revealNodes = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal], .portfolio-canvas-section"));
     if (!reduced && "IntersectionObserver" in window && revealNodes.length) {
       document.documentElement.classList.add("taq-motion-ready");
       observer = new IntersectionObserver((entries) => {
