@@ -984,7 +984,7 @@ export function PortfolioRenderer({
 
               {/* Directing & Festival Timeline */}
               {data.timeline && data.timeline.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div data-canvas-section="timeline" className="portfolio-canvas-section grid grid-cols-1 md:grid-cols-2 gap-6" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
                   {data.timeline.map((item, idx) => (
                     <div
                       key={idx}
