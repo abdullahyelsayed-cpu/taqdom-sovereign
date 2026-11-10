@@ -209,7 +209,10 @@ export function HeroSection() {
             className="glass-panel rounded-2xl p-3 sm:p-4 shadow-2xl border border-[#C5A059]/45"
           >
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="flex-1 flex items-center gap-2 rounded-xl bg-background/90 border border-border px-4 py-3">
+              <div
+                dir="ltr"
+                className="flex-1 flex items-center gap-2 rounded-xl bg-background/90 border border-border px-4 py-3"
+              >
                 <Globe2 className="h-5 w-5 text-[#C5A059] shrink-0" />
                 <input
                   type="text"
@@ -217,11 +220,11 @@ export function HeroSection() {
                   value={claimedInput}
                   onChange={(e) => setClaimedInput(e.target.value)}
                   placeholder={t(
-                    "اكتب اسمك بالإنجليزية (مثال: ahmed)...",
+                    "ahmed (اكتب اسمك بالإنجليزية)",
                     "Enter your username (e.g. ahmed)..."
                   )}
                   dir="ltr"
-                  className="w-full bg-transparent font-mono text-sm sm:text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
+                  className="w-full bg-transparent font-mono text-sm sm:text-base text-foreground placeholder:text-muted-foreground focus:outline-none text-left"
                 />
                 <span
                   dir="ltr"

@@ -1,17 +1,24 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "taqdom-sovereign",
-  "main": ".open-next/worker.js",
+  "main": "cloudflare/worker.mjs",
   "compatibility_date": "2025-04-01",
-  "compatibility_flags": ["nodejs_compat"],
   "assets": {
-    "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "directory": ".cf-assets",
+    "binding": "ASSETS",
+    "run_worker_first": true
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "taqdom-db",
+      "database_id": "1bd2685e-df2d-45c0-83b9-5a2d9f6f85d8"
+    }
+  ],
   "routes": [
     {
-      "pattern": "taqdom.me",
-      "custom_domain": true
+      "pattern": "taqdom.me/*",
+      "zone_name": "taqdom.me"
     },
     {
       "pattern": "*.taqdom.me/*",

@@ -422,7 +422,10 @@ function StudioContent() {
                   <label className="block text-xs font-bold mb-1.5">
                     {t("اسم المستخدم والنطاق الفرعي (Subdomain)", "Username & Sovereign Subdomain")}
                   </label>
-                  <div className="flex items-center rounded-xl border border-border bg-background px-3 py-2">
+                  <div
+                    dir="ltr"
+                    className="flex items-center rounded-xl border border-border bg-background px-3 py-2"
+                  >
                     <input
                       type="text"
                       dir="ltr"
@@ -435,7 +438,7 @@ function StudioContent() {
                           username: clean || "test",
                         }));
                       }}
-                      className="w-full bg-transparent font-mono text-sm focus:outline-none"
+                      className="w-full bg-transparent font-mono text-sm focus:outline-none text-left"
                     />
                     <span dir="ltr" className="font-mono text-xs font-bold text-[#C5A059]">
                       .taqdom.me

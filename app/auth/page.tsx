@@ -285,7 +285,10 @@ export default function AuthPage() {
                     <label className="block text-xs font-bold mb-1.5">
                       {t("اختر اسم المستخدم للنطاق الفرعي", "Choose Your Sovereign Subdomain")}
                     </label>
-                    <div className="flex items-center rounded-xl border border-border bg-background px-3.5 py-2.5">
+                    <div
+                      dir="ltr"
+                      className="flex items-center rounded-xl border border-border bg-background px-3.5 py-2.5"
+                    >
                       <Globe2 className="h-4 w-4 text-[#C5A059] me-2 shrink-0" />
                       <input
                         type="text"
@@ -294,7 +297,7 @@ export default function AuthPage() {
                         value={username}
                         onChange={(e) => setUsername(normalizeUsername(e.target.value))}
                         placeholder="ahmed"
-                        className="w-full bg-transparent font-mono text-sm focus:outline-none"
+                        className="w-full bg-transparent font-mono text-sm focus:outline-none text-left"
                       />
                       <span dir="ltr" className="font-mono text-xs font-bold text-[#C5A059]">
                         .taqdom.me
