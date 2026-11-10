@@ -762,3 +762,6 @@ html[dir="ltr"] .neo-top-progress { transform-origin: left center; }
   .neo-marquee-track, .neo-orbit-star, .neo-scroll-cue svg { animation: none !important; }
   .neo-button, .neo-feature-card, .neo-showcase-image img, .neo-template-image img { transition: none !important; }
 }
+
+/* Disable the previous grain/progress overlay; the new page owns both. */
+.taqdom-grain, .taqdom-scroll-progress { display: none !important; }
