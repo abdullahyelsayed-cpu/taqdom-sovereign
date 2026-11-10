@@ -38,9 +38,9 @@ export function Header() {
 
   const navItems = [
     { href: "/", labelAr: "الرئيسية", labelEn: "Home" },
-    { href: "/templates", labelAr: "القوالب السبعة", labelEn: "7 Templates", icon: Layers },
-    { href: "/studio", labelAr: "الاستوديو الحي", labelEn: "Live Studio", icon: Sliders },
-    { href: "/explore", labelAr: "دليل المبدعين", labelEn: "Creators", icon: Compass },
+    { href: "/templates", labelAr: "الستايلات", labelEn: "Styles", icon: Layers },
+    { href: "/studio", labelAr: "الاستوديو", labelEn: "Studio", icon: Sliders },
+    { href: "/explore", labelAr: "استكشف الأعمال", labelEn: "Explore", icon: Compass },
     { href: "/dashboard", labelAr: "لوحتي", labelEn: "Dashboard" },
   ];
 
@@ -127,7 +127,7 @@ export function Header() {
               className="inline-flex items-center gap-2 rounded-xl bg-[#C89D66] px-4 py-2 text-xs font-bold text-[#090B0D] shadow-lg transition hover:opacity-90"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              <span>{t("دخول / احجز نطاقك", "Sign in / Claim your domain")}</span>
+              <span>{t("دخول / ابدأ مساحتك", "Sign in / Create your space")}</span>
             </Link>
           )}
         </div>
@@ -182,7 +182,7 @@ export function Header() {
               className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-[#C89D66] px-4 py-3 text-sm font-bold text-[#090B0D]"
             >
               <Sparkles className="h-4 w-4" />
-              <span>{t("دخول / استعراض الحساب التجريبي", "Sign in / Explore the demo account")}</span>
+              <span>{t("دخول / استكشف مثالًا", "Sign in / View a sample")}</span>
             </Link>
           </nav>
         </div>
