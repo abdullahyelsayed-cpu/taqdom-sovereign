@@ -168,7 +168,7 @@ export default function AuthPage() {
 
               <h1 className="arabic-diacritics text-3xl sm:text-4xl font-extrabold">
                 {t(
-                  "معاينة فورية لالحساب التجريبي للمبدعة ليلى منصور",
+                  "معاينة فورية للحساب التجريبي للمبدعة ليلى منصور",
                   "Instant Demo Creator Studio Preview"
                 )}
               </h1>
