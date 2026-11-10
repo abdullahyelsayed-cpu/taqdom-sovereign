@@ -240,13 +240,13 @@ export function HeroSection() {
       className="relative min-h-screen pt-28 pb-20 md:pt-32 md:pb-28 overflow-hidden"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Top Sovereign Eyebrow Badge */}
+        {/* Top creator-first eyebrow */}
         <div className="flex flex-col items-center text-center mb-8">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#9A7B4F]/40 bg-[#9A7B4F]/10 px-4 py-1.5 text-xs font-semibold text-foreground shadow-sm">
             <Sparkles className="h-3.5 w-3.5 text-[#9A7B4F] dark:text-[#C89D66]" />
             <span>
               {t(
-                "منصة الهويات الرقمية ومعارض الأعمال الاحترافية • ٧ قوالب تخصصية مستقلة",
+                "مساحة لأفكارك ومشاريعك • ٧ ستايلات تختار منها",
                 "A creative home for what you make • 7 distinct portfolio styles"
               )}
             </span>
@@ -262,7 +262,7 @@ export function HeroSection() {
               <>
                 TAQDOM — Architect Your{" "}
                 <span className="gold-shimmer-text editorial-serif italic">
-                  Creative Portfolio
+                  what you make.
                 </span>
               </>
             )}
@@ -322,7 +322,7 @@ export function HeroSection() {
               </button>
             </div>
 
-            {/* Live Subdomain Preview Row */}
+            {/* Address preview row */}
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-2 text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">
@@ -413,7 +413,7 @@ export function HeroSection() {
               />
             </div>
 
-            {/* Portal Active 4K Viewport */}
+            {/* Showcase viewport */}
             <div className="relative min-h-[440px] sm:min-h-[540px] w-full flex flex-col justify-between p-6 sm:p-12 overflow-hidden">
               <div ref={portalImageWrapRef} className="absolute inset-0">
                 <Image
@@ -428,7 +428,7 @@ export function HeroSection() {
 
               <div className="relative z-10 flex items-center justify-between">
                 <span className="rounded-full bg-[#0A0A09]/80 border border-[#C89D66]/50 px-3.5 py-1 font-mono text-xs font-bold text-[#C89D66]">
-                  {currentPortal.tag}
+                  {t("نموذج توضيحي • ", "SAMPLE • ")}{currentPortal.tag}
                 </span>
                 <Link
                   href={getSubdomainUrl(currentPortal.creator.split(".")[0], host)}
