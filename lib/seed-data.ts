@@ -19,7 +19,7 @@ export const TEMPLATES_CATALOG: TemplateMeta[] = [
     },
     heroImage: "/images/ultra/madar-hero.webp",
     galleryImages: ["/images/ultra/madar-hero.webp", "/images/ultra/madar-1.webp", "/images/ultra/madar-2.webp"],
-    accentColor: "#C7F36B",
+    accentColor: "#A78BFA",
     defaultCreatorUsername: "youssef",
     features: [
       { ar: "شبكة مشاريع مرنة", en: "Flexible project grid" },
@@ -45,7 +45,7 @@ export const TEMPLATES_CATALOG: TemplateMeta[] = [
     },
     heroImage: "/images/ultra/athar-hero.webp",
     galleryImages: ["/images/ultra/athar-hero.webp", "/images/ultra/athar-1.webp", "/images/ultra/athar-2.webp"],
-    accentColor: "#8B7CFF",
+    accentColor: "#FF8396",
     defaultCreatorUsername: "farida",
     features: [
       { ar: "عرض بصري للأعمال", en: "Full-width visual work" },
@@ -71,7 +71,7 @@ export const TEMPLATES_CATALOG: TemplateMeta[] = [
     },
     heroImage: "/images/ultra/haven-hero.webp",
     galleryImages: ["/images/ultra/haven-hero.webp", "/images/ultra/haven-1.webp", "/images/ultra/haven-2.webp"],
-    accentColor: "#E9C991",
+    accentColor: "#FFC978",
     defaultCreatorUsername: "layla",
     features: [
       { ar: "شرائح مشاريع ومساحات", en: "Project and space studies" },
@@ -97,7 +97,7 @@ export const TEMPLATES_CATALOG: TemplateMeta[] = [
     },
     heroImage: "/images/ultra/siyada-hero.webp",
     galleryImages: ["/images/ultra/siyada-hero.webp", "/images/ultra/siyada-1.webp", "/images/ultra/siyada-2.webp"],
-    accentColor: "#7AB7FF",
+    accentColor: "#87A8FF",
     defaultCreatorUsername: "karim",
     features: [
       { ar: "دراسات حالة وأبحاث", en: "Case studies and research" },
@@ -123,7 +123,7 @@ export const TEMPLATES_CATALOG: TemplateMeta[] = [
     },
     heroImage: "/images/ultra/wameed-hero.webp",
     galleryImages: ["/images/ultra/wameed-hero.webp", "/images/ultra/wameed-1.webp", "/images/ultra/wameed-2.webp"],
-    accentColor: "#FF8BB6",
+    accentColor: "#FF8396",
     defaultCreatorUsername: "tariq",
     features: [
       { ar: "قصص عملاء وصفقات", en: "Client and deal stories" },
@@ -149,7 +149,7 @@ export const TEMPLATES_CATALOG: TemplateMeta[] = [
     },
     heroImage: "/images/ultra/salam-hero.webp",
     galleryImages: ["/images/ultra/salam-hero.webp", "/images/ultra/salam-1.webp", "/images/ultra/salam-2.webp"],
-    accentColor: "#53D8E8",
+    accentColor: "#7EE7C4",
     defaultCreatorUsername: "salma",
     features: [
       { ar: "خرائط تدفق العمل", en: "Workflow maps" },
@@ -175,7 +175,7 @@ export const TEMPLATES_CATALOG: TemplateMeta[] = [
     },
     heroImage: "/images/ultra/meshwar-hero.webp",
     galleryImages: ["/images/ultra/meshwar-hero.webp", "/images/ultra/meshwar-1.webp", "/images/ultra/meshwar-2.webp"],
-    accentColor: "#B7A8FF",
+    accentColor: "#A78BFA",
     defaultCreatorUsername: "nora",
     features: [
       { ar: "رحلة بناء الفرق", en: "Team-building journey" },
@@ -1116,7 +1116,6 @@ export function createStarterPortfolio(
       scene3d: { enabled: false, intensity: 1, speed: 1, lightAngle: 45 },
     },
     canvas: {
-      backgroundColor: "#10111B",
       backgroundOverlay: 18,
       backgroundPosition: "center",
       backgroundSize: "cover",
