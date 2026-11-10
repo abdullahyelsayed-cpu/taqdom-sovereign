@@ -1112,8 +1112,15 @@ export function createStarterPortfolio(
     timeline: [],
     theme: {
       mode: "dark",
-      accent: tplMeta.accentColor,
+      accent: "#A78BFA",
       scene3d: { enabled: false, intensity: 1, speed: 1, lightAngle: 45 },
+    },
+    canvas: {
+      backgroundColor: "#10111B",
+      backgroundOverlay: 18,
+      backgroundPosition: "center",
+      backgroundSize: "cover",
+      sections: {},
     },
     seo: {
       title: `${cleanName} — تَقَدُّم | Taqdom`,
