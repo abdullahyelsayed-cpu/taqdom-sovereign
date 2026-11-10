@@ -55,7 +55,7 @@ export default function DashboardPage() {
     await resetTestAccount();
     toast.success(
       t(
-        "تمت استعادة البيانات النموذجية الأصلية للنطاق (layla.taqdom.me)!",
+        "تمت استعادة بيانات المثال الأصلية للنطاق (layla.taqdom.me)!",
         "Flagship showcase portfolio (layla.taqdom.me) restored!"
       )
     );
@@ -87,7 +87,7 @@ export default function DashboardPage() {
               <div>
                 <div className="inline-flex items-center gap-1.5 rounded-full bg-[#1E3A2F]/15 border border-[#1E3A2F]/40 px-3 py-0.5 text-xs font-bold text-[#1E3A2F] dark:text-[#C89D66] mb-2">
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>{t("منشور ونشط على الحافة", "LIVE ON SOVEREIGN EDGE")}</span>
+                  <span>{draft.isFlagshipShowcase ? t("مساحة تجريبية", "SAMPLE WORKSPACE") : t("مساحة العمل", "YOUR WORKSPACE")}</span>
                 </div>
                 <h1 className="arabic-diacritics text-2xl sm:text-4xl font-extrabold">
                   {t(draft.name.ar, draft.name.en)}
@@ -105,7 +105,7 @@ export default function DashboardPage() {
                 className="inline-flex items-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] hover:opacity-95 px-5 py-3 text-xs sm:text-sm font-bold text-[#F7F5F0] dark:text-[#0A0A09] shadow-lg transition"
               >
                 <Sliders className="h-4 w-4" />
-                <span>{t("تعديل البورتفوليو في الاستوديو", "Edit in Live Studio")}</span>
+                <span>{t("عدّل معرضك", "Edit in Studio")}</span>
               </Link>
 
               <Link
@@ -113,7 +113,7 @@ export default function DashboardPage() {
                 data-testid="dashboard-open-portfolio"
                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-secondary/80 hover:border-[#9A7B4F] px-5 py-3 text-xs sm:text-sm font-bold text-foreground transition"
               >
-                <span>{t("فتح البورتفوليو المنشور", "Open Live Portfolio")}</span>
+                <span>{t("فتح معرضك", "Open portfolio")}</span>
                 <ExternalLink className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               </Link>
 
@@ -132,11 +132,11 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="glass-panel rounded-3xl p-6 space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{t("إجمالي الزيارات", "Total Portfolio Views")}</span>
+                <span>{t("الزيارات المسجّلة", "Recorded visits")}</span>
                 <Eye className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               </div>
               <p className="font-mono text-4xl font-extrabold text-foreground">
-                {(draft.views || 4820).toLocaleString()}
+                {(draft.isFlagshipShowcase ? null : (draft.views ?? 0)).toLocaleString?.() ?? '—'}
               </p>
             </div>
 
@@ -152,7 +152,7 @@ export default function DashboardPage() {
 
             <div className="glass-panel rounded-3xl p-6 space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{t("المشاريع المنشورة", "Published Projects")}</span>
+                <span>{t("المشاريع المضافة", "Projects added")}</span>
                 <FolderKanban className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               </div>
               <p className="font-mono text-4xl font-extrabold text-foreground">
@@ -165,12 +165,12 @@ export default function DashboardPage() {
           <div className="glass-panel rounded-3xl p-7 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="arabic-diacritics text-lg font-bold">
-                {t("إدارة الهوية الرقمية والنطاق السيادي", "Sovereign Identity & Subdomain Controls")}
+                {t("إدارة رابطك ومعرضك", "Your link and portfolio")}
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
                 {t(
-                  "يمكنك إدارة إعدادات النطاق أو استعادة البيانات المرجعية للمعرض النموذجي الموثق في أي وقت.",
-                  "Manage your subdomain credentials or restore the flagship showcase baseline at any time."
+                  "حدّث بيانات حسابك أو راجع أمثلة القوالب في أي وقت.",
+                  "Update your account details or revisit sample templates whenever you need."
                 )}
               </p>
             </div>
@@ -189,7 +189,7 @@ export default function DashboardPage() {
                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2.5 text-xs font-bold hover:border-[#9A7B4F] cursor-pointer"
               >
                 <RefreshCw className="h-3.5 w-3.5 text-[#9A7B4F] dark:text-[#C89D66]" />
-                <span>{t("استعادة البيانات النموذجية", "Restore Showcase Data")}</span>
+                <span>{t("استعادة بيانات المثال", "Restore sample data")}</span>
               </button>
 
               <button
