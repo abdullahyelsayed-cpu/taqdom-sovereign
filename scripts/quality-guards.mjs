@@ -56,6 +56,18 @@ assert.match(reimaginedCss, /--neo-cobalt: #315BFF/, "The new cobalt action colo
 assert.match(reimaginedCss, /--neo-lime: #D8FF52/, "The new lime highlight colour must be defined.");
 assert.match(reimaginedCss, /prefers-reduced-motion/, "The redesign must respect reduced-motion preferences.");
 assert.match(reimaginedCss, /neo-button-primary/, "Primary actions must have a strong, visible button style.");
+assert.match(studioText, /studio-side-intro/, "Studio must provide a creator-first workspace identity panel.");
+assert.match(studioText, /profileCompletion/, "Studio must show profile completion progress.");
+assert.match(studioText, /studio-preview-frame/, "Studio must expose a dedicated live preview frame.");
+assert.match(reimaginedCss, /studio-workspace-grid/, "Studio workspace layout styles must be defined.");
+assert.match(reimaginedCss, /studio-tab\.is-active/, "Active Studio tabs must be visually distinct.");
+assert.match(reimaginedCss, /portfolio-mode-light \[class\*="bg\[#0A0A09\]"\]/, "Light portfolio theme must map legacy dark panels to the new navy surface.");
+assert.match(seedText, /mode: "light",\s+accent: "#315BFF"/, "New portfolios must use the light-first cobalt visual system.");
+assert.match(rendererText, /"#315BFF"/, "Portfolio templates must support the new cobalt accent mapping.");
+assert.match(dashboardText, /taqdom-avatar-placeholder\.svg/, "Dashboard must not fall back to a demo portrait.");
+const headerText = read("../components/header.tsx");
+assert.match(headerText, /neo-header-theme/, "The redesigned navigation must retain the theme toggle.");
+
 assert.match(polishCss, /portfolio-canvas-section/, "Canvas layout styles must remain available.");
 assert.match(smoothScrollText, /import\("lenis"\)/, "Lenis must load lazily rather than on every route.");
 assert.match(smoothScrollText, /prefers-reduced-motion/, "Smooth scrolling must respect reduced-motion settings.");
