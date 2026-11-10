@@ -357,7 +357,7 @@ export const SEED_PORTFOLIOS: Record<string, PortfolioData> = {
       },
     ],
     theme: {
-      mode: "light",
+      mode: "dark",
       accent: "#9A7B4F",
       scene3d: { enabled: false, intensity: 1.0, speed: 0.8, lightAngle: 35 },
     },
@@ -745,7 +745,7 @@ export const SEED_PORTFOLIOS: Record<string, PortfolioData> = {
       },
     ],
     theme: {
-      mode: "light",
+      mode: "dark",
       accent: "#9A7B4F",
       scene3d: { enabled: false, intensity: 1.0, speed: 0.9, lightAngle: 45 },
     },
@@ -976,7 +976,7 @@ export const SEED_PORTFOLIOS: Record<string, PortfolioData> = {
       },
     ],
     theme: {
-      mode: "light",
+      mode: "dark",
       accent: "#1E3A2F",
       scene3d: { enabled: false, intensity: 1.0, speed: 1.0, lightAngle: 45 },
     },
@@ -1091,7 +1091,7 @@ export const SEED_PORTFOLIOS: Record<string, PortfolioData> = {
       },
     ],
     theme: {
-      mode: "light",
+      mode: "dark",
       accent: "#9A7B4F",
       scene3d: { enabled: false, intensity: 1.0, speed: 1.0, lightAngle: 45 },
     },
