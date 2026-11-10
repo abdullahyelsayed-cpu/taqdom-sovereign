@@ -15,7 +15,8 @@ const logoText = read("../components/brand/taqdom-logo.tsx");
 
 assert.match(layoutText, /defaultTheme="dark"/, "Dark mode must be the default.");
 assert.match(homeText, /GraduationCreditsSection/, "Homepage must include the project credit section.");
-assert.match(creditsText, /abdullah-yehia\.svg/, "Creator photo must be present in the credit section.");
+assert.match(creditsText, /abdullah-yehia\.webp/, "Creator photo must be present in the credit section.");
+assert.equal(fs.existsSync(new URL("../public/images/abdullah-yehia.webp", import.meta.url)), true, "Optimized creator photo asset must exist.");
 assert.match(creditsText, /linkedin\.com\/in\/abdullah-yehia/, "Creator LinkedIn URL must be present.");
 assert.match(creditsText, /الدفعة الثانية عشرة/, "Batch 12 context must be visible.");
 assert.match(testimonialsText, /illustrative demo content/i, "Example testimonials must be disclosed as illustrative.");
