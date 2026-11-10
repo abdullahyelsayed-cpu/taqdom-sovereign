@@ -620,9 +620,27 @@ async function handleApiRequest(request, url, env) {
       if (body.newUsername && normalizeUsername(String(body.newUsername)) !== cur) {
         const val = validateUsername(String(body.newUsername));
         if (!val.valid) return jsonResponse({ error: val.reasonAr || "Invalid username" }, 400);
-        const existing = await getDraftPortfolioFromD1(env, val.normalized);
-        if (existing) return jsonResponse({ error: "Username already taken" }, 409);
-        targetUsername = val.normalized;
+        const candidate = val.normalized;
+        if (
+          RESERVED_USERNAMES.has(candidate) ||
+          SEED_PORTFOLIOS[candidate] ||
+          edgeStore.users[candidate] ||
+          edgeStore.portfolios[candidate]
+        ) {
+          return jsonResponse({ error: "Username already taken" }, 409);
+        }
+        if (env.DB) {
+          const takenRow = await env.DB.prepare(
+            "SELECT username FROM users WHERE username = ?1 UNION SELECT username FROM portfolios WHERE username = ?1"
+          )
+            .bind(candidate)
+            .first()
+            .catch(() => null);
+          if (takenRow) {
+            return jsonResponse({ error: "Username already taken" }, 409);
+          }
+        }
+        targetUsername = candidate;
       }
 
       let pwdInfo = null;
@@ -633,28 +651,82 @@ async function handleApiRequest(request, url, env) {
         pwdInfo = await hashPasswordEdge(String(body.newPassword));
       }
 
-      const currentPortfolio =
-        (await getDraftPortfolioFromD1(env, cur)) || createStarterPortfolio(targetUsername, "haven", targetUsername);
-      currentPortfolio.username = targetUsername;
+      // Fetch existing user credentials so we preserve id, email, password_hash, and salt
+      let existingUser = edgeStore.users[cur] || null;
+      if (!existingUser && env.DB) {
+        existingUser = await env.DB.prepare(
+          "SELECT id, email, username, password_hash, salt FROM users WHERE username = ?1"
+        )
+          .bind(cur)
+          .first()
+          .catch(() => null);
+      }
 
-      const saved = await savePortfolioToD1AndMemory(
-        env,
-        currentPortfolio,
-        true,
-        pwdInfo
-          ? {
-              id: `user-${targetUsername}`,
-              email: currentPortfolio.email || `${targetUsername}@taqdom.me`,
-              passwordHash: pwdInfo.hash,
-              salt: pwdInfo.salt,
-            }
-          : null
+      const isFlagshipSeed = Boolean(SEED_PORTFOLIOS[cur]);
+      const preservedUserId =
+        !isFlagshipSeed && existingUser?.id ? existingUser.id : `user-${targetUsername}`;
+      const preservedEmail =
+        !isFlagshipSeed && existingUser?.email
+          ? existingUser.email
+          : `${targetUsername}@taqdom.me`;
+      const preservedHash = pwdInfo
+        ? pwdInfo.hash
+        : existingUser?.password_hash || "seeded-pbkdf2";
+      const preservedSalt = pwdInfo
+        ? pwdInfo.salt
+        : existingUser?.salt || "taqdom-salt-2026";
+
+      const currentPortfolio = structuredClone(
+        (await getDraftPortfolioFromD1(env, cur)) ||
+          createStarterPortfolio(targetUsername, "haven", targetUsername)
       );
+      currentPortfolio.username = targetUsername;
+      currentPortfolio.email = preservedEmail;
+      currentPortfolio.updatedAt = Date.now();
+
+      if (targetUsername !== cur && !isFlagshipSeed) {
+        delete edgeStore.portfolios[cur];
+        delete edgeStore.users[cur];
+        edgeStore.views[targetUsername] = edgeStore.views[cur] || 1;
+        delete edgeStore.views[cur];
+
+        if (env.DB) {
+          const jsonStr = JSON.stringify(currentPortfolio);
+          await env.DB.prepare(
+            "UPDATE users SET username = ?1, password_hash = ?2, salt = ?3 WHERE username = ?4"
+          )
+            .bind(targetUsername, preservedHash, preservedSalt, cur)
+            .run()
+            .catch(() => {});
+          await env.DB.prepare(
+            "UPDATE portfolios SET username = ?1, draft_json = ?2, published_json = ?3, updated_at = ?4 WHERE username = ?5"
+          )
+            .bind(targetUsername, jsonStr, jsonStr, Date.now(), cur)
+            .run()
+            .catch(() => {});
+        }
+      }
+
+      edgeStore.users[targetUsername] = {
+        id: preservedUserId,
+        email: preservedEmail,
+        username: targetUsername,
+        password_hash: preservedHash,
+        salt: preservedSalt,
+      };
+      edgeStore.portfolios[targetUsername] = currentPortfolio;
+
+      const saved = await savePortfolioToD1AndMemory(env, currentPortfolio, true, {
+        id: preservedUserId,
+        email: preservedEmail,
+        passwordHash: preservedHash,
+        salt: preservedSalt,
+      });
 
       const sessionPayload = {
-        id: `user-${targetUsername}`,
-        userId: `user-${targetUsername}`,
-        email: saved.email || `${targetUsername}@taqdom.me`,
+        id: preservedUserId,
+        userId: preservedUserId,
+        email: preservedEmail,
         username: targetUsername,
         isTestAccount: targetUsername === "layla",
       };
@@ -774,6 +846,20 @@ async function handleApiRequest(request, url, env) {
     const mime = String(body.mime || "image/webp");
     const key = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.webp`;
     edgeStore.media[key] = { key, mime, size, dataUrl };
+    if (env.DB) {
+      try {
+        await env.DB.prepare(
+          "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT, size INTEGER, data_url TEXT, created_at INTEGER)"
+        ).run();
+        await env.DB.prepare(
+          "INSERT OR REPLACE INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+        )
+          .bind(key, mime, size, dataUrl, Date.now())
+          .run();
+      } catch {
+        // Ignore D1 media error
+      }
+    }
     return jsonResponse({
       ok: true,
       key,
@@ -784,7 +870,22 @@ async function handleApiRequest(request, url, env) {
 
   if (pathname.startsWith("/api/media/") && request.method === "GET") {
     const key = pathname.slice("/api/media/".length);
-    const item = edgeStore.media[key];
+    let item = edgeStore.media[key];
+    if ((!item || !item.dataUrl) && env.DB) {
+      try {
+        const row = await env.DB.prepare(
+          "SELECT mime, size, data_url FROM media_blobs WHERE key = ?1"
+        )
+          .bind(key)
+          .first();
+        if (row && row.data_url) {
+          item = { key, mime: row.mime, size: row.size, dataUrl: row.data_url };
+          edgeStore.media[key] = item;
+        }
+      } catch {
+        // Ignore
+      }
+    }
     if (!item || !item.dataUrl) {
       return new Response("Not found", { status: 404 });
     }

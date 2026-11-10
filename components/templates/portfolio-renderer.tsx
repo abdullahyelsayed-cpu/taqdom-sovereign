@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -70,9 +70,10 @@ export function PortfolioRenderer({
   const [cmdQuery, setCmdQuery] = useState("");
   const [selectedSkillFilter, setSelectedSkillFilter] = useState<string>("ALL");
 
-  // Athar Cinema state
+  // Athar Cinema state & Horizontal Showcase Rail ref
   const [cinemaAspect, setCinemaAspect] = useState<"2.39:1" | "16:9">("2.39:1");
   const [cinemaLut, setCinemaLut] = useState<"warm" | "noir">("warm");
+  const atharRailRef = useRef<HTMLDivElement | null>(null);
 
   // Siyada QR & CV Modal state
   const [qrOpen, setQrOpen] = useState(false);
@@ -101,6 +102,10 @@ export function PortfolioRenderer({
   }, [previewLang]);
 
   useEffect(() => {
+    setSelectedSkillFilter("ALL");
+  }, [data.username, data.template]);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
       setHost(window.location.host);
     }
@@ -118,9 +123,39 @@ export function PortfolioRenderer({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Wameed 30s Pitch timer simulation
+  // Wameed 30s Pitch timer & WebAudio API voice/telemetry synthesis
   useEffect(() => {
     if (!isPlayingPitch) return;
+
+    const triggerPitchAudioPulse = (sec: number) => {
+      try {
+        if (typeof window === "undefined") return;
+        const AudioCtx =
+          window.AudioContext ||
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const freqs = [220, 261.63, 293.66, 329.63, 246.94, 277.18];
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(freqs[sec % freqs.length], ctx.currentTime);
+        gain.gain.setValueAtTime(0.018, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.19);
+        setTimeout(() => {
+          ctx.close().catch(() => {});
+        }, 250);
+      } catch {
+        // Ignore audio restrictions in headless browsers
+      }
+    };
+
+    triggerPitchAudioPulse(pitchSeconds);
+
     const interval = setInterval(() => {
       setPitchSeconds((prev) => {
         if (prev >= 30) {
@@ -128,6 +163,7 @@ export function PortfolioRenderer({
           return 0;
         }
         const next = prev + 1;
+        triggerPitchAudioPulse(next);
         if (next < 10) setActivePitchStage(0);
         else if (next < 21) setActivePitchStage(1);
         else setActivePitchStage(2);
@@ -139,18 +175,55 @@ export function PortfolioRenderer({
 
   const t = (ar: string, en: string) => (lang === "ar" ? ar : en);
   const dir = lang === "ar" ? "rtl" : "ltr";
-  const accent = data.theme?.accent || "#9A7B4F";
-  const subdomainDisplay = `${data.username}.taqdom.me`;
-  const subdomainHref = getSubdomainUrl(data.username, host);
 
   // Normalize legacy 'noor' template to 'haven'
   const activeTemplate =
     (data.template as string) === "noor" ? "haven" : data.template || "madar";
 
+  const defaultDarkTemplates = ["madar", "athar", "wameed"];
+  const themeMode: "light" | "dark" =
+    data.theme?.mode === "dark" || data.theme?.mode === "light"
+      ? data.theme.mode
+      : defaultDarkTemplates.includes(activeTemplate)
+      ? "dark"
+      : "light";
+  const accent =
+    data.theme?.accent || (themeMode === "dark" ? "#C89D66" : "#9A7B4F");
+
+  const subdomainDisplay = `${data.username}.taqdom.me`;
+  const subdomainHref = getSubdomainUrl(data.username, host);
+
   const skillsList =
     data.skills && data.skills.length > 0
       ? data.skills
       : Array.from(new Set(data.projects.flatMap((p) => p.tags))).slice(0, 8);
+
+  const filteredMadarProjects =
+    selectedSkillFilter === "ALL"
+      ? data.projects
+      : data.projects.filter((proj) => {
+          const needle = selectedSkillFilter.toLowerCase();
+          const tokens = needle
+            .split(/[^a-z0-9.+]+/i)
+            .map((s) => s.trim())
+            .filter((s) => s.length >= 2);
+          return (
+            proj.tags.some((tag) => {
+              const tLow = tag.toLowerCase();
+              return (
+                tLow === needle ||
+                tLow.includes(needle) ||
+                needle.includes(tLow) ||
+                tokens.some((tok) => tLow.includes(tok))
+              );
+            }) ||
+            tokens.some(
+              (tok) =>
+                proj.title.en.toLowerCase().includes(tok) ||
+                proj.desc.en.toLowerCase().includes(tok)
+            )
+          );
+        });
 
   const handleCopySubdomain = () => {
     navigator.clipboard?.writeText(`https://${subdomainDisplay}`);
@@ -163,14 +236,48 @@ export function PortfolioRenderer({
     <div
       dir={dir}
       data-testid={`portfolio-template-${activeTemplate}`}
-      className="min-h-screen w-full transition-colors duration-500 relative overflow-x-hidden"
+      data-theme-mode={themeMode}
+      data-theme-accent={accent}
+      style={
+        {
+          "--portfolio-accent": accent,
+          borderTop: `3px solid ${accent}`,
+        } as React.CSSProperties
+      }
+      className={`min-h-screen w-full transition-colors duration-500 relative overflow-x-hidden ${
+        themeMode === "dark"
+          ? "portfolio-mode-dark bg-[#0A0A09] text-[#F4F1EA]"
+          : "portfolio-mode-light bg-[#F7F5F0] text-[#141413]"
+      }`}
     >
+      {/* Dynamic Theme Mode & Custom Accent Override Styles */}
+      <style>{`
+        [data-testid="portfolio-template-${activeTemplate}"] .portfolio-accent-bg {
+          background-color: ${accent} !important;
+        }
+        [data-testid="portfolio-template-${activeTemplate}"] .portfolio-accent-text {
+          color: ${accent} !important;
+        }
+        [data-testid="portfolio-template-${activeTemplate}"] .portfolio-accent-border {
+          border-color: ${accent} !important;
+        }
+      `}</style>
+
       {/* Top Sovereign Identity Bar */}
-      <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 py-3 backdrop-blur-xl bg-[#0A0A09]/92 text-[#F4F1EA] border-b border-[#F4F1EA]/10">
+      <div
+        className={`sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 py-3 backdrop-blur-xl border-b transition-colors ${
+          themeMode === "dark"
+            ? "bg-[#0A0A09]/92 text-[#F4F1EA] border-[#F4F1EA]/10"
+            : "bg-[#F7F5F0]/92 text-[#141413] border-[#141413]/12"
+        }`}
+      >
         <div className="flex items-center gap-3">
           <Link href="https://taqdom.me" className="inline-flex items-center gap-2">
             <TaqdomLogo size={28} showWordmark={false} />
-            <span className="arabic-diacritics text-xs font-bold text-[#C89D66]">
+            <span
+              className="arabic-diacritics text-xs font-bold portfolio-accent-text"
+              style={{ color: accent }}
+            >
               تَقَدُّم
             </span>
           </Link>
@@ -179,13 +286,14 @@ export function PortfolioRenderer({
             href={subdomainHref}
             dir="ltr"
             data-testid="renderer-subdomain-badge"
-            className="inline-flex items-center gap-1.5 rounded-full bg-[#C89D66]/15 border border-[#C89D66]/40 px-3 py-0.5 font-mono text-xs text-[#C89D66] hover:bg-[#C89D66]/25 transition"
+            style={{ borderColor: `${accent}66`, color: accent, backgroundColor: `${accent}1A` }}
+            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 font-mono text-xs transition"
           >
             <Globe2 className="h-3 w-3" />
             <span>https://{subdomainDisplay}</span>
           </a>
-          <span className="hidden md:inline-flex items-center rounded-md bg-[#F4F1EA]/8 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest text-[#A09C94]">
-            {activeTemplate}
+          <span className="hidden md:inline-flex items-center rounded-md bg-current/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest opacity-75">
+            {activeTemplate} • {themeMode}
           </span>
         </div>
 
@@ -195,9 +303,9 @@ export function PortfolioRenderer({
               type="button"
               data-testid="madar-cmdk-trigger"
               onClick={() => setCmdOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[#F4F1EA]/15 bg-[#181815] px-2.5 py-1 font-mono text-xs text-[#F4F1EA] hover:border-[#C89D66]"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 bg-current/5 px-2.5 py-1 font-mono text-xs hover:opacity-90"
             >
-              <Command className="h-3 w-3 text-[#C89D66]" />
+              <Command className="h-3 w-3" style={{ color: accent }} />
               <span>Cmd+K</span>
             </button>
           )}
@@ -205,14 +313,16 @@ export function PortfolioRenderer({
             type="button"
             data-testid="portfolio-lang-switch"
             onClick={() => setLang(lang === "ar" ? "en" : "ar")}
-            className="rounded-lg border border-[#C89D66]/40 bg-[#C89D66]/10 px-3 py-1 text-xs font-bold text-[#F4F1EA] hover:bg-[#C89D66]/25 cursor-pointer"
+            style={{ borderColor: `${accent}66` }}
+            className="rounded-lg border px-3 py-1 text-xs font-bold cursor-pointer"
           >
             {lang === "ar" ? "English" : "العربية"}
           </button>
           {!isStudioPreview && (
             <Link
               href={`/studio?u=${data.username}&template=${activeTemplate}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#C89D66] px-3 py-1 text-xs font-bold text-[#0A0A09] hover:opacity-90"
+              style={{ backgroundColor: accent }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold text-[#0A0A09] hover:opacity-90"
             >
               <Sparkles className="h-3 w-3" />
               <span>{t("تخصيص في الاستوديو", "Customize in Studio")}</span>
@@ -393,19 +503,31 @@ export function PortfolioRenderer({
 
             {/* Bento Projects Grid */}
             <div className="pt-4">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
                 <h2 className="arabic-diacritics text-2xl sm:text-3xl font-bold">
                   {t("المشاريع البرمجية وأنظمة الذكاء الاصطناعي", "Engineered Systems & AI Repositories")}
                 </h2>
-                <span className="font-mono text-xs text-[#C89D66]">
-                  {data.projects.length} DEPLOYMENTS
-                </span>
+                <div className="flex items-center gap-2">
+                  {selectedSkillFilter !== "ALL" && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSkillFilter("ALL")}
+                      className="rounded-lg border border-[#C89D66]/40 bg-[#C89D66]/15 px-2.5 py-1 font-mono text-[11px] text-[#C89D66] cursor-pointer"
+                    >
+                      FILTER: {selectedSkillFilter} ✕
+                    </button>
+                  )}
+                  <span data-testid="madar-deployments-count" className="font-mono text-xs text-[#C89D66]">
+                    {filteredMadarProjects.length} DEPLOYMENTS
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {data.projects.map((proj, idx) => (
+                {filteredMadarProjects.map((proj, idx) => (
                   <article
                     key={proj.id}
+                    data-testid={`madar-project-${proj.id}`}
                     onClick={() => {
                       setActiveProject(proj);
                       setActiveImageIdx(0);
@@ -658,6 +780,23 @@ export function PortfolioRenderer({
               <p className="mt-5 max-w-2xl text-sm sm:text-base text-[#F4F1EA]/80 leading-relaxed">
                 {t(data.bio.ar, data.bio.en)}
               </p>
+
+              {data.links && data.links.length > 0 && (
+                <div className="mt-6 flex flex-wrap gap-2.5">
+                  {data.links.map((l, i) => (
+                    <a
+                      key={i}
+                      href={l.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[#F4F1EA]/20 bg-black/60 px-4 py-1.5 text-xs font-semibold text-[#F4F1EA] hover:border-[#C89D66] transition"
+                    >
+                      <span>{l.label}</span>
+                      <ExternalLink className="h-3 w-3 text-[#C89D66]" />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Bottom Reel Metrics */}
@@ -673,22 +812,53 @@ export function PortfolioRenderer({
             </div>
           </section>
 
-          {/* Horizontal Scroll Showcase Rail */}
+          {/* True Horizontal Scroll Showcase Rail (Pinned / Snap Cinema Track) */}
           <section className="py-16 px-4 sm:px-10">
-            <div className="mx-auto max-w-7xl">
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+            <div className="mx-auto max-w-7xl space-y-12">
+              <div className="sticky top-16 z-20 rounded-2xl bg-[#080807]/90 backdrop-blur-md border border-[#F4F1EA]/10 px-5 py-4 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <span className="font-mono text-xs uppercase tracking-[0.25em] text-[#C89D66]">
-                    HORIZONTAL REEL SHOWCASE • 35MM & DIGITAL
+                    PINNED HORIZONTAL REEL SHOWCASE • 35MM & DIGITAL
                   </span>
-                  <h2 className="arabic-diacritics text-2xl sm:text-4xl font-extrabold mt-1">
-                    {t("الأعمال البصرية والمشاهد المختارة", "Selected Visual Reels & Scenes")}
+                  <h2 className="arabic-diacritics text-2xl sm:text-3xl font-extrabold mt-0.5">
+                    {t("معرض التمرير الأفقي للمشاهد والأعمال البصرية", "Horizontal Scroll Showcase & Visual Reels")}
                   </h2>
                 </div>
-                <Film className="h-6 w-6 text-[#C89D66]" />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="athar-rail-prev"
+                    onClick={() =>
+                      atharRailRef.current?.scrollBy({
+                        left: lang === "ar" ? 640 : -640,
+                        behavior: "smooth",
+                      })
+                    }
+                    className="rounded-xl border border-[#F4F1EA]/20 bg-[#121210] px-3.5 py-2 font-mono text-xs text-[#F4F1EA] hover:border-[#C89D66] cursor-pointer"
+                  >
+                    {t("◀ المشهد السابق", "◀ PREV REEL")}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="athar-rail-next"
+                    onClick={() =>
+                      atharRailRef.current?.scrollBy({
+                        left: lang === "ar" ? -640 : 640,
+                        behavior: "smooth",
+                      })
+                    }
+                    className="rounded-xl bg-[#C89D66] px-3.5 py-2 font-mono text-xs font-bold text-[#080807] hover:opacity-90 cursor-pointer"
+                  >
+                    {t("المشهد التالي ▶", "NEXT REEL ▶")}
+                  </button>
+                </div>
               </div>
 
-              <div className="space-y-12">
+              <div
+                ref={atharRailRef}
+                data-testid="athar-horizontal-rail"
+                className="flex gap-8 overflow-x-auto snap-x snap-mandatory pb-6 scroll-smooth"
+              >
                 {data.projects.map((proj, index) => (
                   <div
                     key={proj.id}
@@ -696,12 +866,12 @@ export function PortfolioRenderer({
                       setActiveProject(proj);
                       setActiveImageIdx(0);
                     }}
-                    className="group cursor-pointer rounded-3xl border border-[#F4F1EA]/12 bg-[#121210] overflow-hidden hover:border-[#C89D66] transition-all duration-500"
+                    className="snap-center shrink-0 w-[86vw] sm:w-[680px] lg:w-[820px] group cursor-pointer rounded-3xl border border-[#F4F1EA]/12 bg-[#121210] overflow-hidden hover:border-[#C89D66] transition-all duration-500"
                   >
                     <div
                       className={`relative w-full overflow-hidden ${
                         cinemaAspect === "2.39:1" ? "aspect-[21/9]" : "aspect-video"
-                      } min-h-[260px]`}
+                      } min-h-[300px] sm:min-h-[380px]`}
                     >
                       <Image
                         src={proj.images[0] || data.cover}
@@ -714,20 +884,30 @@ export function PortfolioRenderer({
                       <div className="absolute inset-0 bg-gradient-to-t from-[#080807] via-transparent to-black/40" />
                       <div className="absolute top-4 inset-x-5 flex items-center justify-between font-mono text-xs">
                         <span className="rounded-md bg-black/75 border border-[#C89D66]/40 px-3 py-1 text-[#C89D66]">
-                          REEL 0{index + 1} • {proj.year}
+                          REEL 0{index + 1} OF 0{data.projects.length} • {proj.year}
                         </span>
                         <span className="rounded-md bg-black/75 px-3 py-1 text-[#F4F1EA]">
                           {proj.metrics || "2.39:1 ANAMORPHIC"}
                         </span>
                       </div>
                       <div className="absolute bottom-5 inset-x-6 flex flex-wrap items-end justify-between gap-4">
-                        <div className="max-w-2xl">
+                        <div className="max-w-xl">
                           <h3 className="arabic-diacritics text-2xl sm:text-4xl font-black text-[#F4F1EA]">
                             {t(proj.title.ar, proj.title.en)}
                           </h3>
                           <p className="mt-2 text-sm text-[#F4F1EA]/80 line-clamp-2">
                             {t(proj.desc.ar, proj.desc.en)}
                           </p>
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {proj.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded-md bg-black/70 border border-[#F4F1EA]/15 px-2.5 py-0.5 font-mono text-[10px] text-[#C89D66]"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                         <span className="inline-flex items-center gap-2 rounded-full bg-[#C89D66] px-4 py-2 text-xs font-bold text-[#080807]">
                           <Eye className="h-3.5 w-3.5" />
@@ -738,6 +918,46 @@ export function PortfolioRenderer({
                   </div>
                 ))}
               </div>
+
+              {/* Creative Direction Craft & Post-Production Suite */}
+              {skillsList.length > 0 && (
+                <div className="rounded-3xl border border-[#F4F1EA]/12 bg-[#121210] p-7">
+                  <p className="font-mono text-xs uppercase tracking-widest text-[#C89D66] mb-3">
+                    {t("أدوات الإخراج، المونتاج، والتلوين السينمائي", "DIRECTING, COLOR GRADING & VFX SUITE")}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {skillsList.map((skill) => (
+                      <span
+                        key={skill}
+                        className="rounded-xl border border-[#F4F1EA]/15 bg-[#181815] px-3.5 py-1.5 font-mono text-xs text-[#F4F1EA]"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Directing & Festival Timeline */}
+              {data.timeline && data.timeline.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {data.timeline.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-3xl border border-[#F4F1EA]/12 bg-[#121210] p-6 space-y-2"
+                    >
+                      <span className="font-mono text-xs text-[#C89D66]">{item.year}</span>
+                      <h3 className="arabic-diacritics text-lg font-bold">
+                        {t(item.role.ar, item.role.en)}
+                      </h3>
+                      <p className="text-xs font-semibold text-[#C89D66]">
+                        {t(item.org.ar, item.org.en)}
+                      </p>
+                      <p className="text-sm text-[#A09C94]">{t(item.summary.ar, item.summary.en)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
         </div>
@@ -828,26 +1048,30 @@ export function PortfolioRenderer({
               </div>
             )}
 
-            {/* Layered Parallax Architectural Plates */}
+            {/* True Sticky Layered Parallax Architectural Plates */}
             <div className="space-y-12">
               <div className="flex items-center justify-between">
                 <h2 className="arabic-diacritics text-2xl sm:text-4xl font-extrabold">
-                  {t("الأعمال الهندسية والمعمارية المختارة", "Layered Architectural & Engineering Plates")}
+                  {t("الأعمال الهندسية والمعمارية المختارة (الشرائح المتراكبة)", "Layered Parallax Architectural & Engineering Plates")}
                 </h2>
                 <span className="font-mono text-xs uppercase tracking-widest text-[#9A7B4F]">
-                  PLATES 01 — 0{data.projects.length}
+                  LAYERED PLATES 01 — 0{data.projects.length}
                 </span>
               </div>
 
-              <div className="space-y-10">
+              <div data-testid="haven-layered-parallax-stack" className="relative space-y-12 pb-8">
                 {data.projects.map((proj, idx) => (
                   <div
                     key={proj.id}
+                    style={{
+                      top: `${5.25 + idx * 1.75}rem`,
+                      zIndex: idx + 1,
+                    }}
                     onClick={() => {
                       setActiveProject(proj);
                       setActiveImageIdx(0);
                     }}
-                    className="group cursor-pointer rounded-3xl bg-[#EFECE6] border border-[#141413]/12 overflow-hidden grid grid-cols-1 lg:grid-cols-12 shadow-sm hover:shadow-xl hover:border-[#9A7B4F] transition-all duration-500"
+                    className="sticky group cursor-pointer rounded-3xl bg-[#EFECE6] border border-[#141413]/15 overflow-hidden grid grid-cols-1 lg:grid-cols-12 shadow-[0_-10px_35px_rgba(20,20,19,0.08)] hover:border-[#9A7B4F] transition-all duration-500"
                   >
                     <div className="lg:col-span-7 relative min-h-[340px] overflow-hidden">
                       <Image
@@ -857,11 +1081,11 @@ export function PortfolioRenderer({
                         className="object-cover transition-transform duration-700 group-hover:scale-105"
                       />
                       <span className="absolute top-4 start-4 rounded-full bg-[#F7F5F0]/90 px-3.5 py-1 font-mono text-xs font-bold text-[#141413]">
-                        PLATE 0{idx + 1} • {proj.year}
+                        LAYERED PLATE 0{idx + 1} • {proj.year}
                       </span>
                     </div>
 
-                    <div className="lg:col-span-5 p-8 flex flex-col justify-between">
+                    <div className="lg:col-span-5 p-8 flex flex-col justify-between bg-[#EFECE6]">
                       <div className="space-y-4">
                         <span className="font-mono text-xs uppercase tracking-widest text-[#9A7B4F]">
                           {proj.metrics || "ARCHITECTURAL MONOGRAPH"}
@@ -899,6 +1123,25 @@ export function PortfolioRenderer({
                 ))}
               </div>
             </div>
+
+            {/* Architectural Software & Structural Engineering Matrix */}
+            {skillsList.length > 0 && (
+              <div className="rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-7">
+                <p className="font-mono text-xs uppercase tracking-widest text-[#9A7B4F] mb-3">
+                  {t("البرمجيات الهندسية والمعمارية المعتمدة", "COMPUTATIONAL DESIGN & BIM TOOLS")}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {skillsList.map((skill) => (
+                    <span
+                      key={skill}
+                      className="rounded-xl bg-[#F7F5F0] border border-[#141413]/12 px-3.5 py-1.5 font-mono text-xs font-semibold text-[#141413]"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Academic & Graduation Thesis Timeline */}
             {data.timeline && data.timeline.length > 0 && (
@@ -1474,6 +1717,50 @@ export function PortfolioRenderer({
                 </div>
               ))}
             </div>
+
+            {/* Wameed Sales Leadership Timeline & External Links */}
+            {data.timeline && data.timeline.length > 0 && (
+              <div className="rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="arabic-diacritics text-xl sm:text-2xl font-bold">
+                    {t("سجل الإنجازات البيعية وقيادة فرق الإيرادات", "Revenue Leadership & Quota Attainment Record")}
+                  </h2>
+                  {data.links && data.links.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {data.links.map((l, i) => (
+                        <a
+                          key={i}
+                          href={l.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-[#C89D66]/40 bg-[#181815] px-3.5 py-1.5 text-xs font-bold text-[#C89D66]"
+                        >
+                          <span>{l.label}</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {data.timeline.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-2xl border border-[#F4F1EA]/8 bg-[#181815] p-5 space-y-1.5"
+                    >
+                      <span className="font-mono text-xs text-[#C89D66]">{item.year}</span>
+                      <h3 className="arabic-diacritics text-lg font-bold">
+                        {t(item.role.ar, item.role.en)}
+                      </h3>
+                      <p className="text-xs font-semibold text-emerald-400">
+                        {t(item.org.ar, item.org.en)}
+                      </p>
+                      <p className="text-sm text-[#A09C94]">{t(item.summary.ar, item.summary.en)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1500,6 +1787,22 @@ export function PortfolioRenderer({
                 <p className="text-sm sm:text-base text-[#A09C94] max-w-2xl leading-relaxed">
                   {t(data.bio.ar, data.bio.en)}
                 </p>
+                {data.links && data.links.length > 0 && (
+                  <div className="flex flex-wrap gap-2.5 pt-2">
+                    {data.links.map((l, i) => (
+                      <a
+                        key={i}
+                        href={l.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#F4F1EA]/15 bg-[#1C1C19] px-3.5 py-2 text-xs font-bold text-[#F4F1EA] hover:border-[#C89D66]"
+                      >
+                        <span>{l.label}</span>
+                        <ExternalLink className="h-3 w-3 text-[#C89D66]" />
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="lg:col-span-4 grid grid-cols-2 gap-3">
                 {(data.metrics || []).map((m, i) => (
@@ -1700,6 +2003,44 @@ export function PortfolioRenderer({
               </div>
             </div>
 
+            {/* MarTech & Marketing Engineering Tool Matrix (مصفوفة أدوات الـ MarTech والبرمجة التسويقية) */}
+            {skillsList.length > 0 && (
+              <div
+                data-testid="salam-martech-matrix"
+                className="rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="font-mono text-xs uppercase tracking-widest text-[#1E3A2F] font-bold">
+                      MARTECH & MARKETING ENGINEERING TOOL MATRIX
+                    </span>
+                    <h2 className="arabic-diacritics text-2xl font-extrabold mt-1">
+                      {t(
+                        "مصفوفة أدوات الـ MarTech والبرمجة التسويقية واستخراج البيانات",
+                        "MarTech Stack, Scraping Engines & Attribution Infrastructure"
+                      )}
+                    </h2>
+                  </div>
+                  <span className="rounded-full bg-[#1E3A2F] px-3 py-1 font-mono text-xs font-bold text-[#F4F1EA]">
+                    {skillsList.length} VERIFIED TOOLS
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {skillsList.map((tool, i) => (
+                    <div
+                      key={tool}
+                      className="rounded-2xl bg-[#F7F5F0] border border-[#141413]/12 p-4 flex flex-col justify-between gap-2 hover:border-[#1E3A2F] transition"
+                    >
+                      <span className="font-mono text-[10px] text-[#9A7B4F]">
+                        STACK 0{i + 1}
+                      </span>
+                      <p className="font-mono text-xs font-bold text-[#141413]">{tool}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* MarTech Projects */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {data.projects.map((proj) => (
@@ -1731,6 +2072,32 @@ export function PortfolioRenderer({
                 </div>
               ))}
             </div>
+
+            {/* MarTech Growth Engineering Timeline */}
+            {data.timeline && data.timeline.length > 0 && (
+              <div className="rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-5">
+                <h2 className="arabic-diacritics text-2xl font-extrabold">
+                  {t("المسيرة المهنية في هندسة النمو وتكنولوجيا التسويق", "MarTech & Growth Engineering Track Record")}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {data.timeline.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-2xl bg-[#F7F5F0] border border-[#141413]/12 p-5 space-y-1.5"
+                    >
+                      <span className="font-mono text-xs font-bold text-[#9A7B4F]">{item.year}</span>
+                      <h3 className="arabic-diacritics text-lg font-bold">
+                        {t(item.role.ar, item.role.en)}
+                      </h3>
+                      <p className="text-xs font-semibold text-[#1E3A2F]">
+                        {t(item.org.ar, item.org.en)}
+                      </p>
+                      <p className="text-sm text-[#5E5B55]">{t(item.summary.ar, item.summary.en)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1761,6 +2128,22 @@ export function PortfolioRenderer({
                 <p className="text-sm sm:text-base text-[#5E5B55] leading-relaxed">
                   {t(data.bio.ar, data.bio.en)}
                 </p>
+                {data.links && data.links.length > 0 && (
+                  <div className="flex flex-wrap gap-2.5 pt-2">
+                    {data.links.map((l, i) => (
+                      <a
+                        key={i}
+                        href={l.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#141413]/15 bg-[#F7F5F0] px-3.5 py-2 text-xs font-bold text-[#141413] hover:border-[#9A7B4F]"
+                      >
+                        <span>{l.label}</span>
+                        <ArrowUpRight className="h-3.5 w-3.5 text-[#9A7B4F]" />
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="lg:col-span-4 flex flex-col items-center">
                 <div className="relative h-44 w-44 rounded-full overflow-hidden border-4 border-[#9A7B4F] shadow-xl">
@@ -1821,6 +2204,25 @@ export function PortfolioRenderer({
                         {t(item.summary.ar, item.summary.en)}
                       </p>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* HR Tech & People Ops Competency Matrix */}
+            {skillsList.length > 0 && (
+              <div className="rounded-3xl bg-[#EFECE6] border border-[#141413]/12 p-7">
+                <p className="font-mono text-xs uppercase tracking-widest text-[#9A7B4F] mb-3">
+                  {t("منظومات الموارد البشرية واستقطاب الكفاءات المعتمدة", "PEOPLE OPS, ATS & TALENT ARCHITECTURE MATRIX")}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {skillsList.map((skill) => (
+                    <span
+                      key={skill}
+                      className="rounded-xl bg-[#F7F5F0] border border-[#141413]/12 px-3.5 py-1.5 font-mono text-xs font-semibold text-[#141413]"
+                    >
+                      {skill}
+                    </span>
                   ))}
                 </div>
               </div>

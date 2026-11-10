@@ -108,7 +108,7 @@ async function main() {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "05-dashboard.png") });
   console.log("[PASS] Browser E2E 6: 1-Click Verified Creator button logs into layla.taqdom.me and navigates to /dashboard");
 
-  // 6. Visit /studio?u=layla, edit bio, and click Publish
+  // 6. Visit /studio?u=layla, test Appearance tab (theme mode & accent), edit bio, and click Publish
   await page.goto(`${BASE}/studio?u=layla`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
   const e2eBio = "نبذة معمارية تم تحديثها ونشرها حياً عبر الاستوديو — Layla Studio E2E 2026";
@@ -118,7 +118,7 @@ async function main() {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "06-studio.png") });
   console.log("[PASS] Browser E2E 7: /studio live edit and publish banner verified");
 
-  // 7. Visit http://layla.localhost:PORT in Browser and verify published bio renders on subdomain
+  // 7. Visit http://layla.localhost:PORT in Browser and verify published bio & sticky layered parallax stack
   await page.goto(`http://layla.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(700);
   const pageContent = await page.content();
@@ -127,15 +127,34 @@ async function main() {
     true,
     "Published bio must be visible on http://layla.localhost:PORT/"
   );
+  const havenStackVisible = await page.getByTestId("haven-layered-parallax-stack").isVisible();
+  assert.equal(havenStackVisible, true, "Haven sticky layered parallax stack must be visible");
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "07-subdomain-layla.png") });
-  console.log("[PASS] Browser E2E 8: Subdomain http://layla.localhost:PORT/ renders updated Haven portfolio");
+  console.log("[PASS] Browser E2E 8: Subdomain http://layla.localhost:PORT/ renders updated Haven portfolio with sticky layered parallax plates");
 
-  // 8. Verify domain-specific interactive widgets across Madar, Siyada, Wameed, Salam, and Meshwar subdomains
+  // 8. Verify domain-specific interactive widgets across Madar, Athar, Siyada, Wameed, Salam, and Meshwar subdomains
   await page.goto(`http://youssef.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(500);
+  const initialDeployments = await page.getByTestId("madar-deployments-count").textContent();
+  assert.equal(initialDeployments?.trim(), "3 DEPLOYMENTS");
+  await page.getByRole("button", { name: "PyTorch & CUDA", exact: true }).click();
+  await page.waitForTimeout(200);
+  const filteredDeployments = await page.getByTestId("madar-deployments-count").textContent();
+  assert.equal(
+    filteredDeployments?.trim(),
+    "2 DEPLOYMENTS",
+    "Clicking PyTorch & CUDA skill tag must filter Madar projects from 3 to 2"
+  );
   await page.getByTestId("madar-cmdk-trigger").click();
   await page.waitForTimeout(300);
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "08-subdomain-madar-youssef.png") });
+
+  await page.goto(`http://farida.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(500);
+  const atharRailVisible = await page.getByTestId("athar-horizontal-rail").isVisible();
+  assert.equal(atharRailVisible, true, "Athar horizontal scroll showcase rail must be visible");
+  await page.getByTestId("athar-rail-next").click();
+  await page.waitForTimeout(250);
 
   await page.goto(`http://karim.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(500);
@@ -153,6 +172,8 @@ async function main() {
   await page.waitForTimeout(500);
   await page.getByTestId("salam-node-1").click();
   await page.waitForTimeout(300);
+  const salamMatrixVisible = await page.getByTestId("salam-martech-matrix").isVisible();
+  assert.equal(salamMatrixVisible, true, "Salam MarTech tool matrix must be visible");
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "11-subdomain-salam-salma.png") });
 
   await page.goto(`http://nora.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
@@ -163,7 +184,7 @@ async function main() {
   await page.getByTestId("meshwar-book-btn").click();
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "12-subdomain-meshwar-nora.png") });
-  console.log("[PASS] Browser E2E 9: Interactive widgets on Madar (youssef), Siyada (karim), Wameed (tariq), Salam (salma), and Meshwar (nora) verified");
+  console.log("[PASS] Browser E2E 9: Interactive widgets on Madar (youssef), Athar (farida), Siyada (karim), Wameed (tariq), Salam (salma), and Meshwar (nora) verified");
 
   // Restore layla back to clean flagship state
   await page.request.post(`${BASE}/api/auth/test-login`);

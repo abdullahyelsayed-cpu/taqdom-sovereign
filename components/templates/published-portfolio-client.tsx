@@ -116,7 +116,7 @@ export function PublishedPortfolioClient({
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 py-20 text-center bg-background text-foreground">
         <TaqdomLogo size={56} showWordmark={false} />
-        <p dir="ltr" className="mt-4 font-mono text-xs text-[#C5A059] animate-pulse">
+        <p dir="ltr" className="mt-4 font-mono text-xs text-[#9A7B4F] dark:text-[#C89D66] animate-pulse">
           https://{activeUsername}.taqdom.me
         </p>
       </div>
@@ -130,7 +130,7 @@ export function PublishedPortfolioClient({
         className="min-h-screen flex flex-col items-center justify-center px-6 py-20 text-center bg-background text-foreground"
       >
         <TaqdomLogo size={64} showWordmark={false} />
-        <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#C5A059]/45 bg-[#C5A059]/10 px-4 py-1.5 text-xs font-bold text-[#C5A059]">
+        <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#9A7B4F]/45 bg-[#9A7B4F]/10 px-4 py-1.5 text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
           <Globe2 className="h-4 w-4" />
           <span dir="ltr">{activeUsername}.taqdom.me</span>
         </div>
@@ -139,15 +139,15 @@ export function PublishedPortfolioClient({
         </h1>
         <p className="mt-3 max-w-lg text-sm sm:text-base text-muted-foreground">
           النطاق السيادي{" "}
-          <span dir="ltr" className="font-mono font-bold text-[#C5A059]">
+          <span dir="ltr" className="font-mono font-bold text-[#9A7B4F] dark:text-[#C89D66]">
             https://{activeUsername}.taqdom.me
           </span>{" "}
-          لم يتم نشره بعد. احجزه الآن وأنشئ معرض أعمالك ثلاثي الأبعاد في دقائق.
+          لم يتم نشره بعد. احجزه الآن وأنشئ هويتك الرقمية الاحترافية في دقائق.
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <Link
             href={`https://taqdom.me/studio?u=${encodeURIComponent(activeUsername)}`}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#C5A059] px-6 py-3.5 text-sm font-extrabold text-[#111113] shadow-xl"
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#141413] dark:bg-[#C89D66] px-6 py-3.5 text-sm font-extrabold text-[#F7F5F0] dark:text-[#0A0A09] shadow-xl"
           >
             <Sparkles className="h-4 w-4" />
             <span>احجز {activeUsername}.taqdom.me في الاستوديو</span>

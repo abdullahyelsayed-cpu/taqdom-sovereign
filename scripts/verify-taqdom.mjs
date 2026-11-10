@@ -215,6 +215,17 @@ async function runTests() {
   });
   assert.equal(dupRes.status, 409, "Duplicate username registration must return 409");
 
+  const dupEmailRes = await fetch(`${BASE}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: "omar-arch-second",
+      email: "omar.custom.2026@example.com",
+      password: "StrongPassword123",
+    }),
+  });
+  assert.equal(dupEmailRes.status, 409, "Duplicate email registration must return 409");
+
   const wrongLogin = await fetch(`${BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -236,6 +247,45 @@ async function runTests() {
   assert.equal(rightLogin.status, 200, "Correct email + password must return 200");
   const rightLoginData = await rightLogin.json();
   assert.equal(rightLoginData.user.username, "omar-arch");
+
+  // Multi-step Subdomain Handle Rename Test (omar-arch -> omar-renamed -> omar-arch)
+  const rename1Res = await fetch(`${BASE}/api/auth/settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      currentUsername: "omar-arch",
+      newUsername: "omar-renamed",
+    }),
+  });
+  assert.equal(rename1Res.status, 200, "Subdomain rename omar-arch -> omar-renamed must return 200");
+  const rename1Data = await rename1Res.json();
+  assert.equal(rename1Data.user.username, "omar-renamed");
+
+  // Verify old handle omar-arch is now available again and password hash is preserved
+  const oldAvailRes = await fetch(`${BASE}/api/username/check?u=omar-arch`);
+  const oldAvailData = await oldAvailRes.json();
+  assert.equal(oldAvailData.available, true, "Old handle omar-arch must be freed after rename");
+
+  const wrongAfterRename = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      identifier: "omar-renamed",
+      password: "WrongPassword999",
+    }),
+  });
+  assert.equal(wrongAfterRename.status, 401, "Wrong password after handle rename must still return 401");
+
+  // Rename back omar-renamed -> omar-arch
+  const renameBackRes = await fetch(`${BASE}/api/auth/settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      currentUsername: "omar-renamed",
+      newUsername: "omar-arch",
+    }),
+  });
+  assert.equal(renameBackRes.status, 200, "Renaming back omar-renamed -> omar-arch must return 200");
 
   const tinyPngDataUrl =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -271,7 +321,7 @@ async function runTests() {
   );
 
   await fetch(`${BASE}/api/auth/settings?u=omar-arch`, { method: "DELETE" });
-  console.log("[PASS] 6. Custom registration, PBKDF2 login verification, media upload, and custom subdomain SSR verified");
+  console.log("[PASS] 6. Custom registration, duplicate email rejection, multi-step subdomain rename, PBKDF2 login verification, media upload, and custom subdomain SSR verified");
 
   // 7. 1-Click Verified Flagship Creator Login (layla) + Studio Edit & Publish Flow + Subdomain Verification
   const flagshipLoginRes = await fetch(`${BASE}/api/auth/test-login`, {

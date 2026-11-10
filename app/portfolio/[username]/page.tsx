@@ -53,7 +53,7 @@ export async function generateMetadata({
       description,
       images: [
         {
-          url: portfolio.projects[0]?.images[0] || portfolio.cover || "/images/hero-mono.png",
+          url: portfolio.projects[0]?.images[0] || portfolio.cover || "/images/ultra/haven-hero.webp",
           width: 1200,
           height: 630,
           alt: portfolio.name.en,
@@ -64,7 +64,7 @@ export async function generateMetadata({
       card: "summary_large_image",
       title,
       description,
-      images: [portfolio.projects[0]?.images[0] || portfolio.cover || "/images/hero-mono.png"],
+      images: [portfolio.projects[0]?.images[0] || portfolio.cover || "/images/ultra/haven-hero.webp"],
     },
   };
 }
