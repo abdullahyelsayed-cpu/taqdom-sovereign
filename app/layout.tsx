@@ -12,6 +12,7 @@ import { LanguageProvider } from "@/lib/i18n";
 import { SmoothScrollAndAura } from "@/components/smooth-scroll";
 import { Toaster } from "sonner";
 import "./globals.css";
+import "./polish.css";
 
 const readex = Readex_Pro({
   subsets: ["arabic", "latin"],
@@ -49,11 +50,11 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://taqdom.me"),
   title: {
-    default: "تَقَدُّم | Taqdom — الهويات الرقمية ومعارض الأعمال الاحترافية",
+    default: "تَقَدُّم | Taqdom — الهويات الرقمية ومعارض الأعمال",
     template: "%s | تَقَدُّم • Taqdom",
   },
   description:
-    "تَقَدُّم (Taqdom) — المنصة السيادية الأرقى عالمياً لبناء الهويات الرقمية ومعارض الأعمال الاحترافية للطلاب والخريجين والمبدعين والمحترفين على نطاقك الفرعي المستقل username.taqdom.me.",
+    "تَقَدُّم منصة عربية لإنشاء الهويات الرقمية ومعارض الأعمال الاحترافية للطلاب والخريجين والمبدعين والمحترفين، مع قوالب مرنة ونطاق فرعي مستقل لكل مستخدم.",
   keywords: [
     "تقدم",
     "تَقَدُّم",
@@ -63,7 +64,7 @@ export const metadata: Metadata = {
     "معرض أعمال",
     "Digital Identity",
     "Egypt Creators",
-    "Awwwards Portfolio",
+    "Professional Portfolio",
   ],
   alternates: {
     canonical: "https://taqdom.me",
@@ -76,23 +77,23 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://taqdom.me",
     siteName: "تَقَدُّم | Taqdom",
-    title: "تَقَدُّم | Taqdom — هويتك الرقمية السيادية على نطاقك المستقل",
+    title: "تَقَدُّم | Taqdom — هويتك الرقمية في مساحة تحمل اسمك",
     description:
-      "سبعة قوالب احترافية بهويات مستقلة للطلاب والخريجين والمحترفين على نطاقات فرعية حية username.taqdom.me.",
+      "أنشئ معرض أعمال احترافيًا بهوية بصرية واضحة ونطاق فرعي مستقل، وشارك مشاريعك وخبراتك بثقة.",
     images: [
       {
         url: "/images/ultra/haven-hero.webp",
         width: 1200,
         height: 630,
-        alt: "تَقَدُّم | Taqdom Sovereign Portfolio Platform",
+        alt: "تَقَدُّم | Taqdom Digital Portfolio Platform",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "تَقَدُّم | Taqdom — Sovereign Digital Identities",
+    title: "تَقَدُّم | Taqdom — Digital Identity & Portfolios",
     description:
-      "Launch your museum-grade portfolio on your own sovereign subdomain username.taqdom.me.",
+      "Build a thoughtful professional portfolio with a distinctive digital identity.",
     images: ["/images/ultra/haven-hero.webp"],
   },
   icons: {
@@ -114,7 +115,7 @@ const rootJsonLd = {
       url: "https://taqdom.me",
       name: "تَقَدُّم | Taqdom",
       description:
-        "المنصة السيادية الأرقى عالمياً لإنشاء الهويات الرقمية ومعارض الأعمال للمبدعين والخريجين والمحترفين",
+        "منصة لإنشاء الهويات الرقمية ومعارض الأعمال للطلاب والخريجين والمبدعين والمحترفين.",
       inLanguage: ["ar", "en"],
     },
     {
@@ -148,6 +149,8 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
+        <meta name="color-scheme" content="dark light" />
+        <meta name="theme-color" content="#090B0D" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(rootJsonLd) }}
@@ -158,7 +161,7 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="dark"
           enableSystem={false}
           disableTransitionOnChange
         >
