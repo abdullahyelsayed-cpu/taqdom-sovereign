@@ -765,3 +765,213 @@ html[dir="ltr"] .neo-top-progress { transform-origin: left center; }
 
 /* Disable the previous grain/progress overlay; the new page owns both. */
 .taqdom-grain, .taqdom-scroll-progress { display: none !important; }
+
+
+/* INTERNAL EXPERIENCE — Studio, dashboard, account, explore and templates */
+.glass-panel {
+  background: rgba(255,255,255,.88);
+  border: 1px solid rgba(23,27,43,.09);
+  box-shadow: 0 18px 48px rgba(37,55,122,.07);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: border-color .24s var(--neo-ease), box-shadow .24s var(--neo-ease), transform .24s var(--neo-ease);
+}
+.dark .glass-panel {
+  background: rgba(25,35,61,.9);
+  border-color: rgba(228,235,255,.13);
+  box-shadow: 0 20px 60px rgba(0,0,0,.22);
+}
+main:not(.neo-home) {
+  background:
+    radial-gradient(900px circle at 5% 0%, rgba(49,91,255,.07), transparent 55%),
+    radial-gradient(700px circle at 100% 28%, rgba(216,255,82,.10), transparent 60%),
+    var(--neo-paper);
+}
+main:not(.neo-home) > section {
+  position: relative;
+}
+main:not(.neo-home) h1,
+main:not(.neo-home) h2,
+main:not(.neo-home) h3 {
+  letter-spacing: -.035em;
+}
+main:not(.neo-home) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+main:not(.neo-home) textarea,
+main:not(.neo-home) select,
+[data-taqdom-studio] input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+[data-taqdom-studio] textarea,
+[data-taqdom-studio] select {
+  min-height: 42px;
+  border-color: rgba(49,91,255,.2);
+  border-radius: 12px;
+  background-color: rgba(255,255,255,.86);
+  color: #171B2B;
+  transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+.dark main:not(.neo-home) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.dark main:not(.neo-home) textarea,
+.dark main:not(.neo-home) select,
+.dark [data-taqdom-studio] input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.dark [data-taqdom-studio] textarea,
+.dark [data-taqdom-studio] select {
+  background-color: #253253;
+  border-color: rgba(145,167,255,.3);
+  color: #F7F8F3;
+}
+main:not(.neo-home) input:focus,
+main:not(.neo-home) textarea:focus,
+main:not(.neo-home) select:focus,
+[data-taqdom-studio] input:focus,
+[data-taqdom-studio] textarea:focus,
+[data-taqdom-studio] select:focus {
+  outline: none;
+  border-color: #315BFF;
+  box-shadow: 0 0 0 4px rgba(49,91,255,.12);
+}
+
+/* Studio command bar */
+[data-taqdom-studio] {
+  background: var(--neo-paper);
+}
+[data-taqdom-studio] > header {
+  border-color: var(--neo-line);
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 8px 28px rgba(37,55,122,.055);
+  backdrop-filter: blur(20px);
+}
+.dark [data-taqdom-studio] > header {
+  background: rgba(25,35,61,.92);
+}
+[data-taqdom-studio] > header > div:first-child {
+  min-height: 46px;
+}
+[data-taqdom-studio] aside {
+  background: rgba(255,255,255,.95);
+  border-color: var(--neo-line);
+  box-shadow: 10px 0 36px rgba(37,55,122,.035);
+}
+.dark [data-taqdom-studio] aside {
+  background: rgba(25,35,61,.97);
+}
+[data-taqdom-studio] aside > div:first-child {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: #EEF1F8;
+  border-color: var(--neo-line);
+  backdrop-filter: blur(14px);
+}
+.dark [data-taqdom-studio] aside > div:first-child {
+  background: #202C48;
+}
+[data-taqdom-studio] aside > div:first-child button {
+  min-height: 40px;
+  border: 1px solid transparent;
+}
+[data-taqdom-studio] aside > div:first-child button[class*="bg-[#9A7B4F]"],
+[data-taqdom-studio] aside > div:first-child button[class*="bg-primary"] {
+  background: #315BFF !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 8px 18px rgba(49,91,255,.2);
+}
+.dark [data-taqdom-studio] aside > div:first-child button[class*="bg-[#9A7B4F]"],
+.dark [data-taqdom-studio] aside > div:first-child button[class*="bg-primary"] {
+  background: #91A7FF !important;
+  color: #11192D !important;
+}
+[data-taqdom-studio] aside > div:nth-child(2) {
+  padding: 22px;
+}
+[data-taqdom-studio] aside label {
+  color: var(--neo-ink);
+  font-weight: 800;
+}
+[data-taqdom-studio] aside .rounded-2xl.border,
+[data-taqdom-studio] aside .rounded-xl.border {
+  border-color: var(--neo-line);
+}
+[data-taqdom-studio] aside button:hover {
+  border-color: rgba(49,91,255,.4);
+}
+[data-taqdom-studio] aside button:focus-visible,
+[data-taqdom-studio] aside label:focus-within {
+  outline: 2px solid var(--neo-cobalt);
+  outline-offset: 3px;
+}
+[data-taqdom-studio] > div > section {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(49,91,255,.08), transparent 45%),
+    #EEF1F8;
+}
+.dark [data-taqdom-studio] > div > section {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(145,167,255,.12), transparent 45%),
+    #11192D;
+}
+[data-taqdom-studio] > div > section > div:first-child {
+  background: rgba(255,255,255,.9);
+  border-color: var(--neo-line);
+  box-shadow: 0 10px 28px rgba(37,55,122,.05);
+}
+.dark [data-taqdom-studio] > div > section > div:first-child {
+  background: rgba(25,35,61,.9);
+}
+[data-taqdom-studio] > div > section > div:nth-child(2) {
+  border-color: rgba(49,91,255,.16);
+  box-shadow: 0 24px 65px rgba(37,55,122,.12);
+}
+[data-taqdom-studio] [data-testid="studio-publish-btn"],
+[data-taqdom-studio] button[class*="bg-[#9A7B4F]"],
+[data-taqdom-studio] button[class*="bg-[#C89D66]"] {
+  min-height: 42px;
+  box-shadow: 0 9px 22px rgba(49,91,255,.2);
+}
+
+/* Dashboard and account cards */
+main:not(.neo-home) .glass-panel:hover {
+  border-color: rgba(49,91,255,.22);
+}
+main:not(.neo-home) .glass-panel[class*="rounded-3xl"] {
+  border-radius: 24px;
+}
+main:not(.neo-home) a[class*="bg-[#9A7B4F]"],
+main:not(.neo-home) button[class*="bg-[#9A7B4F]"],
+main:not(.neo-home) a[class*="bg-[#C89D66]"],
+main:not(.neo-home) button[class*="bg-[#C89D66]"] {
+  min-height: 42px;
+  font-weight: 850;
+  box-shadow: 0 9px 20px rgba(49,91,255,.18);
+}
+main:not(.neo-home) button[class*="bg-foreground"] {
+  background: #315BFF !important;
+  color: #FFFFFF !important;
+}
+.dark main:not(.neo-home) button[class*="bg-foreground"] {
+  background: #91A7FF !important;
+  color: #11192D !important;
+}
+main:not(.neo-home) button[class*="border-border"]:hover,
+main:not(.neo-home) a[class*="border-border"]:hover {
+  border-color: rgba(49,91,255,.5);
+  background-color: rgba(49,91,255,.055);
+}
+main:not(.neo-home) [class*="bg-[#0A0A09]"],
+main:not(.neo-home) [class*="bg-[#080807]"],
+main:not(.neo-home) [class*="bg-[#141413]"] {
+  background-color: #171B2B;
+}
+main:not(.neo-home) [class*="text-[#F4F1EA]"] { color: #FFFFFF; }
+main:not(.neo-home) [class*="text-[#C89D66]"],
+main:not(.neo-home) [class*="text-[#D7B77B]"] { color: #D8FF52; }
+main:not(.neo-home) [class*="border-[#C89D66]"] { border-color: rgba(216,255,82,.55); }
+
+/* Keyboard / pointer states */
+main:not(.neo-home) :where(button, a, input, textarea, select):focus-visible,
+[data-taqdom-studio] :where(button, a, input, textarea, select):focus-visible {
+  outline: 3px solid var(--neo-coral);
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  [data-taqdom-studio] aside { max-height: none; }
+  [data-taqdom-studio] > div > section { padding: 12px; }
+}
