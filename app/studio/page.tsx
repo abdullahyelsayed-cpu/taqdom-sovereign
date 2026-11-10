@@ -32,7 +32,6 @@ import {
   Move,
   ImagePlus,
   RotateCcw,
-  Upload,
   X,
 } from "lucide-react";
 import { TaqdomLogo } from "@/components/brand/taqdom-logo";
@@ -93,6 +92,16 @@ const CANVAS_SECTIONS: { id: CanvasSectionId; labelAr: string; labelEn: string }
   { id: "contact", labelAr: "التواصل", labelEn: "Contact" },
 ];
 
+const CANVAS_SECTIONS_BY_TEMPLATE: Record<TemplateId, CanvasSectionId[]> = {
+  madar: ["hero", "metrics", "skills", "projects", "timeline"],
+  athar: ["hero", "metrics", "projects", "skills", "timeline"],
+  haven: ["hero", "metrics", "projects", "skills", "timeline"],
+  siyada: ["hero", "metrics", "projects", "timeline"],
+  wameed: ["hero", "metrics", "skills", "projects", "timeline"],
+  salam: ["hero", "metrics", "skills", "projects", "timeline"],
+  meshwar: ["hero", "metrics", "skills", "projects", "timeline", "contact"],
+};
+
 const DEFAULT_CANVAS_LAYOUT: CanvasSectionLayout = { x: 0, y: 0, width: 100, scale: 1 };
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -148,6 +157,11 @@ function StudioContent() {
       setHost(window.location.host);
     }
   }, []);
+
+  useEffect(() => {
+    setSelectedCanvasSection("hero");
+    setCanvasArrangeMode(false);
+  }, [draft.template]);
 
   // Apply URL query parameters (?template=... & ?u=...) and fetch user's draft from server
   useEffect(() => {
@@ -385,6 +399,9 @@ function StudioContent() {
 
   const liveSubdomainHref = getSubdomainUrl(draft.username, host);
 
+  const availableCanvasSections = CANVAS_SECTIONS.filter((section) =>
+    CANVAS_SECTIONS_BY_TEMPLATE[draft.template]?.includes(section.id)
+  );
   const canvasLayout = draft.canvas?.sections?.[selectedCanvasSection] || DEFAULT_CANVAS_LAYOUT;
   const updateCanvasSection = (id: CanvasSectionId, patch: Partial<CanvasSectionLayout>) => {
     setHasInteracted(true);
@@ -1221,7 +1238,7 @@ function StudioContent() {
                     <p className="text-[11px] leading-5 text-muted-foreground">{t("فعّل وضع الترتيب، ثم اسحب القسم داخل المعاينة. اسحب الركن لتغيير عرضه.", "Turn on Arrange, then drag a section in the preview. Drag its corner to resize it.")}</p>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5">
-                    {CANVAS_SECTIONS.map((section) => (
+                    {availableCanvasSections.map((section) => (
                       <button key={section.id} type="button" onClick={() => setSelectedCanvasSection(section.id)}
                         className={`rounded-xl border px-2 py-2 text-[10px] font-bold ${selectedCanvasSection === section.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
                         {t(section.labelAr, section.labelEn)}
@@ -1303,6 +1320,10 @@ function StudioContent() {
                     {t("لون التمييز", "Accent color")}
                   </label>
                   <div className="grid grid-cols-3 gap-2">
+                    <label className="col-span-3 flex items-center gap-3 rounded-xl border border-border p-3">
+                      <span className="text-xs font-bold">{t("لون مخصص", "Custom accent")}</span>
+                      <input type="color" aria-label={t("لون تمييز مخصص", "Custom accent colour")} value={draft.theme.accent} onChange={(event) => setDraft((prev) => ({ ...prev, theme: { ...prev.theme, accent: event.target.value } }))} className="ms-auto h-8 w-12 cursor-pointer rounded-lg border border-border bg-transparent" />
+                    </label>
                     {ACCENT_PRESETS.map((c) => (
                       <button
                         key={c.hex}
