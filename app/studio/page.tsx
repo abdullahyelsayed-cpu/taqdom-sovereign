@@ -331,12 +331,12 @@ function StudioContent() {
   };
 
   const tabs: { id: StudioTab; labelAr: string; labelEn: string; icon: React.ElementType }[] = [
-    { id: "identity", labelAr: "الهوية", labelEn: "Identity", icon: User },
-    { id: "template", labelAr: "القوالب (7)", labelEn: "7 Templates", icon: Layers },
-    { id: "projects", labelAr: "المشاريع", labelEn: "Projects", icon: FolderKanban },
-    { id: "look3d", labelAr: "المظهر والألوان", labelEn: "Appearance", icon: Sparkles },
-    { id: "seo", labelAr: "السيو", labelEn: "SEO", icon: Search },
-    { id: "domain", labelAr: "النطاق والنشر", labelEn: "Publish", icon: Globe2 },
+    { id: "identity", labelAr: "ملفي", labelEn: "Profile", icon: User },
+    { id: "template", labelAr: "الستايل", labelEn: "Style", icon: Layers },
+    { id: "projects", labelAr: "أعمالي", labelEn: "My work", icon: FolderKanban },
+    { id: "look3d", labelAr: "المظهر", labelEn: "Look", icon: Sparkles },
+    { id: "seo", labelAr: "الظهور", labelEn: "Findability", icon: Search },
+    { id: "domain", labelAr: "المشاركة", labelEn: "Share", icon: Globe2 },
   ];
 
   const liveSubdomainHref = getSubdomainUrl(draft.username, host);
@@ -352,7 +352,7 @@ function StudioContent() {
               <TaqdomLogo size={34} lang={lang} />
             </Link>
             <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground border-s border-border ps-4">
-              <span>{t("استوديو تَقَدُّم الحي", "Taqdom Live Studio")}</span>
+              <span>{t("استوديو تَقَدُّم", "Taqdom Studio")}</span>
               <span>•</span>
               <Link
                 href={liveSubdomainHref}
@@ -460,8 +460,8 @@ function StudioContent() {
                 {publishing
                   ? t("جارٍ النشر...", "Publishing...")
                   : t(
-                      `نشر البورتفوليو الآن على https://${draft.username}.taqdom.me`,
-                      `Publish Now to https://${draft.username}.taqdom.me`
+                      `انشر معرضك · https://${draft.username}.taqdom.me`,
+                      `Publish portfolio · https://${draft.username}.taqdom.me`
                     )}
               </span>
             </button>
@@ -478,8 +478,8 @@ function StudioContent() {
               <CheckCircle2 className="h-4 w-4 text-[#1E3A2F] dark:text-[#C89D66]" />
               <span>
                 {t(
-                  `تم نشر معرضك الحي بنجاح على النطاق الفرعي المستقل: https://${draft.username}.taqdom.me`,
-                  `Your portfolio is now live on your sovereign subdomain: https://${draft.username}.taqdom.me`
+                  `تم نشر معرضك على الرابط: https://${draft.username}.taqdom.me`,
+                  `Your portfolio is published at  https://${draft.username}.taqdom.me`
                 )}
               </span>
             </div>
@@ -532,7 +532,7 @@ function StudioContent() {
               <div className="space-y-5">
                 <div>
                   <label className="block text-xs font-bold mb-1.5">
-                    {t("اسم المستخدم والنطاق الفرعي (Subdomain)", "Username & Sovereign Subdomain")}
+                    {t("اسم الرابط الشخصي", "Personal address")}
                   </label>
                   <div
                     dir="ltr"
@@ -1005,8 +1005,8 @@ function StudioContent() {
                         }`}
                       >
                         {m === "light"
-                          ? t("نهار مرمري (#F7F5F0)", "Warm Alabaster")
-                          : t("ليل سينمائي (#0A0A09)", "Cinema Noir")}
+                          ? t("وضع فاتح", "Light")
+                          : t("وضع داكن", "Dark")}
                       </button>
                     ))}
                   </div>
@@ -1015,7 +1015,7 @@ function StudioContent() {
                 {/* Accent Color Picker */}
                 <div>
                   <label className="block text-xs font-bold mb-2">
-                    {t("لون التمييز السيادي (Accent Color)", "Sovereign Accent Color")}
+                    {t("لون التمييز", "Accent color")}
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {ACCENT_PRESETS.map((c) => (
@@ -1147,7 +1147,7 @@ function StudioContent() {
               <div className="space-y-5">
                 <div className="rounded-2xl border border-[#9A7B4F]/50 bg-[#9A7B4F]/10 p-4 space-y-3">
                   <span className="text-xs font-mono uppercase text-[#9A7B4F] dark:text-[#C89D66]">
-                    SOVEREIGN SUBDOMAIN
+                    YOUR TAQDOM ADDRESS
                   </span>
                   <p dir="ltr" className="font-mono text-lg font-extrabold text-foreground break-all">
                     https://{draft.username}.taqdom.me
@@ -1185,37 +1185,29 @@ function StudioContent() {
                   </div>
                 </div>
 
-                {/* Sovereign Subdomain QR Code Card */}
-                <div className="rounded-2xl border border-border bg-background p-4 flex items-center gap-4">
-                  <svg
-                    viewBox="0 0 100 100"
-                    className="h-20 w-20 shrink-0 rounded-xl border border-[#9A7B4F]/40 bg-[#F7F5F0] p-2 text-[#141413]"
-                    aria-label="Subdomain QR Code"
-                  >
-                    <rect x="8" y="8" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="6" />
-                    <rect x="16" y="16" width="10" height="10" fill="currentColor" />
-                    <rect x="66" y="8" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="6" />
-                    <rect x="74" y="16" width="10" height="10" fill="currentColor" />
-                    <rect x="8" y="66" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="6" />
-                    <rect x="16" y="74" width="10" height="10" fill="currentColor" />
-                    <rect x="42" y="12" width="8" height="8" fill="currentColor" />
-                    <rect x="42" y="28" width="8" height="16" fill="currentColor" />
-                    <rect x="12" y="44" width="16" height="8" fill="currentColor" />
-                    <rect x="42" y="44" width="14" height="14" fill="#9A7B4F" />
-                    <rect x="64" y="44" width="10" height="8" fill="currentColor" />
-                    <rect x="80" y="44" width="12" height="12" fill="currentColor" />
-                    <rect x="44" y="66" width="12" height="10" fill="currentColor" />
-                    <rect x="64" y="64" width="14" height="14" fill="currentColor" />
-                    <rect x="82" y="76" width="10" height="16" fill="currentColor" />
-                    <rect x="44" y="84" width="26" height="8" fill="currentColor" />
-                  </svg>
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold">
-                      {t("رمز الاستجابة السريعة (QR) لنطاقك السيادي", "Sovereign Subdomain QR Pass")}
-                    </p>
-                    <p dir="ltr" className="font-mono text-[11px] text-[#9A7B4F] dark:text-[#C89D66]">
-                      https://{draft.username}.taqdom.me
-                    </p>
+                <div className="rounded-2xl border border-border bg-background p-4 space-y-3">
+                  <label htmlFor="studio-explore-visibility" className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      id="studio-explore-visibility"
+                      data-testid="studio-explore-visibility"
+                      type="checkbox"
+                      checked={draft.discoverable === true}
+                      onChange={(event) =>
+                        setDraft((prev) => ({ ...prev, discoverable: event.target.checked }))
+                      }
+                      className="mt-1 h-4 w-4 accent-[#C7F36B]"
+                    />
+                    <span className="space-y-1">
+                      <span className="block text-sm font-bold text-foreground">
+                        {t("أظهر معرضي في دليل Explore", "List my portfolio in Explore")}
+                      </span>
+                      <span className="block text-xs leading-6 text-muted-foreground">
+                        {t("اختياري. سيظهر معرضك في الدليل بعد إعادة النشر. إلغاء الاختيار يخفيه من Explore فقط؛ رابطك المنشور يظل متاحًا لمن يملكه.", "Optional. Your portfolio appears in the directory after you publish again. Turning this off hides it from Explore only; the published URL remains accessible to anyone with the link.")}
+                      </span>
+                    </span>
+                  </label>
+                  <div className="rounded-xl bg-secondary/70 px-3 py-2 text-xs leading-6 text-muted-foreground">
+                    {t("النشر والظهور في الدليل خياران منفصلان، وأنت تتحكم في كل واحد منهما.", "Publishing and directory listing are separate choices. You control both.")}
                   </div>
                 </div>
 
@@ -1228,8 +1220,8 @@ function StudioContent() {
                   <Rocket className="h-4 w-4" />
                   <span>
                     {t(
-                      `نشر البورتفوليو الآن على https://${draft.username}.taqdom.me`,
-                      `Publish Now to https://${draft.username}.taqdom.me`
+                      `انشر معرضك · https://${draft.username}.taqdom.me`,
+                      `Publish portfolio · https://${draft.username}.taqdom.me`
                     )}
                   </span>
                 </button>
@@ -1239,7 +1231,7 @@ function StudioContent() {
                   onClick={handleUnpublish}
                   className="w-full rounded-xl border border-border bg-background hover:border-red-500/60 py-2.5 text-xs font-bold text-muted-foreground hover:text-red-500 transition cursor-pointer"
                 >
-                  {t("إيقاف النشر المؤقت (Unpublish)", "Unpublish Subdomain")}
+                  {t("إلغاء النشر", "Unpublish portfolio")}
                 </button>
               </div>
             )}

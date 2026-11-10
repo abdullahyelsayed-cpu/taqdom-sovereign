@@ -13,44 +13,44 @@ export function CollectionSection() {
     {
       step: "01",
       icon: Globe2,
-      titleAr: "احجز اسمك ونطاقك السيادي",
-      titleEn: "Claim Your Sovereign Subdomain",
+      titleAr: "اختَر اسم رابطك",
+      titleEn: "Choose your Taqdom address",
       descAr:
-        "اكتب اسمك ليصبح عنوانك الدائم على الإنترنت بصيغة username.taqdom.me مع شهادة أمان وتوجيه فوري عبر سحابة الحافة.",
+        "اختَر اسمًا واضحًا لرابطك الشخصي. ستتمكن من معاينته وتعديله قبل نشر معرضك.",
       descEn:
-        "Reserve your permanent creative address as username.taqdom.me with automatic edge routing and SSL.",
+        "Choose a clear personal address. You can preview and edit your portfolio before publishing it.",
       image: "/images/ultra/madar-1.webp",
       ctaHref: "/auth",
-      ctaAr: "احجز نطاقك الآن",
-      ctaEn: "Reserve Subdomain",
+      ctaAr: "ابدأ من اسمك",
+      ctaEn: "Choose a username",
     },
     {
       step: "02",
       icon: Sliders,
-      titleAr: "اختر هويتك من القوالب السبعة",
-      titleEn: "Select from 7 Career Archetypes",
+      titleAr: "اختَر الستايل اللي يشبهك",
+      titleEn: "Choose a style that feels like you",
       descAr:
-        "بدّل لحظياً بين (مَدَار، أَثَر، مَلاذ، سِيَادَة، وَمِيض، سَلَام، مِشْوَار) وأضف مشاريعك ومؤشرات أدائك بالعربية والإنجليزية.",
+        "جرّب سبعة اتجاهات مختلفة، ثم أضف صورك ومشاريعك وروابطك ونبذتك بالعربية أو الإنجليزية.",
       descEn:
-        "Switch between Madar, Athar, Haven, Siyada, Wameed, Salam, and Meshwar while curating bilingual projects live.",
+        "Try seven different directions, then add your images, projects, links, and bio in Arabic or English.",
       image: "/images/ultra/haven-1.webp",
       ctaHref: "/studio",
-      ctaAr: "افتح الاستوديو",
-      ctaEn: "Open Live Studio",
+      ctaAr: "جرّب الاستوديو",
+      ctaEn: "Open the Studio",
     },
     {
       step: "03",
       icon: Rocket,
-      titleAr: "انشر بضغطة واحدة للعالم",
-      titleEn: "1-Click Global Edge Publish",
+      titleAr: "راجع ثم شارك",
+      titleEn: "Review, then share",
       descAr:
-        "بمجرد الضغط على زر النشر، ينطلق معرضك على حافة Cloudflare مع خرائط Sitemap وبيانات JSON-LD وبطاقة QR جاهزة للمشاركة.",
+        "راجع شكل معرضك على الكمبيوتر والموبايل، ثم انشره على رابطك الشخصي. ويمكنك اختيار الظهور في دليل Explore بشكل منفصل.",
       descEn:
-        "Hit publish to deploy globally across 300+ edge nodes with instant OpenGraph cards, QR badge, and Schema.org SEO.",
+        "Preview your portfolio on desktop and mobile, then publish it to your own address. Explore directory visibility is a separate choice.",
       image: "/images/ultra/meshwar-hero.webp",
       ctaHref: "/templates",
-      ctaAr: "استعرض القوالب السبعة",
-      ctaEn: "Browse 7 Templates",
+      ctaAr: "استكشف الستايلات السبعة",
+      ctaEn: "Explore styles",
     },
   ];
 
@@ -59,12 +59,12 @@ export function CollectionSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className="text-xs font-mono uppercase tracking-[0.25em] text-[#9A7B4F] dark:text-[#C89D66]">
-            {t("٠٥ • رحلة البناء في ٣ خطوات", "05 • THREE-STEP SOVEREIGN WORKFLOW")}
+            {t("٠٥ • من الفكرة إلى المشاركة", "05 • FROM IDEA TO SHARE")}
           </span>
           <h2 className="arabic-diacritics mt-3 text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
             {t(
-              "من الفكرة إلى هوية رقمية منشورة في دقائق",
-              "From Vision to Published Monograph in Minutes"
+              "من أول فكرة إلى مساحة تقدر تشاركها",
+              "From first idea to a space you can share"
             )}
           </h2>
         </div>

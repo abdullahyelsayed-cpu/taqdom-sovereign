@@ -54,22 +54,26 @@ export default function TemplatesPage() {
           <div className="text-center max-w-3xl mx-auto mb-16">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#9A7B4F]/40 bg-[#9A7B4F]/10 px-4 py-1.5 text-xs font-mono uppercase tracking-[0.2em] text-[#9A7B4F] dark:text-[#C89D66]">
               <Layers className="h-3.5 w-3.5" />
-              <span>{t("معرض القوالب السيادية السبعة", "SEVEN SOVEREIGN ARCHETYPES")}</span>
+              <span>{t("معرض الستايلات", "SEVEN PORTFOLIO STYLES")}</span>
             </span>
 
             <h1 className="arabic-diacritics mt-5 text-4xl sm:text-6xl font-extrabold tracking-tight">
               {t(
-                "سبعة قوالب متكاملة، كلٌّ منها موقع مستقل لهويتك المهنية",
-                "Seven Career-Defining Portfolio Archetypes"
+                "اختَر شكلًا يعرض شغلك بأفضل طريقة",
+                "Seven ways to shape your portfolio"
               )}
             </h1>
             <p className="mt-4 text-base sm:text-lg text-muted-foreground leading-relaxed">
               {t(
-                "اختر القالب الذي يعبّر عن تخصصك الأكاديمي أو المهني، عاينه بملء الشاشة، ثم انطلق لتخصيصه في استوديو تَقَدُّم الحي ونشره على نطاقك الفرعي المستقل.",
-                "Inspect each of the 7 templates in interactive full-screen mode, explore its live creator showcase, or launch it directly inside Taqdom Studio."
+                "استكشف كل تصميم، افتح المثال التجريبي، ثم اختَر ما تريد تخصيصه في الاستوديو.",
+                "Explore each design, open its sample portfolio, then choose what to customise in the Studio."
               )}
             </p>
           </div>
+
+          <p className="mx-auto -mt-8 mb-12 max-w-3xl rounded-2xl border border-[#C7F36B]/25 bg-[#C7F36B]/[0.06] px-5 py-4 text-center text-sm leading-7 text-muted-foreground">
+            {t("المعارض المعروضة هنا أمثلة توضيحية لتجربة القوالب، وليست ملفات عملاء موثّقة.", "The portfolios shown here are illustrative samples to preview each style, not verified customer profiles.")}
+          </p>
 
           {/* 7 Templates Cards */}
           <div className="space-y-12">
@@ -95,14 +99,14 @@ export default function TemplatesPage() {
 
                     <div className="relative z-10 flex items-center justify-between">
                       <span className="rounded-full bg-[#0A0A09]/85 border border-[#C89D66]/50 px-3.5 py-1 font-mono text-xs font-bold text-[#C89D66]">
-                        ARCHETYPE 0{index + 1} • {tpl.id.toUpperCase()}
+                        STYLE 0{index + 1} • {tpl.id.toUpperCase()}
                       </span>
                       <Link
                         href={subUrl}
                         dir="ltr"
                         className="inline-flex items-center gap-1 rounded-full bg-[#0A0A09]/85 border border-[#F4F1EA]/25 px-3.5 py-1 font-mono text-xs font-semibold text-[#F4F1EA] hover:text-[#C89D66] transition"
                       >
-                        <span>{tpl.defaultCreatorUsername}.taqdom.me</span>
+                        <span>SAMPLE · {tpl.defaultCreatorUsername}.taqdom.me</span>
                         <ExternalLink className="h-3 w-3" />
                       </Link>
                     </div>
@@ -190,7 +194,7 @@ export default function TemplatesPage() {
                         className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] hover:opacity-95 px-5 py-3.5 text-xs sm:text-sm font-bold text-[#F7F5F0] dark:text-[#0A0A09] shadow-lg transition cursor-pointer"
                       >
                         <Sliders className="h-4 w-4" />
-                        <span>{t("استخدم هذا القالب في الاستوديو", "Use This Template in Studio")}</span>
+                        <span>{t("ابدأ بهذا الستايل", "Start with this style")}</span>
                       </button>
 
                       <button
@@ -230,7 +234,7 @@ export default function TemplatesPage() {
                 onClick={() => handleSelectForStudio(fullscreenTemplate)}
                 className="rounded-xl bg-[#C89D66] px-4 py-1.5 text-xs font-bold text-[#0A0A09]"
               >
-                {t("استخدم هذا القالب في الاستوديو", "Use in Studio")}
+                {t("ابدأ بهذا الستايل", "Use this style")}
               </button>
               <button
                 type="button"

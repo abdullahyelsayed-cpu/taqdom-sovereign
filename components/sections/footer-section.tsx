@@ -17,7 +17,7 @@ export function FooterSection() {
     }
   }, []);
 
-  const flagshipUsers = ["layla", "youssef", "farida", "karim", "tariq", "salma", "nora"] as const;
+  const sampleUsers = ["layla", "youssef", "farida", "karim", "tariq", "salma", "nora"] as const;
 
   return (
     <footer className="relative border-t border-border pt-20 pb-12 overflow-hidden">
@@ -28,8 +28,8 @@ export function FooterSection() {
             <TaqdomLogo size={44} lang={lang} />
             <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
               {t(
-                "تَقَدُّم (Taqdom) — المنصة السيادية لإنشاء معارض الأعمال والهويات الرقمية للطلاب والخريجين والمحترفين على نطاقاتهم الفرعية المستقلة.",
-                "Taqdom — The sovereign portfolio platform empowering graduates, engineers, architects, and revenue leaders on dedicated .taqdom.me subdomains."
+                "تَقَدُّم (Taqdom) — مساحة رقمية تعرض فيها مشاريعك وأفكارك ومهاراتك برابط شخصي وتصميم تختاره.",
+                "Taqdom — A personal space for projects, ideas, and skills, with a design you choose and a link you can share."
               )}
             </p>
             <div className="pt-2 flex items-center gap-3">
@@ -56,17 +56,17 @@ export function FooterSection() {
               </li>
               <li>
                 <Link href="/templates" className="text-muted-foreground hover:text-foreground">
-                  {t("معرض القوالب السبعة", "7 Sovereign Templates")}
+                  {t("معرض القوالب السبعة", "7 Styles")}
                 </Link>
               </li>
               <li>
                 <Link href="/studio" className="text-muted-foreground hover:text-foreground">
-                  {t("استوديو تَقَدُّم الحي", "Taqdom Live Studio")}
+                  {t("استوديو تَقَدُّم", "Taqdom Studio")}
                 </Link>
               </li>
               <li>
                 <Link href="/explore" className="text-muted-foreground hover:text-foreground">
-                  {t("دليل المبدعين المنشورين", "Explore Creators")}
+                  {t("استكشف الأعمال", "Explore work")}
                 </Link>
               </li>
               <li>
@@ -96,13 +96,13 @@ export function FooterSection() {
             </ul>
           </div>
 
-          {/* Live Subdomains */}
+          {/* Sample portfolios */}
           <div>
             <h4 className="mb-4 text-xs font-mono uppercase tracking-widest text-[#9A7B4F] dark:text-[#C89D66]">
-              {t("نطاقات المبدعين الحية", "Live Subdomains")}
+              {t("أمثلة للمعاينة", "Sample portfolios")}
             </h4>
             <ul className="space-y-2 text-sm font-mono" dir="ltr">
-              {flagshipUsers.map((u) => (
+              {sampleUsers.map((u) => (
                 <li key={u}>
                   <Link
                     href={getSubdomainUrl(u, host)}
@@ -128,7 +128,7 @@ export function FooterSection() {
           <p>
             {t(
               "© ٢٠٢٦ تَقَدُّم (Taqdom.me) — صُنع بفخر وإتقان في مصر للعالم.",
-              "© 2026 Taqdom.me — Crafted with Sovereign Pride in Cairo, Egypt."
+              "© 2026 Taqdom.me — Made with care in Egypt."
             )}
           </p>
           <div className="flex items-center gap-6">

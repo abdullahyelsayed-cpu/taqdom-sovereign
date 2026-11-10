@@ -10,9 +10,9 @@
   --bg-soft: #F2EFE9;
   --ink: #141413;
   --ink-muted: #5E5B55;
-  --bronze: #9A7B4F;
-  --amber: #C89D66;
-  --emerald-deep: #1E3A2F;
+  --bronze: #809B38;
+  --amber: #C7F36B;
+  --emerald-deep: #263A32;
   --aura: rgba(154, 123, 79, 0.14);
   --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -22,81 +22,81 @@
   --card-foreground: #141413;
   --popover: #F7F5F0;
   --popover-foreground: #141413;
-  --primary: #9A7B4F;
+  --primary: #809B38;
   --primary-foreground: #F7F5F0;
   --secondary: #E8E4DC;
   --secondary-foreground: #141413;
   --muted: #E5E0D6;
   --muted-foreground: #5E5B55;
-  --accent: #1E3A2F;
+  --accent: #263A32;
   --accent-foreground: #F7F5F0;
   --destructive: #991B1B;
   --destructive-foreground: #F7F5F0;
   --border: rgba(20, 20, 19, 0.1);
   --input: #E8E4DC;
-  --ring: #9A7B4F;
-  --chart-1: #9A7B4F;
-  --chart-2: #1E3A2F;
+  --ring: #809B38;
+  --chart-1: #809B38;
+  --chart-2: #263A32;
   --chart-3: #5E5B55;
-  --chart-4: #C89D66;
+  --chart-4: #C7F36B;
   --chart-5: #141413;
-  --radius: 0.75rem;
+  --radius: 1rem;
   --sidebar: #EFECE6;
   --sidebar-foreground: #141413;
-  --sidebar-primary: #9A7B4F;
+  --sidebar-primary: #809B38;
   --sidebar-primary-foreground: #F7F5F0;
   --sidebar-accent: #E5E0D6;
   --sidebar-accent-foreground: #141413;
   --sidebar-border: rgba(20, 20, 19, 0.1);
-  --sidebar-ring: #9A7B4F;
+  --sidebar-ring: #809B38;
   --mouse-x: 50vw;
   --mouse-y: 35vh;
 }
 
 .dark {
   /* Q4 2026 Cinema Noir & Obsidian Palette */
-  --bg: #0A0A09;
-  --bg-alt: #121210;
-  --bg-soft: #171714;
-  --ink: #F4F1EA;
-  --ink-muted: #A09C94;
-  --bronze: #C89D66;
-  --amber: #C89D66;
+  --bg: #080B10;
+  --bg-alt: #111820;
+  --bg-soft: #151D26;
+  --ink: #F5F7F2;
+  --ink-muted: #9FAAB5;
+  --bronze: #C7F36B;
+  --amber: #C7F36B;
   --emerald-deep: #2A5243;
-  --aura: rgba(200, 157, 102, 0.12);
+  --aura: rgba(199, 243, 107, 0.12);
 
-  --background: #0A0A09;
-  --foreground: #F4F1EA;
-  --card: #121210;
-  --card-foreground: #F4F1EA;
-  --popover: #121210;
-  --popover-foreground: #F4F1EA;
-  --primary: #C89D66;
-  --primary-foreground: #0A0A09;
+  --background: #080B10;
+  --foreground: #F5F7F2;
+  --card: #111820;
+  --card-foreground: #F5F7F2;
+  --popover: #111820;
+  --popover-foreground: #F5F7F2;
+  --primary: #C7F36B;
+  --primary-foreground: #080B10;
   --secondary: #181815;
-  --secondary-foreground: #F4F1EA;
+  --secondary-foreground: #F5F7F2;
   --muted: #1E1E1A;
-  --muted-foreground: #A09C94;
-  --accent: #C89D66;
-  --accent-foreground: #0A0A09;
+  --muted-foreground: #9FAAB5;
+  --accent: #C7F36B;
+  --accent-foreground: #080B10;
   --destructive: #DC2626;
-  --destructive-foreground: #F4F1EA;
+  --destructive-foreground: #F5F7F2;
   --border: rgba(244, 241, 234, 0.08);
   --input: #181815;
-  --ring: #C89D66;
-  --chart-1: #C89D66;
+  --ring: #C7F36B;
+  --chart-1: #C7F36B;
   --chart-2: #2A5243;
-  --chart-3: #A09C94;
-  --chart-4: #9A7B4F;
-  --chart-5: #F4F1EA;
-  --sidebar: #121210;
-  --sidebar-foreground: #F4F1EA;
-  --sidebar-primary: #C89D66;
-  --sidebar-primary-foreground: #0A0A09;
+  --chart-3: #9FAAB5;
+  --chart-4: #809B38;
+  --chart-5: #F5F7F2;
+  --sidebar: #111820;
+  --sidebar-foreground: #F5F7F2;
+  --sidebar-primary: #C7F36B;
+  --sidebar-primary-foreground: #080B10;
   --sidebar-accent: #181815;
-  --sidebar-accent-foreground: #F4F1EA;
+  --sidebar-accent-foreground: #F5F7F2;
   --sidebar-border: rgba(244, 241, 234, 0.08);
-  --sidebar-ring: #C89D66;
+  --sidebar-ring: #C7F36B;
 }
 
 @theme inline {
@@ -201,11 +201,11 @@
   }
 
   html.dark body {
-    background-color: #0A0A09;
+    background-color: #080B10;
     background-image:
-      radial-gradient(700px circle at var(--mouse-x) var(--mouse-y), rgba(200, 157, 102, 0.09), transparent 68%),
+      radial-gradient(700px circle at var(--mouse-x) var(--mouse-y), rgba(199, 243, 107, 0.09), transparent 68%),
       radial-gradient(950px circle at 85% 14%, rgba(30, 58, 47, 0.14), transparent 70%),
-      linear-gradient(180deg, #0A0A09 0%, #121210 55%, #0A0A09 100%);
+      linear-gradient(180deg, #080B10 0%, #111820 55%, #080B10 100%);
   }
 }
 
@@ -230,14 +230,14 @@
 
 /* Q4 2026 Warm Bronze & Cinema Amber Gradient Text */
 .gold-shimmer-text {
-  background: linear-gradient(135deg, #9A7B4F 0%, #C89D66 48%, #1E3A2F 100%);
+  background: linear-gradient(135deg, #809B38 0%, #C7F36B 48%, #263A32 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 .dark .gold-shimmer-text {
-  background: linear-gradient(135deg, #F4F1EA 0%, #C89D66 55%, #9A7B4F 100%);
+  background: linear-gradient(135deg, #F5F7F2 0%, #C7F36B 55%, #809B38 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

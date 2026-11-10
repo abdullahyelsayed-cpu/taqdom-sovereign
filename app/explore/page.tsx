@@ -8,11 +8,11 @@ import { Header } from "@/components/header";
 import { FooterSection } from "@/components/sections/footer-section";
 import { useLanguage } from "@/lib/i18n";
 import { useTaqdomStore } from "@/lib/store";
-import { SEED_PORTFOLIOS } from "@/lib/seed-data";
+import { SEED_PORTFOLIOS, TEMPLATES_CATALOG } from "@/lib/seed-data";
 import { getSubdomainUrl, PortfolioData, TemplateId, ALL_TEMPLATE_IDS } from "@/lib/types";
 
 export default function ExplorePage() {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
   const publishedPortfolios = useTaqdomStore((s) => s.publishedPortfolios);
   const [serverPortfolios, setServerPortfolios] = useState<Record<string, PortfolioData>>({});
   const [filterTemplate, setFilterTemplate] = useState<TemplateId | "all">("all");
@@ -41,6 +41,7 @@ export default function ExplorePage() {
 
   const mergedMap = { ...SEED_PORTFOLIOS, ...publishedPortfolios, ...serverPortfolios };
   const allCreators = Object.values(mergedMap).filter((c) => {
+    if (c.isFlagshipShowcase !== true && c.discoverable !== true) return false;
     if (filterTemplate !== "all" && c.template !== filterTemplate) return false;
     if (!query.trim()) return true;
     const q = query.toLowerCase();
@@ -62,11 +63,14 @@ export default function ExplorePage() {
           <div className="text-center max-w-3xl mx-auto mb-12">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#9A7B4F]/40 bg-[#9A7B4F]/10 px-4 py-1 text-xs font-mono uppercase tracking-[0.2em] text-[#9A7B4F] dark:text-[#C89D66]">
               <Compass className="h-3.5 w-3.5" />
-              <span>{t("دليل المبدعين والخريجين المنشورين", "SOVEREIGN CREATORS DIRECTORY")}</span>
+              <span>{t("اكتشف أعمالًا وأفكارًا", "DISCOVER CREATIVE WORK")}</span>
             </span>
             <h1 className="arabic-diacritics mt-4 text-4xl sm:text-6xl font-extrabold">
-              {t("استكشف معارض أعضاء تَقَدُّم", "Explore Published Sovereign Portfolios")}
+              {t("اكتشف ما يصنعه الآخرون", "Discover what others are making")}
             </h1>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-muted-foreground">
+              {t("تظهر هنا المعارض التجريبية، وأعمال الأشخاص الذين اختاروا الظهور في الدليل. يمكنك نشر رابطك دون إدراجك في Explore.", "This space shows sample portfolios and work from people who opted into the directory. You can publish your link without listing it here.")}
+            </p>
           </div>
 
           {/* Search & 7 Archetypes Filter */}
@@ -77,7 +81,7 @@ export default function ExplorePage() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("ابحث باسم المبدع أو النطاق...", "Search by creator or subdomain...")}
+                placeholder={t("ابحث بالاسم أو التخصص...", "Search by name or focus...")}
                 className="w-full bg-transparent text-sm focus:outline-none"
               />
             </div>
@@ -94,7 +98,7 @@ export default function ExplorePage() {
                       : "border-border bg-card text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {tpl === "all" ? t("الكل (7)", "All (7)") : tpl}
+                  {tpl === "all" ? t("الكل", "All") : (TEMPLATES_CATALOG.find((item) => item.id === tpl)?.name[lang] || tpl)}
                 </button>
               ))}
             </div>
@@ -102,7 +106,15 @@ export default function ExplorePage() {
 
           {/* Creators Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
-            {allCreators.map((creator) => {
+            {allCreators.length === 0 ? (
+              <div className="col-span-full glass-panel rounded-3xl px-6 py-16 text-center">
+                <Compass className="mx-auto h-8 w-8 text-[#C7F36B]" />
+                <h2 className="mt-4 text-lg font-bold">{t("لا توجد نتائج بهذا البحث", "No matches yet")}</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-muted-foreground">
+                  {t("جرّب كلمة مختلفة أو اختر قالبًا آخر. المعارض الشخصية لا تظهر هنا إلا بعد اختيار صاحبها الإدراج في الدليل.", "Try another search or style. Personal portfolios appear here only when their owners opt in.")}
+                </p>
+              </div>
+            ) : allCreators.map((creator) => {
               const subUrl = getSubdomainUrl(creator.username, host);
               return (
                 <div
@@ -119,7 +131,7 @@ export default function ExplorePage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A09]/90 via-transparent to-transparent" />
                     <div className="absolute top-3.5 end-3.5">
                       <span className="rounded-full bg-[#C89D66] px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase text-[#0A0A09]">
-                        {creator.template}
+                        {creator.isFlagshipShowcase ? t("مثال", "SAMPLE") : creator.template}
                       </span>
                     </div>
                     <div className="absolute bottom-3.5 inset-x-4 flex items-center gap-3">

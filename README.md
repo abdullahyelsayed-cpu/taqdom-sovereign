@@ -1,15 +1,17 @@
 # Taqdom | تَقَدُّم
 
-Taqdom is an Arabic-first digital identity and portfolio platform built for students, graduates, creators, and professionals.
+Taqdom is an Arabic-first creative portfolio space for students, makers, graduates, and professionals. It helps people shape a clear home for projects, ideas, skills, and work they want to share.
 
 ## Product experience
 
-- Seven portfolio archetypes with Arabic RTL and English LTR support.
-- A studio for editing and publishing portfolios.
-- Individual subdomains on `*.taqdom.me`.
-- A dashboard for account and portfolio management.
-- Dark-first appearance with a user-controlled light theme.
-- Responsive layouts, structured metadata, and accessible keyboard focus states.
+- Seven visual styles: Orbit, Frame, Forma, Index, Pulse, Flux, and Kin.
+- Arabic RTL and English LTR experiences.
+- A Studio for editing identity, work, appearance, findability, and publishing.
+- Personal subdomains on `*.taqdom.me`.
+- Explore directory is opt-in for personal portfolios. Publishing a direct URL does not automatically list it in Explore.
+- New accounts start with a blank profile; demo creators are clearly labelled as samples.
+- Dark-first visual system with a user-controlled light mode.
+- Keyboard-visible focus, reduced-motion support, and responsive layouts.
 
 ## Technology
 
@@ -27,7 +29,7 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Run checks and prepare the Cloudflare asset bundle before deployment:
+Run checks and prepare the Cloudflare asset bundle:
 
 ```bash
 pnpm typecheck
@@ -38,22 +40,22 @@ pnpm build:cloudflare
 
 ## Production deployment
 
-The GitHub repository includes a manually triggered, production-only workflow named **Deploy to Cloudflare**. It can deploy only from `main` and requires explicit confirmation.
+The repository includes a manually triggered, production-only workflow named **Deploy to Cloudflare**. It runs only from `main` and requires explicit confirmation.
 
 Before using it:
 
-1. Add GitHub repository Actions secrets named `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The Cloudflare API token should be restricted to the target account and grant the Worker script/route permissions needed by Wrangler.
-2. Configure the Worker secret `AUTH_SECRET` once. Generate a strong value locally (for example with Node's `crypto.randomBytes(48).toString("base64url")`) and set it with:
+1. Add GitHub Actions repository secrets named `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. Restrict the Cloudflare API token to the target account and the Worker/route permissions required by Wrangler.
+2. Configure a strong Worker secret named `AUTH_SECRET` (at least 32 characters). Generate it locally, for example with Node's `crypto.randomBytes(48).toString("base64url")`, and set it with:
    ```bash
    pnpm dlx wrangler@latest secret put AUTH_SECRET
    ```
-3. Merge the reviewed changes into `main`, then open **GitHub → Actions → Deploy to Cloudflare → Run workflow** and check the production-confirmation input.
+3. Merge reviewed changes into `main`, then run **GitHub → Actions → Deploy to Cloudflare** and confirm the production deployment.
 
-The deployment workflow checks that `AUTH_SECRET` exists before uploading the Worker. Do not commit the secret, put it in a public environment file, or rotate it casually: rotating it invalidates existing signed-in sessions.
+Do not commit secrets or place them in public environment files. Rotating `AUTH_SECRET` invalidates existing signed-in sessions.
 
-## Worker configuration
+## Privacy behavior
 
-The production Worker requires an `AUTH_SECRET` secret of at least 32 characters, the `DB` D1 binding, and the `ASSETS` static-assets binding. See `wrangler.jsonc` for resource names and routing configuration.
+A published portfolio URL is public to anyone who has the link. Explore directory listing is a separate opt-in and takes effect after the portfolio is published again. Disabling listing removes a profile from Explore but does not make its direct URL private.
 
 ## Graduation project context
 

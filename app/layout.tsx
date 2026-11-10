@@ -50,11 +50,11 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://taqdom.me"),
   title: {
-    default: "تَقَدُّم | Taqdom — الهويات الرقمية ومعارض الأعمال",
+    default: "تَقَدُّم | Taqdom — مساحتك لعرض ما تصنع",
     template: "%s | تَقَدُّم • Taqdom",
   },
   description:
-    "تَقَدُّم منصة عربية لإنشاء الهويات الرقمية ومعارض الأعمال الاحترافية للطلاب والخريجين والمبدعين والمحترفين، مع قوالب مرنة ونطاق فرعي مستقل لكل مستخدم.",
+    "تَقَدُّم مساحة عربية لصناعة معرض شخصي يعرض المشاريع والأفكار والمهارات بتصميم تختاره ورابط تستطيع مشاركته.",
   keywords: [
     "تقدم",
     "تَقَدُّم",
@@ -73,9 +73,9 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://taqdom.me",
     siteName: "تَقَدُّم | Taqdom",
-    title: "تَقَدُّم | Taqdom — هويتك الرقمية في مساحة تحمل اسمك",
+    title: "تَقَدُّم | Taqdom — مساحتك للي تصنعه",
     description:
-      "أنشئ معرض أعمال احترافيًا بهوية بصرية واضحة ونطاق فرعي مستقل، وشارك مشاريعك وخبراتك بثقة.",
+      "اعرض مشاريعك وأفكارك ومهاراتك في مساحة شخصية، واختر بنفسك إن كنت تريد الظهور في دليل Explore.",
     images: [
       {
         url: "/images/ultra/haven-hero.webp",
@@ -89,7 +89,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "تَقَدُّم | Taqdom — Digital Identity & Portfolios",
     description:
-      "Build a thoughtful professional portfolio with a distinctive digital identity.",
+      "Build a space for what you make. Choose your style, shape your story, and share your link.",
     images: ["/images/ultra/haven-hero.webp"],
   },
   icons: {
@@ -111,7 +111,7 @@ const rootJsonLd = {
       url: "https://taqdom.me",
       name: "تَقَدُّم | Taqdom",
       description:
-        "منصة لإنشاء الهويات الرقمية ومعارض الأعمال للطلاب والخريجين والمبدعين والمحترفين.",
+        "مساحة شخصية لعرض المشاريع والأفكار والمهارات.",
       inLanguage: ["ar", "en"],
     },
     {
@@ -124,7 +124,7 @@ const rootJsonLd = {
     },
     {
       "@type": "SoftwareApplication",
-      name: "Taqdom Studio — استوديو تَقَدُّم",
+      name: "Taqdom Studio",
       applicationCategory: "DesignApplication",
       operatingSystem: "Web",
       url: "https://taqdom.me/studio",

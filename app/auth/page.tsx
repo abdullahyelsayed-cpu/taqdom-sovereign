@@ -264,7 +264,7 @@ export default function AuthPage() {
                   }`}
                 >
                   <UserPlus className="h-4 w-4" />
-                  <span>{t("حجز نطاق وإنشاء حساب", "Claim Subdomain & Sign Up")}</span>
+                  <span>{t("إنشاء مساحتك", "Create your space")}</span>
                 </button>
                 <button
                   type="button"
@@ -284,7 +284,7 @@ export default function AuthPage() {
                 <form onSubmit={handleRegister} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold mb-1.5">
-                      {t("اختر اسم المستخدم للنطاق الفرعي", "Choose Your Sovereign Subdomain")}
+                      {t("اختَر اسم رابطك الشخصي", "Choose your personal address")}
                     </label>
                     <div
                       dir="ltr"
@@ -311,7 +311,7 @@ export default function AuthPage() {
 
                   <div>
                     <label className="block text-xs font-bold mb-1.5">
-                      {t("الاسم الكامل (يظهر في المعرض)", "Full Display Name")}
+                      {t("الاسم الذي سيظهر في معرضك", "Name shown on your portfolio")}
                     </label>
                     <input
                       type="text"
@@ -356,7 +356,7 @@ export default function AuthPage() {
 
                   <div>
                     <label className="block text-xs font-bold mb-1.5">
-                      {t("اختر القالب المهني المبدئي (7 قوالب)", "Select Initial Career Archetype (7 Templates)")}
+                      {t("اختَر الستايل الأول (7 خيارات)", "Choose your starting style (7 options)")}
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {ALL_TEMPLATE_IDS.map((tpl) => (
@@ -383,8 +383,8 @@ export default function AuthPage() {
                   >
                     <span>
                       {t(
-                        "إنشاء الحساب وإطلاق النطاق الفرعي",
-                        "Create Account & Launch Subdomain"
+                        "إنشاء مساحتي",
+                        "Create my space"
                       )}
                     </span>
                     {lang === "ar" ? (
