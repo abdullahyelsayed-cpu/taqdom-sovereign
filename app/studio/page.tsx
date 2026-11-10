@@ -400,6 +400,19 @@ function StudioContent() {
   ];
 
   const liveSubdomainHref = getSubdomainUrl(draft.username, host);
+  const profileCompletionChecks = [
+    Boolean(draft.name.ar.trim()),
+    Boolean(draft.name.en.trim()),
+    Boolean(draft.title.ar.trim()),
+    Boolean(draft.bio.ar.trim()),
+    Boolean(draft.avatar && !draft.avatar.includes("placeholder")),
+    draft.projects.length > 0,
+    draft.skills.length > 0,
+    draft.links.length > 0,
+  ];
+  const profileCompletion = Math.round(
+    (profileCompletionChecks.filter(Boolean).length / profileCompletionChecks.length) * 100
+  );
 
   const availableCanvasSections = CANVAS_SECTIONS.filter((section) =>
     CANVAS_SECTIONS_BY_TEMPLATE[draft.template]?.includes(section.id)
@@ -526,8 +539,8 @@ function StudioContent() {
   return (
     <div data-taqdom-studio className="min-h-screen flex flex-col bg-background text-foreground">
       {/* Top Studio Command Bar */}
-      <header className="sticky top-0 z-50 border-b border-border glass-panel px-4 py-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <header className="studio-topbar sticky top-0 z-50 border-b border-border glass-panel px-4 py-2.5">
+        <div className="studio-topbar-inner flex flex-wrap items-center justify-between gap-3">
           {/* Left: Logo + Back links */}
           <div className="flex items-center gap-4">
             <Link href="/">
@@ -545,6 +558,10 @@ function StudioContent() {
                 <span>https://{draft.username}.taqdom.me</span>
                 <ExternalLink className="h-3 w-3" />
               </Link>
+            </div>
+            <div className="studio-project-label hidden md:flex">
+              <span>{t("مساحة العمل", "YOUR WORKSPACE")}</span>
+              <strong>{draft.name.ar || draft.username}</strong>
             </div>
           </div>
 
@@ -680,11 +697,40 @@ function StudioContent() {
       </header>
 
       {/* Main Split Workspace: Side Editor + Live Center Stage */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-64px)]">
+      <div className="studio-workspace-grid flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-64px)]">
         {/* Editor Control Panel */}
-        <aside className="lg:col-span-4 xl:col-span-4 border-e border-border bg-card/90 flex flex-col h-full lg:max-h-[calc(100vh-64px)] overflow-y-auto">
+        <aside className="studio-sidebar lg:col-span-4 xl:col-span-4 border-e border-border bg-card/90 flex flex-col h-full lg:max-h-[calc(100vh-64px)] overflow-y-auto">
+          <div className="studio-side-intro">
+            <div className="studio-side-intro-top">
+              <div className="studio-side-avatar">
+                <Image
+                  src={draft.avatar || "/images/taqdom-avatar-placeholder.svg"}
+                  alt={t(draft.name.ar, draft.name.en)}
+                  fill
+                  sizes="48px"
+                  className="object-cover"
+                />
+              </div>
+              <div className="studio-side-identity">
+                <span>{t("مساحتك الإبداعية", "YOUR CREATIVE SPACE")}</span>
+                <strong>{draft.name.ar || draft.username}</strong>
+                <small dir="ltr">{draft.username}.taqdom.me</small>
+              </div>
+              <span className="studio-side-live"><i /> LIVE</span>
+            </div>
+            <div className="studio-completion">
+              <div className="studio-completion-label">
+                <span>{t("اكتمال ملفك", "PROFILE COMPLETION")}</span>
+                <strong>{profileCompletion}%</strong>
+              </div>
+              <div className="studio-completion-track">
+                <span style={{ width: profileCompletion + "%" }} />
+              </div>
+              <p>{t("كلما أضفت أعمالك وتفاصيلك، أصبح معرضك أقوى.", "Add your details and work to make your portfolio stronger.")}</p>
+            </div>
+          </div>
           {/* Studio Navigation Tabs */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-1.5 p-3 border-b border-border bg-secondary/40">
+          <div className="studio-tab-list grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-1.5 p-3 border-b border-border bg-secondary/40">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -694,11 +740,7 @@ function StudioContent() {
                   type="button"
                   data-testid={`studio-tab-${tab.id}`}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold transition cursor-pointer ${
-                    active
-                      ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09] shadow"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  }`}
+                  className={`studio-tab flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold transition cursor-pointer ${active ? "is-active" : ""}`}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{t(tab.labelAr, tab.labelEn)}</span>
@@ -1553,9 +1595,9 @@ function StudioContent() {
           onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
           onPointerCancel={handleCanvasPointerUp}
-          className="lg:col-span-8 xl:col-span-8 bg-secondary/40 p-3 sm:p-6 flex flex-col items-center overflow-y-auto lg:max-h-[calc(100vh-64px)]"
+          className="studio-canvas-stage lg:col-span-8 xl:col-span-8 bg-secondary/40 p-3 sm:p-6 flex flex-col items-center overflow-y-auto lg:max-h-[calc(100vh-64px)]"
         >
-          <div className="mb-3 flex w-full max-w-7xl items-center justify-between gap-3 rounded-2xl border border-border bg-card/90 px-3 py-2">
+          <div className="studio-preview-toolbar mb-3 flex w-full max-w-7xl items-center justify-between gap-3 rounded-2xl border border-border bg-card/90 px-3 py-2">
             <div className="min-w-0">
               <p className="text-xs font-bold">{t("معاينة مباشرة", "Live canvas preview")}</p>
               <p className="truncate text-[10px] text-muted-foreground">{canvasArrangeMode ? t("اسحب أي قسم لتحريكه، والركن لتغيير عرضه.", "Drag a section to move it; use its corner to resize.") : t("فعّل الترتيب لتحرير مواضع الأقسام مباشرة.", "Enable Arrange to edit section positions directly.")}</p>
@@ -1567,7 +1609,7 @@ function StudioContent() {
             </button>
           </div>
           <div
-            className={`w-full transition-all duration-500 rounded-3xl overflow-hidden border border-border shadow-2xl bg-background ${
+            className={`studio-preview-frame w-full transition-all duration-500 rounded-3xl overflow-hidden border border-border shadow-2xl bg-background ${
               device === "desktop"
                 ? "w-full"
                 : device === "tablet"
