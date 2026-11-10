@@ -9,7 +9,7 @@ import { FooterSection } from "@/components/sections/footer-section";
 import { useLanguage } from "@/lib/i18n";
 import { useTaqdomStore } from "@/lib/store";
 import { SEED_PORTFOLIOS } from "@/lib/seed-data";
-import { getSubdomainUrl, PortfolioData, TemplateId } from "@/lib/types";
+import { getSubdomainUrl, PortfolioData, TemplateId, ALL_TEMPLATE_IDS } from "@/lib/types";
 
 export default function ExplorePage() {
   const { t } = useLanguage();
@@ -60,19 +60,19 @@ export default function ExplorePage() {
       <section className="pt-32 pb-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto mb-12">
-            <span className="inline-flex items-center gap-2 rounded-full border border-[#C5A059]/40 bg-[#C5A059]/10 px-4 py-1 text-xs font-mono uppercase tracking-[0.2em] text-[#C5A059]">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#9A7B4F]/40 bg-[#9A7B4F]/10 px-4 py-1 text-xs font-mono uppercase tracking-[0.2em] text-[#9A7B4F] dark:text-[#C89D66]">
               <Compass className="h-3.5 w-3.5" />
-              <span>{t("دليل المبدعين المنشورين", "SOVEREIGN CREATORS DIRECTORY")}</span>
+              <span>{t("دليل المبدعين والخريجين المنشورين", "SOVEREIGN CREATORS DIRECTORY")}</span>
             </span>
             <h1 className="arabic-diacritics mt-4 text-4xl sm:text-6xl font-extrabold">
               {t("استكشف معارض أعضاء تَقَدُّم", "Explore Published Sovereign Portfolios")}
             </h1>
           </div>
 
-          {/* Search & Archetype Filter */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-10">
+          {/* Search & 7 Archetypes Filter */}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 mb-10">
             <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-2.5 flex-1 max-w-md">
-              <Search className="h-4 w-4 text-[#C5A059]" />
+              <Search className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               <input
                 type="text"
                 value={query}
@@ -83,18 +83,18 @@ export default function ExplorePage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {(["all", "athar", "madar", "siyada", "noor"] as const).map((tpl) => (
+              {(["all", ...ALL_TEMPLATE_IDS] as const).map((tpl) => (
                 <button
                   key={tpl}
                   type="button"
                   onClick={() => setFilterTemplate(tpl)}
-                  className={`rounded-xl border px-3.5 py-2 text-xs font-bold uppercase transition ${
+                  className={`rounded-xl border px-3.5 py-2 text-xs font-bold uppercase transition cursor-pointer ${
                     filterTemplate === tpl
-                      ? "border-[#C5A059] bg-[#C5A059] text-[#111113]"
+                      ? "border-[#9A7B4F] dark:border-[#C89D66] bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09]"
                       : "border-border bg-card text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {tpl === "all" ? t("الكل", "All") : tpl}
+                  {tpl === "all" ? t("الكل (7)", "All (7)") : tpl}
                 </button>
               ))}
             </div>
@@ -107,7 +107,7 @@ export default function ExplorePage() {
               return (
                 <div
                   key={creator.username}
-                  className="glass-panel rounded-3xl overflow-hidden flex flex-col justify-between border border-border hover:border-[#C5A059] transition-all duration-300 shadow-xl"
+                  className="glass-panel rounded-3xl overflow-hidden flex flex-col justify-between border border-border hover:border-[#9A7B4F] dark:hover:border-[#C89D66] transition-all duration-300 shadow-xl"
                 >
                   <div className="relative h-48 w-full overflow-hidden">
                     <Image
@@ -116,9 +116,14 @@ export default function ExplorePage() {
                       fill
                       className="object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#050508]/90 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A09]/90 via-transparent to-transparent" />
+                    <div className="absolute top-3.5 end-3.5">
+                      <span className="rounded-full bg-[#C89D66] px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase text-[#0A0A09]">
+                        {creator.template}
+                      </span>
+                    </div>
                     <div className="absolute bottom-3.5 inset-x-4 flex items-center gap-3">
-                      <div className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 border-[#D4AF37]">
+                      <div className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 border-[#C89D66]">
                         <Image
                           src={creator.avatar}
                           alt={t(creator.name.ar, creator.name.en)}
@@ -127,10 +132,10 @@ export default function ExplorePage() {
                         />
                       </div>
                       <div>
-                        <h2 className="arabic-diacritics font-bold text-lg text-[#EDEAE2]">
+                        <h2 className="arabic-diacritics font-bold text-lg text-[#F4F1EA]">
                           {t(creator.name.ar, creator.name.en)}
                         </h2>
-                        <div className="flex items-center gap-1 text-xs text-[#D4AF37]">
+                        <div className="flex items-center gap-1 text-xs text-[#C89D66]">
                           <MapPin className="h-3 w-3" />
                           <span>{t(creator.city.ar, creator.city.en)}</span>
                         </div>
@@ -140,7 +145,7 @@ export default function ExplorePage() {
 
                   <div className="p-6 flex-1 flex flex-col justify-between gap-4">
                     <div>
-                      <p className="text-xs font-bold text-[#C5A059] mb-1">
+                      <p className="text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66] mb-1">
                         {t(creator.title.ar, creator.title.en)}
                       </p>
                       <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
@@ -151,7 +156,7 @@ export default function ExplorePage() {
                       <Link
                         href={subUrl}
                         dir="ltr"
-                        className="font-mono text-xs font-bold text-[#C5A059] hover:underline flex items-center gap-1"
+                        className="font-mono text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66] hover:underline flex items-center gap-1"
                       >
                         <span>{creator.username}.taqdom.me</span>
                         <ExternalLink className="h-3 w-3" />

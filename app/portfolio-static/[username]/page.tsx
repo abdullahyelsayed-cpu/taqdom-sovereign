@@ -2,11 +2,13 @@ import PortfolioSubdomainPage, { generateMetadata } from "@/app/portfolio/[usern
 
 export function generateStaticParams() {
   return [
-    { username: "test" },
     { username: "layla" },
     { username: "youssef" },
     { username: "farida" },
     { username: "karim" },
+    { username: "tariq" },
+    { username: "salma" },
+    { username: "nora" },
   ];
 }
 

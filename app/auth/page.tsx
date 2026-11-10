@@ -26,6 +26,7 @@ import {
   validateUsername,
   getSubdomainUrl,
   TemplateId,
+  ALL_TEMPLATE_IDS,
 } from "@/lib/types";
 
 export default function AuthPage() {
@@ -41,9 +42,9 @@ export default function AuthPage() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
-  const [template, setTemplate] = useState<TemplateId>("athar");
+  const [template, setTemplate] = useState<TemplateId>("haven");
   const [loading, setLoading] = useState(false);
-  const [testLoggedIn, setTestLoggedIn] = useState(false);
+  const [flagshipLoggedIn, setFlagshipLoggedIn] = useState(false);
   const [host, setHost] = useState("taqdom.me");
 
   useEffect(() => {
@@ -52,15 +53,15 @@ export default function AuthPage() {
     }
   }, []);
 
-  const handleOneClickTestAccount = async () => {
+  const handleFlagshipCreatorAccess = async () => {
     setLoading(true);
     try {
       await resetTestAccount();
-      setTestLoggedIn(true);
+      setFlagshipLoggedIn(true);
       toast.success(
         t(
-          "تم تسجيل الدخول بحساب الاختبار الرسمي (test@taqdom.me)!",
-          "Logged in with Official Test Account (test@taqdom.me)!"
+          "تم الدخول إلى الحساب النموذجي الموثق (layla@taqdom.me)!",
+          "Signed in to Verified Creator Showcase (layla@taqdom.me)!"
         )
       );
       router.push("/dashboard");
@@ -144,7 +145,7 @@ export default function AuthPage() {
     }
   };
 
-  const testSubdomainHref = getSubdomainUrl("test", host);
+  const flagshipSubdomainHref = getSubdomainUrl("layla", host);
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -153,98 +154,98 @@ export default function AuthPage() {
       <section className="pt-32 pb-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-            {/* Column 1: 1-Click Test Account Showcase Card (MANDATORY FEATURE) */}
-            <div className="lg:col-span-6 glass-panel rounded-3xl p-8 border-2 border-[#C5A059] shadow-2xl space-y-6">
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#C5A059]/20 border border-[#C5A059]/50 px-3.5 py-1 text-xs font-bold text-[#C5A059]">
+            {/* Column 1: 1-Click Verified Flagship Creator Preview */}
+            <div className="lg:col-span-6 glass-panel rounded-3xl p-8 border-2 border-[#9A7B4F] dark:border-[#C89D66] shadow-2xl space-y-6">
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#9A7B4F]/15 border border-[#9A7B4F]/40 px-3.5 py-1 text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>
                   {t(
-                    "حساب الاختبار الرسمي الجاهز • 1-Click Test Account",
-                    "OFFICIAL 1-CLICK TEST ACCOUNT"
+                    "معاينة فورية لحساب مبدع موثق • Verified Creator Showcase",
+                    "VERIFIED CREATOR SHOWCASE ACCESS"
                   )}
                 </span>
               </div>
 
               <h1 className="arabic-diacritics text-3xl sm:text-4xl font-extrabold">
                 {t(
-                  "دخول فوري بحساب الاختبار بدون تسجيل",
-                  "Instant 1-Click Test Account Access"
+                  "معاينة فورية لحساب المبدعة الموثقة ليلى منصور",
+                  "Instant Verified Creator Studio Preview"
                 )}
               </h1>
 
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                 {t(
-                  "جرب كامل قدرات منصة تَقَدُّم فوراً عبر حساب الاختبار الرسمي المحمّل مسبقاً ببورتفوليو معماري ثلاثي الأبعاد كامل بالصور والمشاريع.",
-                  "Experience Taqdom's full capabilities immediately using our pre-loaded sovereign test account with architectural 3D projects."
+                  "استكشف لوحة التحكم والاستوديو الحي مباشرة عبر الحساب الموثق للمهندسة ليلى منصور (layla.taqdom.me) المحمّل مسبقاً بالمشاريع المعمارية والصور بدقة 4K.",
+                  "Explore the live Studio and sovereign dashboard immediately through the verified portfolio of Principal Architect Layla Mansour (layla.taqdom.me)."
                 )}
               </p>
 
-              {/* Pre-loaded Test Creator Card */}
+              {/* Verified Flagship Creator Card */}
               <div className="rounded-2xl bg-secondary/80 border border-border p-5 flex items-center gap-4">
-                <div className="relative h-16 w-16 rounded-2xl overflow-hidden border-2 border-[#C5A059] shrink-0">
+                <div className="relative h-16 w-16 rounded-2xl overflow-hidden border-2 border-[#9A7B4F] dark:border-[#C89D66] shrink-0">
                   <Image
-                    src="/images/creators/test.jpg"
-                    alt="Ahmed El-Kilany Test Account"
+                    src="/images/creators/layla.jpg"
+                    alt="Layla Mansour Verified Creator"
                     fill
                     className="object-cover"
                   />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h2 className="arabic-diacritics font-bold text-base">
-                    {t("أحمد الكيلاني (حساب الاختبار)", "Ahmed El-Kilany (Test Account)")}
+                    {t("ليلى منصور — مهندسة معمارية", "Layla Mansour — Principal Architect")}
                   </h2>
-                  <p dir="ltr" className="font-mono text-xs text-[#C5A059] truncate">
-                    Email: test@taqdom.me • Username: test
+                  <p dir="ltr" className="font-mono text-xs text-[#9A7B4F] dark:text-[#C89D66] truncate">
+                    Email: layla@taqdom.me • Handle: layla
                   </p>
-                  <p dir="ltr" className="font-mono text-xs font-bold text-emerald-600 dark:text-[#00F5D4]">
-                    Subdomain: https://test.taqdom.me
+                  <p dir="ltr" className="font-mono text-xs font-bold text-[#1E3A2F] dark:text-[#C89D66]">
+                    Subdomain: https://layla.taqdom.me
                   </p>
                 </div>
               </div>
 
-              {/* 1-Click Test Login Button */}
+              {/* 1-Click Verified Creator Login Button */}
               <button
                 type="button"
                 data-testid="test-account-login-btn"
-                onClick={handleOneClickTestAccount}
+                onClick={handleFlagshipCreatorAccess}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2.5 rounded-2xl bg-[#C5A059] hover:bg-[#D4AF37] py-4 px-6 text-sm sm:text-base font-extrabold text-[#111113] shadow-xl transition cursor-pointer"
+                className="w-full flex items-center justify-center gap-2.5 rounded-2xl bg-[#9A7B4F] dark:bg-[#C89D66] hover:opacity-95 py-4 px-6 text-sm sm:text-base font-extrabold text-[#F7F5F0] dark:text-[#0A0A09] shadow-xl transition cursor-pointer"
               >
                 <ShieldCheck className="h-5 w-5" />
                 <span>
                   {t(
-                    "دخول فوري بحساب الاختبار | 1-Click Test Account",
-                    "1-Click Test Account Login (test@taqdom.me)"
+                    "دخول المعاينة السريعة للحساب الموثق (layla.taqdom.me)",
+                    "Launch Verified Creator Preview (layla.taqdom.me)"
                   )}
                 </span>
               </button>
 
-              {/* Direct Quick Links for Test Account */}
+              {/* Direct Quick Links for Flagship Creator */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <Link
-                  href="/studio?u=test"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background hover:border-[#C5A059] px-4 py-3 text-xs font-bold transition"
+                  href="/studio?u=layla"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background hover:border-[#9A7B4F] px-4 py-3 text-xs font-bold transition"
                 >
-                  <Sliders className="h-4 w-4 text-[#C5A059]" />
-                  <span>{t("فتح استوديو التعديل (test)", "Open Studio for test")}</span>
+                  <Sliders className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
+                  <span>{t("فتح الاستوديو الحي (layla)", "Open Live Studio (layla)")}</span>
                 </Link>
 
                 <Link
-                  href={testSubdomainHref}
+                  href={flagshipSubdomainHref}
                   dir="ltr"
-                  data-testid="open-test-subdomain-btn"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background hover:border-[#00F5D4] px-4 py-3 font-mono text-xs font-bold transition"
+                  data-testid="open-flagship-subdomain-btn"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background hover:border-[#9A7B4F] px-4 py-3 font-mono text-xs font-bold transition"
                 >
-                  <span>test.taqdom.me</span>
-                  <ExternalLink className="h-3.5 w-3.5 text-[#00F5D4]" />
+                  <span>layla.taqdom.me</span>
+                  <ExternalLink className="h-3.5 w-3.5 text-[#9A7B4F] dark:text-[#C89D66]" />
                 </Link>
               </div>
 
-              {testLoggedIn && (
-                <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/40 p-3 flex items-center gap-2 text-xs font-bold">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              {flagshipLoggedIn && (
+                <div className="rounded-xl bg-[#1E3A2F]/15 border border-[#1E3A2F]/40 p-3 flex items-center gap-2 text-xs font-bold">
+                  <CheckCircle2 className="h-4 w-4 text-[#1E3A2F] dark:text-[#C89D66]" />
                   <span>
-                    {t("تم تفعيل جلسة الاختبار بنجاح!", "Test session activated!")}
+                    {t("تم تفعيل جلسة المبدع الموثق بنجاح!", "Verified creator session activated!")}
                   </span>
                 </div>
               )}
@@ -258,7 +259,7 @@ export default function AuthPage() {
                   onClick={() => setMode("register")}
                   className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
                     mode === "register"
-                      ? "bg-[#C5A059] text-[#111113] shadow"
+                      ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09] shadow"
                       : "text-muted-foreground"
                   }`}
                 >
@@ -270,7 +271,7 @@ export default function AuthPage() {
                   onClick={() => setMode("login")}
                   className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
                     mode === "login"
-                      ? "bg-[#C5A059] text-[#111113] shadow"
+                      ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09] shadow"
                       : "text-muted-foreground"
                   }`}
                 >
@@ -289,21 +290,21 @@ export default function AuthPage() {
                       dir="ltr"
                       className="flex items-center rounded-xl border border-border bg-background px-3.5 py-2.5"
                     >
-                      <Globe2 className="h-4 w-4 text-[#C5A059] me-2 shrink-0" />
+                      <Globe2 className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66] me-2 shrink-0" />
                       <input
                         type="text"
                         required
                         dir="ltr"
                         value={username}
                         onChange={(e) => setUsername(normalizeUsername(e.target.value))}
-                        placeholder="ahmed"
+                        placeholder="sara"
                         className="w-full bg-transparent font-mono text-sm focus:outline-none text-left"
                       />
-                      <span dir="ltr" className="font-mono text-xs font-bold text-[#C5A059]">
+                      <span dir="ltr" className="font-mono text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
                         .taqdom.me
                       </span>
                     </div>
-                    <p dir="ltr" className="mt-1 font-mono text-xs text-[#C5A059]">
+                    <p dir="ltr" className="mt-1 font-mono text-xs text-[#9A7B4F] dark:text-[#C89D66]">
                       https://{username || "username"}.taqdom.me
                     </p>
                   </div>
@@ -355,17 +356,17 @@ export default function AuthPage() {
 
                   <div>
                     <label className="block text-xs font-bold mb-1.5">
-                      {t("القالب المبدئي المفضل", "Initial Archetype Template")}
+                      {t("اختر القالب المهني المبدئي (7 قوالب)", "Select Initial Career Archetype (7 Templates)")}
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {(["athar", "madar", "siyada", "noor"] as const).map((tpl) => (
+                      {ALL_TEMPLATE_IDS.map((tpl) => (
                         <button
                           key={tpl}
                           type="button"
                           onClick={() => setTemplate(tpl)}
                           className={`rounded-xl border py-2 text-xs font-bold uppercase ${
                             template === tpl
-                              ? "border-[#C5A059] bg-[#C5A059]/20"
+                              ? "border-[#9A7B4F] dark:border-[#C89D66] bg-[#9A7B4F]/20"
                               : "border-border bg-background"
                           }`}
                         >
@@ -405,7 +406,7 @@ export default function AuthPage() {
                       dir="ltr"
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="test@taqdom.me / test"
+                      placeholder="layla@taqdom.me / layla"
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm"
                     />
                   </div>

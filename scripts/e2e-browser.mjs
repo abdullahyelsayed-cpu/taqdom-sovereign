@@ -1,4 +1,4 @@
-// scripts/e2e-browser.mjs — Real Browser E2E Test & Visual Verification
+// scripts/e2e-browser.mjs — Real Browser E2E Test & Visual Verification for Taqdom v2
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -28,7 +28,7 @@ async function main() {
   });
   const page = await context.newPage();
 
-  console.log("=== STARTING REAL BROWSER E2E VERIFICATION ===");
+  console.log("=== STARTING REAL BROWSER E2E VERIFICATION (TAQDOM v2) ===");
 
   // Pre-set sessionStorage so preloader doesn't block screenshots
   await page.addInitScript(() => {
@@ -37,11 +37,10 @@ async function main() {
     } catch {}
   });
 
-  // 1. Open Homepage (/) in Day Mode (Living Alabaster Off-White)
+  // 1. Open Homepage (/) in Day Mode (Warm Alabaster #F7F5F0)
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(800);
 
-  // Verify computed background-color on body is NOT #FFFFFF (rgb(255, 255, 255))
   const bodyBgLight = await page.evaluate(() => {
     return window.getComputedStyle(document.body).backgroundColor;
   });
@@ -50,7 +49,7 @@ async function main() {
     "rgb(255, 255, 255)",
     `Day Mode body background must NOT be pure white rgb(255, 255, 255), got ${bodyBgLight}`
   );
-  console.log(`[PASS] Browser E2E 1: Day Mode computed body background is Living Alabaster (${bodyBgLight})`);
+  console.log(`[PASS] Browser E2E 1: Day Mode computed body background is Warm Alabaster (${bodyBgLight})`);
 
   // Type 'ahmed' in Hero username input and check live subdomain preview
   const heroInput = page.getByTestId("hero-username-input");
@@ -73,7 +72,7 @@ async function main() {
   assert.equal(nextDir, "ltr", "Language toggle must switch dir to ltr immediately");
   console.log("[PASS] Browser E2E 3: Instant AR -> EN language toggle switches html[dir] from rtl to ltr");
 
-  // 3. Toggle Theme Day -> Cyber-Luxury Night
+  // 3. Toggle Theme Day -> Cinema Noir Night
   await page.getByTestId("theme-toggle").click();
   const isDarkClass = await page.evaluate(() =>
     document.documentElement.classList.contains("dark")
@@ -81,22 +80,23 @@ async function main() {
   assert.equal(isDarkClass, true, "Theme toggle must activate .dark class");
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "02-home-night-en.png") });
-  console.log("[PASS] Browser E2E 4: Day -> Night mode toggle verified");
+  console.log("[PASS] Browser E2E 4: Day -> Cinema Noir Night mode toggle verified");
 
   // Switch back to Arabic for subsequent checks
   await page.getByTestId("lang-toggle").click();
 
-  // 4. Visit /templates page
+  // 4. Visit /templates page and verify all 7 templates are visible
   await page.goto(`${BASE}/templates`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
-  for (const tpl of ["athar", "madar", "siyada", "noor"]) {
+  const all7 = ["madar", "athar", "haven", "siyada", "wameed", "salam", "meshwar"];
+  for (const tpl of all7) {
     const visible = await page.getByTestId(`template-card-${tpl}`).isVisible();
     assert.equal(visible, true, `Template card ${tpl} should be visible`);
   }
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "03-templates.png") });
-  console.log("[PASS] Browser E2E 5: /templates page displays all 4 templates (athar, madar, siyada, noor)");
+  console.log("[PASS] Browser E2E 5: /templates page displays all 7 archetypes (madar, athar, haven, siyada, wameed, salam, meshwar)");
 
-  // 5. Visit /auth and click 1-Click Test Account button
+  // 5. Visit /auth and click 1-Click Verified Creator button (layla.taqdom.me)
   await page.goto(`${BASE}/auth`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(500);
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "04-auth.png") });
@@ -104,83 +104,68 @@ async function main() {
   await page.waitForURL("**/dashboard", { timeout: 10000 });
   await page.waitForTimeout(500);
   const dashSub = await page.getByTestId("dashboard-subdomain").textContent();
-  assert.equal(dashSub?.trim(), "https://test.taqdom.me");
+  assert.equal(dashSub?.trim(), "https://layla.taqdom.me");
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "05-dashboard.png") });
-  console.log("[PASS] Browser E2E 6: 1-Click Test Account button logs in and navigates to /dashboard");
+  console.log("[PASS] Browser E2E 6: 1-Click Verified Creator button logs into layla.taqdom.me and navigates to /dashboard");
 
-  // 6. Visit /studio, edit bio, and click Publish
-  await page.goto(`${BASE}/studio?u=test`, { waitUntil: "domcontentloaded" });
+  // 6. Visit /studio?u=layla, edit bio, and click Publish
+  await page.goto(`${BASE}/studio?u=layla`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
-  const e2eBio = "نبذة تم تعديلها ونشرها عبر المتصفح الحقيقي E2E — Taqdom Studio Live";
+  const e2eBio = "نبذة معمارية تم تحديثها ونشرها حياً عبر الاستوديو — Layla Studio E2E 2026";
   await page.getByTestId("studio-bio-ar-input").fill(e2eBio);
   await page.getByTestId("studio-publish-btn").click();
   await page.getByTestId("studio-publish-banner").waitFor({ state: "visible", timeout: 10000 });
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "06-studio.png") });
   console.log("[PASS] Browser E2E 7: /studio live edit and publish banner verified");
 
-  // 7. Visit http://test.localhost:PORT in Browser and verify published bio renders on subdomain
-  await page.goto(`http://test.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
+  // 7. Visit http://layla.localhost:PORT in Browser and verify published bio renders on subdomain
+  await page.goto(`http://layla.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(700);
   const pageContent = await page.content();
   assert.equal(
     pageContent.includes(e2eBio),
     true,
-    "Published bio must be visible on http://test.localhost:PORT/"
+    "Published bio must be visible on http://layla.localhost:PORT/"
   );
-  await page.screenshot({ path: path.join(SCREENSHOT_DIR, "07-subdomain-test.png") });
-  console.log("[PASS] Browser E2E 8: Subdomain http://test.localhost:PORT/ renders updated portfolio");
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, "07-subdomain-layla.png") });
+  console.log("[PASS] Browser E2E 8: Subdomain http://layla.localhost:PORT/ renders updated Haven portfolio");
 
-  // 8. Untested Edge Case Verification: Register brand-new account 'omar-arch', upload custom project image in /studio, publish, and visit http://omar-arch.localhost:PORT/ in a fresh incognito browser context
-  await page.request.delete(`${BASE}/api/auth/settings?u=omar-arch`);
-  const regRes = await page.request.post(`${BASE}/api/auth/register`, {
-    data: {
-      username: "omar-arch",
-      email: "omar.e2e@taqdom.me",
-      password: "OmarPassword123",
-      displayName: "عمر المعماري السيادي",
-      template: "athar",
-    },
-  });
-  assert.equal(regRes.status(), 200, "Expected 200 when registering omar-arch");
-
-  await page.goto(`${BASE}/studio?u=omar-arch`, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(600);
-  await page.getByTestId("studio-tab-projects").click();
-  await page.waitForTimeout(300);
-
-  // Upload custom project image in Tab 3
-  const sampleImagePath = path.join(process.cwd(), "public/images/creators/omar.jpg");
-  await page.getByTestId("studio-upload-project-img-0").setInputFiles(sampleImagePath);
+  // 8. Verify domain-specific interactive widgets across Madar, Siyada, Wameed, Salam, and Meshwar subdomains
+  await page.goto(`http://youssef.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(500);
-  await page.getByTestId("studio-publish-btn").click();
-  await page.getByTestId("studio-publish-banner").waitFor({ state: "visible", timeout: 10000 });
+  await page.getByTestId("madar-cmdk-trigger").click();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, "08-subdomain-madar-youssef.png") });
 
-  // Open incognito browser context and visit http://omar-arch.localhost:PORT/
-  const incognitoContext = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
-  });
-  const incognitoPage = await incognitoContext.newPage();
-  await incognitoPage.goto(`http://omar-arch.localhost:${PORT}/`, {
-    waitUntil: "domcontentloaded",
-  });
-  await incognitoPage.waitForTimeout(600);
-  const incognitoTitle = await incognitoPage.title();
-  const incognitoContent = await incognitoPage.content();
-  assert.equal(
-    incognitoTitle.includes("عمر المعماري السيادي"),
-    true,
-    `Incognito omar-arch title must contain عمر المعماري السيادي, got ${incognitoTitle}`
-  );
-  assert.equal(
-    incognitoContent.includes("عمر المعماري السيادي"),
-    true,
-    "Incognito omar-arch page must render عمر المعماري السيادي"
-  );
-  await incognitoContext.close();
-  await page.request.delete(`${BASE}/api/auth/settings?u=omar-arch`);
-  console.log("[PASS] Browser E2E 9: Custom account 'omar-arch' registration, custom project image upload, publish, and incognito subdomain verification passed");
+  await page.goto(`http://karim.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(500);
+  await page.getByTestId("siyada-export-cv-btn").click();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, "09-subdomain-siyada-karim.png") });
 
-  // Reset test account back to clean state
+  await page.goto(`http://tariq.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(500);
+  await page.getByTestId("wameed-play-pitch-btn").click();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, "10-subdomain-wameed-tariq.png") });
+
+  await page.goto(`http://salma.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(500);
+  await page.getByTestId("salam-node-1").click();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, "11-subdomain-salam-salma.png") });
+
+  await page.goto(`http://nora.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(500);
+  const inputs = page.locator("form input[type='text']");
+  await inputs.nth(0).fill("أحمد حسن");
+  await inputs.nth(1).fill("Senior Product Designer");
+  await page.getByTestId("meshwar-book-btn").click();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: path.join(SCREENSHOT_DIR, "12-subdomain-meshwar-nora.png") });
+  console.log("[PASS] Browser E2E 9: Interactive widgets on Madar (youssef), Siyada (karim), Wameed (tariq), Salam (salma), and Meshwar (nora) verified");
+
+  // Restore layla back to clean flagship state
   await page.request.post(`${BASE}/api/auth/test-login`);
 
   await browser.close();

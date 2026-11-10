@@ -27,7 +27,7 @@ export default function DashboardSettingsPage() {
   const setUser = useTaqdomStore((s) => s.setUser);
   const setDraft = useTaqdomStore((s) => s.setDraft);
 
-  const currentUsername = user?.username || draft.username || "test";
+  const currentUsername = user?.username || draft.username || "layla";
   const [newUsername, setNewUsername] = useState(currentUsername);
   const [newPassword, setNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -114,7 +114,7 @@ export default function DashboardSettingsPage() {
           <form onSubmit={handleSaveSettings} className="glass-panel rounded-3xl p-8 space-y-6 border border-border">
             <div>
               <label className="flex items-center gap-2 text-xs font-bold mb-2">
-                <Globe2 className="h-4 w-4 text-[#C5A059]" />
+                <Globe2 className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
                 <span>{t("تغيير اسم النطاق الفرعي (Subdomain)", "Change Subdomain Username")}</span>
               </label>
               <div
@@ -128,11 +128,11 @@ export default function DashboardSettingsPage() {
                   onChange={(e) => setNewUsername(normalizeUsername(e.target.value))}
                   className="w-full bg-transparent font-mono text-sm focus:outline-none text-left"
                 />
-                <span dir="ltr" className="font-mono text-xs font-bold text-[#C5A059]">
+                <span dir="ltr" className="font-mono text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
                   .taqdom.me
                 </span>
               </div>
-              <p className="mt-1.5 text-[11px] text-amber-600 dark:text-[#D4AF37]">
+              <p className="mt-1.5 text-[11px] text-[#9A7B4F] dark:text-[#C89D66]">
                 {t(
                   "تنبيه: تغيير اسم المستخدم ينقل معرضك فوراً إلى النطاق الفرعي الجديد.",
                   "Warning: Changing your username immediately moves your portfolio to the new subdomain."
@@ -142,7 +142,7 @@ export default function DashboardSettingsPage() {
 
             <div>
               <label className="flex items-center gap-2 text-xs font-bold mb-2">
-                <KeyRound className="h-4 w-4 text-[#C5A059]" />
+                <KeyRound className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
                 <span>{t("كلمة المرور الجديدة (اختياري)", "New Password (optional)")}</span>
               </label>
               <input
@@ -159,7 +159,7 @@ export default function DashboardSettingsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#C5A059] hover:bg-[#D4AF37] px-6 py-3 text-xs sm:text-sm font-bold text-[#111113] shadow-lg transition cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] hover:opacity-95 px-6 py-3 text-xs sm:text-sm font-bold text-[#F7F5F0] dark:text-[#0A0A09] shadow-lg transition cursor-pointer"
             >
               <Save className="h-4 w-4" />
               <span>{saving ? t("جارٍ الحفظ...", "Saving...") : t("حفظ التغييرات", "Save Changes")}</span>

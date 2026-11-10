@@ -4,102 +4,106 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --bg: #F6F4EE;
-  --bg-alt: #EDE8DC;
-  --bg-soft: #F3EFE6;
-  --ink: #111113;
-  --gold: #C5A059;
-  --gold-bright: #D4AF37;
-  --cyber-cyan: #00A896;
-  --cyber-violet: #4C1D95;
-  --aura: rgba(197, 160, 89, 0.18);
+  /* Q4 2026 Warm Alabaster Editorial Palette */
+  --bg: #F7F5F0;
+  --bg-alt: #EFECE6;
+  --bg-soft: #F2EFE9;
+  --ink: #141413;
+  --ink-muted: #5E5B55;
+  --bronze: #9A7B4F;
+  --amber: #C89D66;
+  --emerald-deep: #1E3A2F;
+  --aura: rgba(154, 123, 79, 0.14);
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
 
-  --background: #F6F4EE;
-  --foreground: #111113;
-  --card: #EFECE4;
-  --card-foreground: #111113;
-  --popover: #F3EFE6;
-  --popover-foreground: #111113;
-  --primary: #C5A059;
-  --primary-foreground: #111113;
-  --secondary: #EAE5D9;
-  --secondary-foreground: #111113;
-  --muted: #E6E0D2;
-  --muted-foreground: #57534A;
-  --accent: #C5A059;
-  --accent-foreground: #111113;
-  --destructive: #B91C1C;
-  --destructive-foreground: #F6F4EE;
-  --border: #DCD5C5;
-  --input: #EAE5D9;
-  --ring: #C5A059;
-  --chart-1: #C5A059;
-  --chart-2: #111113;
-  --chart-3: #57534A;
-  --chart-4: #8C7A5B;
-  --chart-5: #D4AF37;
+  --background: #F7F5F0;
+  --foreground: #141413;
+  --card: #EFECE6;
+  --card-foreground: #141413;
+  --popover: #F7F5F0;
+  --popover-foreground: #141413;
+  --primary: #9A7B4F;
+  --primary-foreground: #F7F5F0;
+  --secondary: #E8E4DC;
+  --secondary-foreground: #141413;
+  --muted: #E5E0D6;
+  --muted-foreground: #5E5B55;
+  --accent: #1E3A2F;
+  --accent-foreground: #F7F5F0;
+  --destructive: #991B1B;
+  --destructive-foreground: #F7F5F0;
+  --border: rgba(20, 20, 19, 0.1);
+  --input: #E8E4DC;
+  --ring: #9A7B4F;
+  --chart-1: #9A7B4F;
+  --chart-2: #1E3A2F;
+  --chart-3: #5E5B55;
+  --chart-4: #C89D66;
+  --chart-5: #141413;
   --radius: 0.75rem;
-  --sidebar: #EFECE4;
-  --sidebar-foreground: #111113;
-  --sidebar-primary: #C5A059;
-  --sidebar-primary-foreground: #111113;
-  --sidebar-accent: #E6E0D2;
-  --sidebar-accent-foreground: #111113;
-  --sidebar-border: #DCD5C5;
-  --sidebar-ring: #C5A059;
+  --sidebar: #EFECE6;
+  --sidebar-foreground: #141413;
+  --sidebar-primary: #9A7B4F;
+  --sidebar-primary-foreground: #F7F5F0;
+  --sidebar-accent: #E5E0D6;
+  --sidebar-accent-foreground: #141413;
+  --sidebar-border: rgba(20, 20, 19, 0.1);
+  --sidebar-ring: #9A7B4F;
   --mouse-x: 50vw;
   --mouse-y: 35vh;
 }
 
 .dark {
-  --bg: #050508;
-  --bg-alt: #0B0C14;
-  --bg-soft: #0E101B;
-  --ink: #EDEAE2;
-  --gold: #D4AF37;
-  --gold-bright: #E5C158;
-  --cyber-cyan: #00F5D4;
-  --cyber-violet: #3B0764;
-  --aura: rgba(0, 245, 212, 0.14);
+  /* Q4 2026 Cinema Noir & Obsidian Palette */
+  --bg: #0A0A09;
+  --bg-alt: #121210;
+  --bg-soft: #171714;
+  --ink: #F4F1EA;
+  --ink-muted: #A09C94;
+  --bronze: #C89D66;
+  --amber: #C89D66;
+  --emerald-deep: #2A5243;
+  --aura: rgba(200, 157, 102, 0.12);
 
-  --background: #050508;
-  --foreground: #EDEAE2;
-  --card: #0B0C14;
-  --card-foreground: #EDEAE2;
-  --popover: #0B0C14;
-  --popover-foreground: #EDEAE2;
-  --primary: #D4AF37;
-  --primary-foreground: #050508;
-  --secondary: #121420;
-  --secondary-foreground: #EDEAE2;
-  --muted: #161826;
-  --muted-foreground: #9E9A8E;
-  --accent: #00F5D4;
-  --accent-foreground: #050508;
+  --background: #0A0A09;
+  --foreground: #F4F1EA;
+  --card: #121210;
+  --card-foreground: #F4F1EA;
+  --popover: #121210;
+  --popover-foreground: #F4F1EA;
+  --primary: #C89D66;
+  --primary-foreground: #0A0A09;
+  --secondary: #181815;
+  --secondary-foreground: #F4F1EA;
+  --muted: #1E1E1A;
+  --muted-foreground: #A09C94;
+  --accent: #C89D66;
+  --accent-foreground: #0A0A09;
   --destructive: #DC2626;
-  --destructive-foreground: #EDEAE2;
-  --border: #1F2233;
-  --input: #121420;
-  --ring: #D4AF37;
-  --chart-1: #D4AF37;
-  --chart-2: #00F5D4;
-  --chart-3: #9E9A8E;
-  --chart-4: #3B0764;
-  --chart-5: #C5A059;
-  --sidebar: #0B0C14;
-  --sidebar-foreground: #EDEAE2;
-  --sidebar-primary: #D4AF37;
-  --sidebar-primary-foreground: #050508;
-  --sidebar-accent: #161826;
-  --sidebar-accent-foreground: #EDEAE2;
-  --sidebar-border: #1F2233;
-  --sidebar-ring: #D4AF37;
+  --destructive-foreground: #F4F1EA;
+  --border: rgba(244, 241, 234, 0.08);
+  --input: #181815;
+  --ring: #C89D66;
+  --chart-1: #C89D66;
+  --chart-2: #2A5243;
+  --chart-3: #A09C94;
+  --chart-4: #9A7B4F;
+  --chart-5: #F4F1EA;
+  --sidebar: #121210;
+  --sidebar-foreground: #F4F1EA;
+  --sidebar-primary: #C89D66;
+  --sidebar-primary-foreground: #0A0A09;
+  --sidebar-accent: #181815;
+  --sidebar-accent-foreground: #F4F1EA;
+  --sidebar-border: rgba(244, 241, 234, 0.08);
+  --sidebar-ring: #C89D66;
 }
 
 @theme inline {
-  --font-sans: var(--font-tajawal), var(--font-jakarta), system-ui, sans-serif;
-  --font-display: var(--font-readex), var(--font-syne), system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: var(--font-ibm-arabic), var(--font-jakarta), system-ui, sans-serif;
+  --font-display: var(--font-readex), var(--font-instrument), system-ui, serif;
+  --font-serif: var(--font-instrument), Georgia, serif;
+  --font-mono: var(--font-jetbrains), 'JetBrains Mono', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -127,36 +131,18 @@
 
 @keyframes alabasterBreathe {
   0%, 100% {
-    background-color: #F6F4EE;
+    background-color: #F7F5F0;
   }
   50% {
-    background-color: #EDE8DC;
-  }
-  75% {
-    background-color: #F3EFE6;
-  }
-}
-
-@keyframes cyberAurora {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
+    background-color: #EFECE6;
   }
 }
 
 @keyframes grainMove {
   0%, 100% { transform: translate(0, 0); }
-  20% { transform: translate(-3%, 2%); }
-  40% { transform: translate(2%, -3%); }
-  60% { transform: translate(-2%, -2%); }
-  80% { transform: translate(3%, 1%); }
-}
-
-@keyframes wingPulse {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-3px) rotate(1.5deg); }
+  25% { transform: translate(-2%, 1.5%); }
+  50% { transform: translate(1.5%, -2%); }
+  75% { transform: translate(-1%, -1.5%); }
 }
 
 @layer base {
@@ -166,61 +152,64 @@
 
   html {
     scroll-behavior: smooth;
-    line-height: 1.5;
-  }
-
-  html[dir="rtl"] {
-    font-family: var(--font-tajawal), var(--font-readex), system-ui, sans-serif;
     line-height: 1.55;
   }
 
+  html[dir="rtl"] {
+    font-family: var(--font-ibm-arabic), var(--font-readex), system-ui, sans-serif;
+    line-height: 1.62;
+  }
+
   html[dir="ltr"] {
-    font-family: var(--font-jakarta), var(--font-syne), system-ui, sans-serif;
+    font-family: var(--font-jakarta), system-ui, sans-serif;
+    line-height: 1.55;
   }
 
   html[dir="rtl"] h1,
   html[dir="rtl"] h2,
   html[dir="rtl"] h3,
   html[dir="rtl"] .arabic-diacritics {
-    font-family: var(--font-readex), var(--font-tajawal), sans-serif;
-    line-height: 1.48 !important;
+    font-family: var(--font-readex), var(--font-ibm-arabic), sans-serif;
+    line-height: 1.52 !important;
     padding-top: 0.08em;
     padding-bottom: 0.06em;
   }
 
   html[dir="ltr"] h1,
   html[dir="ltr"] h2,
-  html[dir="ltr"] h3 {
-    font-family: var(--font-syne), var(--font-jakarta), sans-serif;
+  html[dir="ltr"] .editorial-serif {
+    font-family: var(--font-instrument), var(--font-jakarta), serif;
+    letter-spacing: -0.02em;
   }
 
   body {
     @apply bg-background text-foreground;
     position: relative;
     overflow-x: hidden;
-    transition: background-color 0.45s cubic-bezier(0.22, 1, 0.36, 1), color 0.35s ease;
+    transition:
+      background-color 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+      color 0.4s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   html:not(.dark) body {
-    background-color: #F6F4EE;
-    animation: alabasterBreathe 18s ease-in-out infinite;
+    background-color: #F7F5F0;
+    animation: alabasterBreathe 22s cubic-bezier(0.22, 1, 0.36, 1) infinite;
     background-image:
-      radial-gradient(650px circle at var(--mouse-x) var(--mouse-y), rgba(197, 160, 89, 0.18), transparent 65%),
-      radial-gradient(900px circle at 85% 12%, rgba(212, 175, 55, 0.1), transparent 70%),
-      linear-gradient(180deg, #F6F4EE 0%, #EDE8DC 52%, #F3EFE6 100%);
+      radial-gradient(700px circle at var(--mouse-x) var(--mouse-y), rgba(154, 123, 79, 0.11), transparent 68%),
+      radial-gradient(950px circle at 85% 10%, rgba(30, 58, 47, 0.06), transparent 72%),
+      linear-gradient(180deg, #F7F5F0 0%, #EFECE6 55%, #F7F5F0 100%);
   }
 
   html.dark body {
-    background-color: #050508;
+    background-color: #0A0A09;
     background-image:
-      radial-gradient(650px circle at var(--mouse-x) var(--mouse-y), rgba(0, 245, 212, 0.11), transparent 65%),
-      radial-gradient(900px circle at 85% 15%, rgba(212, 175, 55, 0.12), transparent 65%),
-      radial-gradient(850px circle at 15% 80%, rgba(59, 7, 100, 0.28), transparent 70%),
-      linear-gradient(180deg, #050508 0%, #0B0C14 55%, #050508 100%);
+      radial-gradient(700px circle at var(--mouse-x) var(--mouse-y), rgba(200, 157, 102, 0.09), transparent 68%),
+      radial-gradient(950px circle at 85% 14%, rgba(30, 58, 47, 0.14), transparent 70%),
+      linear-gradient(180deg, #0A0A09 0%, #121210 55%, #0A0A09 100%);
   }
 }
 
-/* Luxury Paper Grain & Cyber Scanline Overlay */
+/* Subtle Editorial Film Grain */
 .taqdom-grain {
   position: fixed;
   inset: -40%;
@@ -229,33 +218,60 @@
   pointer-events: none;
   z-index: 40;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='taqdomNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23taqdomNoise)'/%3E%3C/svg%3E");
-  opacity: 0.045;
+  opacity: 0.032;
   mix-blend-mode: multiply;
-  animation: grainMove 10s steps(8) infinite;
+  animation: grainMove 12s steps(6) infinite;
 }
 
 .dark .taqdom-grain {
-  opacity: 0.035;
+  opacity: 0.028;
   mix-blend-mode: overlay;
 }
 
+/* Q4 2026 Warm Bronze & Cinema Amber Gradient Text */
 .gold-shimmer-text {
-  background: linear-gradient(135deg, #D4AF37 0%, #F3E5AB 35%, #C5A059 68%, #00F5D4 100%);
+  background: linear-gradient(135deg, #9A7B4F 0%, #C89D66 48%, #1E3A2F 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
+.dark .gold-shimmer-text {
+  background: linear-gradient(135deg, #F4F1EA 0%, #C89D66 55%, #9A7B4F 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Precision Bento & Obsidian Glass Surfaces */
 .glass-panel {
-  background: rgba(243, 239, 230, 0.76);
+  background: rgba(239, 236, 230, 0.82);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(197, 160, 89, 0.26);
+  border: 1px solid rgba(20, 20, 19, 0.09);
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark .glass-panel {
-  background: rgba(11, 12, 20, 0.76);
+  background: rgba(18, 18, 16, 0.84);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(212, 175, 55, 0.24);
+  border: 1px solid rgba(244, 241, 234, 0.08);
+}
+
+.bento-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.bento-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--primary);
 }

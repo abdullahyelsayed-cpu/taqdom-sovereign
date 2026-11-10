@@ -75,6 +75,30 @@ async function readDiskOrMemoryDb(): Promise<DbSnapshot> {
         const parsed = JSON.parse(raw) as DbSnapshot;
         if (parsed && parsed.portfolios) {
           if (!parsed.media) parsed.media = {};
+          // Remove deprecated v1 'test' entry if present and ensure all 7 flagship seed creators exist
+          delete parsed.users?.test;
+          delete parsed.portfolios?.test;
+          for (const [uname, p] of Object.entries(SEED_PORTFOLIOS)) {
+            if (!parsed.portfolios[uname]) {
+              parsed.portfolios[uname] = {
+                draft: structuredClone(p),
+                published: structuredClone(p),
+              };
+            }
+            if (!parsed.users[uname]) {
+              parsed.users[uname] = {
+                id: `user-${uname}`,
+                email: p.email || `${uname}@taqdom.me`,
+                username: uname,
+                passwordHash: "seeded",
+                salt: "seeded",
+                createdAt: p.publishedAt || Date.now(),
+              };
+            }
+            if (!parsed.views[uname]) {
+              parsed.views[uname] = p.views || 1200;
+            }
+          }
           globalForDb.__taqdomMemoryDb = parsed;
           return parsed;
         }
@@ -192,16 +216,18 @@ export async function unpublishPortfolioInDb(username: string): Promise<boolean>
   return true;
 }
 
-export async function resetTestAccountInDb(): Promise<PortfolioData> {
+export async function resetShowcaseAccountInDb(): Promise<PortfolioData> {
   const db = await readDiskOrMemoryDb();
-  const fresh = structuredClone(SEED_PORTFOLIOS.test);
-  db.portfolios.test = {
+  const fresh = structuredClone(SEED_PORTFOLIOS.layla);
+  db.portfolios.layla = {
     draft: structuredClone(fresh),
     published: structuredClone(fresh),
   };
   await writeDiskAndMemoryDb(db);
   return fresh;
 }
+
+export const resetTestAccountInDb = resetShowcaseAccountInDb;
 
 export async function checkUsernameAvailability(username: string): Promise<{
   available: boolean;
@@ -220,15 +246,15 @@ export async function checkUsernameAvailability(username: string): Promise<{
   }
   const db = await readDiskOrMemoryDb();
   if (db.users[clean] || db.portfolios[clean]) {
-    const isDemo = Boolean(SEED_PORTFOLIOS[clean]);
+    const isShowcase = Boolean(SEED_PORTFOLIOS[clean]);
     return {
       available: false,
-      isDemoAccount: isDemo,
-      reasonAr: isDemo
-        ? "هذا النطاق مستخدم لحساب عرض حي (يمكنك زيارته الآن)"
+      isDemoAccount: isShowcase,
+      reasonAr: isShowcase
+        ? "هذا النطاق مستخدم لحساب مبدع موثّق (يمكنك زيارته الآن)"
         : "هذا الاسم محجوز بالفعل لمبدع آخر",
-      reasonEn: isDemo
-        ? "Active live showcase subdomain (click to visit)"
+      reasonEn: isShowcase
+        ? "Verified creator showcase subdomain (click to visit)"
         : "This username is already taken",
     };
   }
@@ -258,7 +284,7 @@ export async function registerUserInDb(params: {
     salt: params.salt,
     createdAt: Date.now(),
   };
-  const starter = createStarterPortfolio(clean, params.template || "athar", params.displayName || clean);
+  const starter = createStarterPortfolio(clean, params.template || "madar", params.displayName || clean);
   starter.email = user.email;
   db.users[clean] = user;
   db.portfolios[clean] = {

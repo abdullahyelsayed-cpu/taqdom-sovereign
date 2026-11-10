@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const portfolios = await getAllPublishedPortfolios();
     return NextResponse.json({ portfolios });
   }
-  const u = req.nextUrl.searchParams.get("u") || "test";
+  const u = req.nextUrl.searchParams.get("u") || "layla";
   const mode = req.nextUrl.searchParams.get("mode") || "published";
   const portfolio =
     mode === "draft" ? await getDraftPortfolio(u) : await getPublishedPortfolio(u);

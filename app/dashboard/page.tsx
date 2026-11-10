@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Globe2,
   Sliders,
   ExternalLink,
   Copy,
@@ -41,7 +40,7 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const activeUsername = user?.username || draft.username || "test";
+  const activeUsername = user?.username || draft.username || "layla";
   const subdomainUrl = getSubdomainUrl(activeUsername, host);
   const canonicalDisplay = `https://${activeUsername}.taqdom.me`;
 
@@ -52,12 +51,12 @@ export default function DashboardPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleResetTest = async () => {
+  const handleRestoreShowcase = async () => {
     await resetTestAccount();
     toast.success(
       t(
-        "تمت إعادة ضبط حساب الاختبار (test.taqdom.me) إلى حالته الأصلية!",
-        "Test account (test.taqdom.me) restored to original showcase state!"
+        "تمت استعادة البيانات النموذجية الأصلية للنطاق (layla.taqdom.me)!",
+        "Flagship showcase portfolio (layla.taqdom.me) restored!"
       )
     );
   };
@@ -75,25 +74,25 @@ export default function DashboardPage() {
       <section className="pt-32 pb-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-10">
           {/* Top Sovereign Status Banner */}
-          <div className="glass-panel rounded-3xl p-8 border border-[#C5A059]/50 shadow-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="glass-panel rounded-3xl p-8 border border-[#9A7B4F]/50 dark:border-[#C89D66]/50 shadow-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
-              <div className="relative h-20 w-20 rounded-3xl overflow-hidden border-2 border-[#C5A059] shrink-0">
+              <div className="relative h-20 w-20 rounded-3xl overflow-hidden border-2 border-[#9A7B4F] dark:border-[#C89D66] shrink-0">
                 <Image
-                  src={draft.avatar || "/images/creators/test.jpg"}
+                  src={draft.avatar || "/images/creators/layla.jpg"}
                   alt={t(draft.name.ar, draft.name.en)}
                   fill
                   className="object-cover"
                 />
               </div>
               <div>
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-3 py-0.5 text-xs font-bold text-emerald-600 dark:text-[#00F5D4] mb-2">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-[#1E3A2F]/15 border border-[#1E3A2F]/40 px-3 py-0.5 text-xs font-bold text-[#1E3A2F] dark:text-[#C89D66] mb-2">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   <span>{t("منشور ونشط على الحافة", "LIVE ON SOVEREIGN EDGE")}</span>
                 </div>
                 <h1 className="arabic-diacritics text-2xl sm:text-4xl font-extrabold">
                   {t(draft.name.ar, draft.name.en)}
                 </h1>
-                <p dir="ltr" data-testid="dashboard-subdomain" className="font-mono text-sm font-bold text-[#C5A059] mt-1">
+                <p dir="ltr" data-testid="dashboard-subdomain" className="font-mono text-sm font-bold text-[#9A7B4F] dark:text-[#C89D66] mt-1">
                   {canonicalDisplay}
                 </p>
               </div>
@@ -103,7 +102,7 @@ export default function DashboardPage() {
               <Link
                 href={`/studio?u=${activeUsername}`}
                 data-testid="dashboard-open-studio"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#C5A059] hover:bg-[#D4AF37] px-5 py-3 text-xs sm:text-sm font-bold text-[#111113] shadow-lg transition"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] hover:opacity-95 px-5 py-3 text-xs sm:text-sm font-bold text-[#F7F5F0] dark:text-[#0A0A09] shadow-lg transition"
               >
                 <Sliders className="h-4 w-4" />
                 <span>{t("تعديل البورتفوليو في الاستوديو", "Edit in Live Studio")}</span>
@@ -112,10 +111,10 @@ export default function DashboardPage() {
               <Link
                 href={subdomainUrl}
                 data-testid="dashboard-open-portfolio"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-secondary/80 hover:border-[#C5A059] px-5 py-3 text-xs sm:text-sm font-bold text-foreground transition"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-secondary/80 hover:border-[#9A7B4F] px-5 py-3 text-xs sm:text-sm font-bold text-foreground transition"
               >
                 <span>{t("فتح البورتفوليو المنشور", "Open Live Portfolio")}</span>
-                <ExternalLink className="h-4 w-4 text-[#C5A059]" />
+                <ExternalLink className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               </Link>
 
               <button
@@ -123,7 +122,7 @@ export default function DashboardPage() {
                 onClick={handleCopy}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-4 py-3 text-xs font-bold"
               >
-                {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
                 <span>{copied ? t("تم النسخ", "Copied") : t("نسخ الرابط", "Copy URL")}</span>
               </button>
             </div>
@@ -134,7 +133,7 @@ export default function DashboardPage() {
             <div className="glass-panel rounded-3xl p-6 space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{t("إجمالي الزيارات", "Total Portfolio Views")}</span>
-                <Eye className="h-4 w-4 text-[#C5A059]" />
+                <Eye className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               </div>
               <p className="font-mono text-4xl font-extrabold text-foreground">
                 {(draft.views || 4820).toLocaleString()}
@@ -144,9 +143,9 @@ export default function DashboardPage() {
             <div className="glass-panel rounded-3xl p-6 space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{t("القالب المفعل حالياً", "Active Template Archetype")}</span>
-                <Layers className="h-4 w-4 text-[#C5A059]" />
+                <Layers className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               </div>
-              <p className="font-mono text-3xl font-extrabold uppercase text-[#C5A059]">
+              <p className="font-mono text-3xl font-extrabold uppercase text-[#9A7B4F] dark:text-[#C89D66]">
                 {draft.template}
               </p>
             </div>
@@ -154,7 +153,7 @@ export default function DashboardPage() {
             <div className="glass-panel rounded-3xl p-6 space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{t("المشاريع المنشورة", "Published Projects")}</span>
-                <FolderKanban className="h-4 w-4 text-[#C5A059]" />
+                <FolderKanban className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               </div>
               <p className="font-mono text-4xl font-extrabold text-foreground">
                 {draft.projects.length}
@@ -162,35 +161,35 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Account & Test Controls */}
+          {/* Quick Account & Showcase Controls */}
           <div className="glass-panel rounded-3xl p-7 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="arabic-diacritics text-lg font-bold">
-                {t("إدارة الحساب وإعادة ضبط بيانات الاختبار", "Account & Test Environment Controls")}
+                {t("إدارة الهوية الرقمية والنطاق السيادي", "Sovereign Identity & Subdomain Controls")}
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
                 {t(
-                  "يمكنك في أي وقت استعادة بيانات حساب الاختبار (test.taqdom.me) الافتراضية أو تبديل الحساب.",
-                  "You can restore the default test account data or switch accounts at any time."
+                  "يمكنك إدارة إعدادات النطاق أو استعادة البيانات المرجعية للمعرض النموذجي الموثق في أي وقت.",
+                  "Manage your subdomain credentials or restore the flagship showcase baseline at any time."
                 )}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 href="/dashboard/settings"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-bold hover:border-[#C5A059]"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-bold hover:border-[#9A7B4F]"
               >
-                <Sliders className="h-3.5 w-3.5 text-[#C5A059]" />
+                <Sliders className="h-3.5 w-3.5 text-[#9A7B4F] dark:text-[#C89D66]" />
                 <span>{t("إعدادات الحساب", "Account Settings")}</span>
               </Link>
 
               <button
                 type="button"
-                onClick={handleResetTest}
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2.5 text-xs font-bold hover:border-[#C5A059] cursor-pointer"
+                onClick={handleRestoreShowcase}
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2.5 text-xs font-bold hover:border-[#9A7B4F] cursor-pointer"
               >
-                <RefreshCw className="h-3.5 w-3.5 text-[#C5A059]" />
-                <span>{t("إعادة ضبط حساب الاختبار", "Reset Test Account")}</span>
+                <RefreshCw className="h-3.5 w-3.5 text-[#9A7B4F] dark:text-[#C89D66]" />
+                <span>{t("استعادة البيانات النموذجية", "Restore Showcase Data")}</span>
               </button>
 
               <button

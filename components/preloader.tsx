@@ -23,7 +23,7 @@ export function Preloader() {
 
     let current = 0;
     const timer = setInterval(() => {
-      current += 14;
+      current += 16;
       if (current >= 100) {
         setProgress(100);
         clearInterval(timer);
@@ -34,12 +34,12 @@ export function Preloader() {
           } catch {
             // ignore
           }
-          setTimeout(() => setVisible(false), 450);
-        }, 180);
+          setTimeout(() => setVisible(false), 400);
+        }, 150);
       } else {
         setProgress(current);
       }
-    }, 55);
+    }, 45);
 
     return () => clearInterval(timer);
   }, []);
@@ -52,13 +52,12 @@ export function Preloader() {
         closing ? "opacity-0 pointer-events-none scale-105" : "opacity-100"
       }`}
       style={{
-        background:
-          "radial-gradient(circle at 50% 40%, #141624 0%, #050508 75%)",
-        color: "#EDEAE2",
+        background: "#0A0A09",
+        color: "#F4F1EA",
       }}
     >
-      <div className="flex w-full items-center justify-between text-xs tracking-[0.25em] uppercase text-[#C5A059]">
-        <span>CAIRO • EL GOUNA • PARIS • DUBAI</span>
+      <div className="flex w-full items-center justify-between font-mono text-xs tracking-[0.22em] uppercase text-[#C89D66]">
+        <span>CAIRO • MILAN • DUBAI • RIYADH</span>
         <button
           type="button"
           onClick={() => {
@@ -67,37 +66,37 @@ export function Preloader() {
             } catch {}
             setVisible(false);
           }}
-          className="rounded-full border border-[#D4AF37]/40 px-3 py-1 text-[11px] text-[#EDEAE2] hover:border-[#D4AF37]"
+          className="rounded-full border border-[#C89D66]/40 px-3 py-1 text-[11px] text-[#F4F1EA] hover:border-[#C89D66]"
         >
           تخطي / SKIP
         </button>
       </div>
 
       <div className="flex flex-col items-center gap-6 text-center">
-        <TaqdomLogo size={76} showWordmark={false} />
-        <h2 className="arabic-diacritics text-4xl md:text-6xl font-bold tracking-tight gold-shimmer-text">
+        <TaqdomLogo size={72} showWordmark={false} />
+        <h2 className="arabic-diacritics text-4xl md:text-6xl font-bold tracking-tight text-[#F4F1EA]">
           تَقَدُّم • TAQDOM
         </h2>
-        <p className="max-w-md text-sm md:text-base text-[#9E9A8E]">
-          المنصة المصرية السيادية لمعارض أعمال المبدعين • Sovereign Portfolio Architecture
+        <p className="max-w-md text-sm md:text-base text-[#A09C94]">
+          منصة الهويات الرقمية ومعارض الأعمال السيادية • Sovereign Digital Identities
         </p>
       </div>
 
       <div className="w-full max-w-xl">
         <div className="flex items-baseline justify-between mb-2 font-mono">
-          <span className="text-xs tracking-[0.2em] uppercase text-[#9E9A8E]">
-            INITIALIZING 3D ATELIER
+          <span className="text-xs tracking-[0.2em] uppercase text-[#A09C94]">
+            CURATING ARCHITECTURAL PORTAL
           </span>
-          <span className="text-3xl md:text-5xl font-bold text-[#D4AF37]">
+          <span className="text-3xl md:text-5xl font-bold text-[#C89D66]">
             {String(progress).padStart(2, "0")}%
           </span>
         </div>
-        <div className="h-1 w-full overflow-hidden rounded-full bg-[#1F2233]">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-[#181815]">
           <div
             className="h-full transition-all duration-150"
             style={{
               width: `${progress}%`,
-              background: "linear-gradient(90deg, #C5A059, #D4AF37, #00F5D4)",
+              background: "linear-gradient(90deg, #9A7B4F, #C89D66, #1E3A2F)",
             }}
           />
         </div>

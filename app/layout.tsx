@@ -1,6 +1,12 @@
 import React from "react";
 import type { Metadata } from "next";
-import { Readex_Pro, Tajawal, Syne, Plus_Jakarta_Sans } from "next/font/google";
+import {
+  Readex_Pro,
+  IBM_Plex_Sans_Arabic,
+  Instrument_Serif,
+  Plus_Jakarta_Sans,
+  JetBrains_Mono,
+} from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { LanguageProvider } from "@/lib/i18n";
 import { SmoothScrollAndAura } from "@/components/smooth-scroll";
@@ -13,16 +19,18 @@ const readex = Readex_Pro({
   display: "swap",
 });
 
-const tajawal = Tajawal({
+const ibmArabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic", "latin"],
-  weight: ["400", "500", "700", "800"],
-  variable: "--font-tajawal",
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-ibm-arabic",
   display: "swap",
 });
 
-const syne = Syne({
+const instrumentSerif = Instrument_Serif({
   subsets: ["latin"],
-  variable: "--font-syne",
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-instrument",
   display: "swap",
 });
 
@@ -32,14 +40,20 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+const jetbrains = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-jetbrains",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://taqdom.me"),
   title: {
-    default: "تَقَدُّم | Taqdom — المنصة المصرية الفاخرة لمعارض أعمال المبدعين",
+    default: "تَقَدُّم | Taqdom — الهويات الرقمية ومعارض الأعمال الاحترافية",
     template: "%s | تَقَدُّم • Taqdom",
   },
   description:
-    "تَقَدُّم (Taqdom) — المنصة المصرية السيادية والأرقى عالمياً لإنشاء معارض الأعمال (Portfolios) ثلاثية الأبعاد للمعماريين والمخرجين والمصممين ورواد الأعمال على نطاقك الفرعي المستقل username.taqdom.me.",
+    "تَقَدُّم (Taqdom) — المنصة السيادية الأرقى عالمياً لبناء الهويات الرقمية ومعارض الأعمال الاحترافية للطلاب والخريجين والمبدعين والمحترفين على نطاقك الفرعي المستقل username.taqdom.me.",
   keywords: [
     "تقدم",
     "تَقَدُّم",
@@ -47,7 +61,7 @@ export const metadata: Metadata = {
     "Portfolio Builder",
     "انشاء بورتفوليو",
     "معرض أعمال",
-    "3D Portfolio",
+    "Digital Identity",
     "Egypt Creators",
     "Awwwards Portfolio",
   ],
@@ -62,12 +76,12 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://taqdom.me",
     siteName: "تَقَدُّم | Taqdom",
-    title: "تَقَدُّم | Taqdom — اصنع أَثَرَك على نطاقك السيادي المستقل",
+    title: "تَقَدُّم | Taqdom — هويتك الرقمية السيادية على نطاقك المستقل",
     description:
-      "منصة معارض الأعمال الفاخرة للمبدعين العرب والعالميين بتقنيات WebGL ثلاثية الأبعاد ونطاقات فرعية حية username.taqdom.me.",
+      "سبعة قوالب احترافية بهويات مستقلة للطلاب والخريجين والمحترفين على نطاقات فرعية حية username.taqdom.me.",
     images: [
       {
-        url: "/images/hero-mono.png",
+        url: "/images/ultra/haven-hero.webp",
         width: 1200,
         height: 630,
         alt: "تَقَدُّم | Taqdom Sovereign Portfolio Platform",
@@ -76,10 +90,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "تَقَدُّم | Taqdom — Sovereign Creative Portfolios",
+    title: "تَقَدُّم | Taqdom — Sovereign Digital Identities",
     description:
-      "Launch your museum-grade 3D portfolio on your own sovereign subdomain username.taqdom.me.",
-    images: ["/images/hero-mono.png"],
+      "Launch your museum-grade portfolio on your own sovereign subdomain username.taqdom.me.",
+    images: ["/images/ultra/haven-hero.webp"],
   },
   icons: {
     icon: [
@@ -100,7 +114,7 @@ const rootJsonLd = {
       url: "https://taqdom.me",
       name: "تَقَدُّم | Taqdom",
       description:
-        "المنصة المصرية الفاخرة والأرقى عالمياً لإنشاء معارض الأعمال للمبدعين",
+        "المنصة السيادية الأرقى عالمياً لإنشاء الهويات الرقمية ومعارض الأعمال للمبدعين والخريجين والمحترفين",
       inLanguage: ["ar", "en"],
     },
     {
@@ -140,7 +154,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${readex.variable} ${tajawal.variable} ${syne.variable} ${jakarta.variable} font-sans antialiased`}
+        className={`${readex.variable} ${ibmArabic.variable} ${instrumentSerif.variable} ${jakarta.variable} ${jetbrains.variable} font-sans antialiased`}
       >
         <ThemeProvider
           attribute="class"

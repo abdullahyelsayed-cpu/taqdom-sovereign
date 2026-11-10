@@ -36,43 +36,43 @@ import { useTaqdomStore } from "@/lib/store";
 import { TEMPLATES_CATALOG, SEED_PORTFOLIOS, createStarterPortfolio } from "@/lib/seed-data";
 import {
   TemplateId,
+  ALL_TEMPLATE_IDS,
   normalizeUsername,
   getSubdomainUrl,
   PortfolioProject,
 } from "@/lib/types";
 
 const PRESET_AVATARS = [
-  "/images/creators/test.jpg",
   "/images/creators/layla.jpg",
   "/images/creators/youssef.jpg",
   "/images/creators/farida.jpg",
   "/images/creators/karim.jpg",
-  "/images/creators/nadia.jpg",
+  "/images/creators/tariq.jpg",
+  "/images/creators/salma.jpg",
+  "/images/creators/nora.jpg",
   "/images/creators/omar.jpg",
 ];
 
 const PRESET_PROJECT_IMAGES = [
-  "/images/hero-mono.png",
-  "/images/interior-view.png",
-  "/images/rusted-metal.png",
-  "/images/mono-1.png",
-  "/images/mono-2.png",
-  "/images/mono-3.png",
-  "/images/mono-4.png",
-  "/images/hero-side-1.png",
-  "/images/hero-side-2.png",
-  "/images/hero-side-3.png",
-  "/images/hero-side-4.png",
-  "/images/testimonial-house.png",
+  "/images/ultra/haven-hero.webp",
+  "/images/ultra/haven-1.webp",
+  "/images/ultra/madar-hero.webp",
+  "/images/ultra/madar-1.webp",
+  "/images/ultra/athar-hero.webp",
+  "/images/ultra/athar-1.webp",
+  "/images/ultra/siyada-hero.webp",
+  "/images/ultra/wameed-hero.webp",
+  "/images/ultra/salam-hero.webp",
+  "/images/ultra/meshwar-hero.webp",
 ];
 
 const ACCENT_PRESETS = [
-  { name: "Royal Gold", hex: "#D4AF37" },
-  { name: "Alabaster Bronze", hex: "#C5A059" },
-  { name: "Cyber Emerald", hex: "#00F5D4" },
-  { name: "Imperial Crimson", hex: "#E11D48" },
-  { name: "Amethyst Neon", hex: "#8B5CF6" },
-  { name: "Nile Jade", hex: "#10B981" },
+  { name: "Warm Bronze", hex: "#9A7B4F" },
+  { name: "Cinema Amber", hex: "#C89D66" },
+  { name: "Deep Emerald", hex: "#1E3A2F" },
+  { name: "Executive Gold", hex: "#B8860B" },
+  { name: "Obsidian Slate", hex: "#4A5568" },
+  { name: "Terracotta", hex: "#A0522D" },
 ];
 
 type StudioTab = "identity" | "template" | "projects" | "look3d" | "seo" | "domain";
@@ -111,7 +111,7 @@ function StudioContent() {
     const tplParam = searchParams.get("template") as TemplateId | null;
     const uParam = searchParams.get("u");
     const validTpl =
-      tplParam && ["athar", "madar", "siyada", "noor"].includes(tplParam)
+      tplParam && (ALL_TEMPLATE_IDS as readonly string[]).includes(tplParam)
         ? tplParam
         : null;
 
@@ -148,7 +148,7 @@ function StudioContent() {
               } else {
                 const starter = createStarterPortfolio(
                   clean,
-                  validTpl || current.template || "athar",
+                  validTpl || current.template || "haven",
                   clean
                 );
                 setDraft(starter, false);
@@ -171,7 +171,7 @@ function StudioContent() {
     }
   }, [searchParams, switchTemplate, setDraft]);
 
-  // Keyboard shortcuts: Ctrl+Z (Undo), Ctrl+Y (Redo), Ctrl+S (Save & Publish)
+  // Keyboard shortcuts: Ctrl+Z (Undo), Ctrl+S (Save)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
@@ -216,7 +216,7 @@ function StudioContent() {
           particleCount: 90,
           spread: 70,
           origin: { y: 0.6 },
-          colors: ["#D4AF37", "#C5A059", "#00F5D4"],
+          colors: ["#9A7B4F", "#C89D66", "#1E3A2F"],
         });
       } catch {}
 
@@ -259,12 +259,12 @@ function StudioContent() {
         en: "New Sovereign Project",
       },
       desc: {
-        ar: "وصف تفصيلي للمشروع وأثره البصري والمعماري.",
+        ar: "وصف تفصيلي للمشروع وأثره المهني والتقني.",
         en: "Detailed description of the project's creative direction and impact.",
       },
       year: "2026",
-      images: ["/images/hero-mono.png", "/images/interior-view.png"],
-      tags: ["Architecture", "3D", "Design"],
+      images: ["/images/ultra/haven-hero.webp", "/images/ultra/haven-1.webp"],
+      tags: ["Architecture", "Design", "2026"],
       metrics: "Featured Work",
     };
     setDraft((prev) => ({
@@ -332,9 +332,9 @@ function StudioContent() {
 
   const tabs: { id: StudioTab; labelAr: string; labelEn: string; icon: React.ElementType }[] = [
     { id: "identity", labelAr: "الهوية", labelEn: "Identity", icon: User },
-    { id: "template", labelAr: "القالب", labelEn: "Template", icon: Layers },
+    { id: "template", labelAr: "القوالب (7)", labelEn: "7 Templates", icon: Layers },
     { id: "projects", labelAr: "المشاريع", labelEn: "Projects", icon: FolderKanban },
-    { id: "look3d", labelAr: "المظهر و 3D", labelEn: "Look & 3D", icon: Sparkles },
+    { id: "look3d", labelAr: "المظهر والألوان", labelEn: "Appearance", icon: Sparkles },
     { id: "seo", labelAr: "السيو", labelEn: "SEO", icon: Search },
     { id: "domain", labelAr: "النطاق والنشر", labelEn: "Publish", icon: Globe2 },
   ];
@@ -358,7 +358,7 @@ function StudioContent() {
                 href={liveSubdomainHref}
                 dir="ltr"
                 data-testid="studio-subdomain-link"
-                className="font-mono font-bold text-[#C5A059] hover:underline inline-flex items-center gap-1"
+                className="font-mono font-bold text-[#9A7B4F] dark:text-[#C89D66] hover:underline inline-flex items-center gap-1"
               >
                 <span>https://{draft.username}.taqdom.me</span>
                 <ExternalLink className="h-3 w-3" />
@@ -394,7 +394,7 @@ function StudioContent() {
                 type="button"
                 onClick={() => setDevice("desktop")}
                 className={`rounded-lg p-1.5 ${
-                  device === "desktop" ? "bg-[#C5A059] text-[#111113]" : "text-muted-foreground"
+                  device === "desktop" ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09]" : "text-muted-foreground"
                 }`}
                 title="Desktop Preview"
               >
@@ -404,7 +404,7 @@ function StudioContent() {
                 type="button"
                 onClick={() => setDevice("tablet")}
                 className={`rounded-lg p-1.5 ${
-                  device === "tablet" ? "bg-[#C5A059] text-[#111113]" : "text-muted-foreground"
+                  device === "tablet" ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09]" : "text-muted-foreground"
                 }`}
                 title="Tablet Preview"
               >
@@ -414,7 +414,7 @@ function StudioContent() {
                 type="button"
                 onClick={() => setDevice("mobile")}
                 className={`rounded-lg p-1.5 ${
-                  device === "mobile" ? "bg-[#C5A059] text-[#111113]" : "text-muted-foreground"
+                  device === "mobile" ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09]" : "text-muted-foreground"
                 }`}
                 title="Mobile Preview"
               >
@@ -453,7 +453,7 @@ function StudioContent() {
               data-testid="studio-publish-btn"
               onClick={handlePublish}
               disabled={publishing}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#C5A059] hover:bg-[#D4AF37] px-4 py-2 text-xs sm:text-sm font-bold text-[#111113] shadow-lg transition cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] hover:opacity-95 px-4 py-2 text-xs sm:text-sm font-bold text-[#F7F5F0] dark:text-[#0A0A09] shadow-lg transition cursor-pointer"
             >
               <Rocket className="h-4 w-4" />
               <span>
@@ -472,10 +472,10 @@ function StudioContent() {
         {publishedSuccessUrl && (
           <div
             data-testid="studio-publish-banner"
-            className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 px-4 py-2 text-xs"
+            className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#1E3A2F]/15 border border-[#1E3A2F]/40 px-4 py-2 text-xs"
           >
             <div className="flex items-center gap-2 font-bold text-foreground">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <CheckCircle2 className="h-4 w-4 text-[#1E3A2F] dark:text-[#C89D66]" />
               <span>
                 {t(
                   `تم نشر معرضك الحي بنجاح على النطاق الفرعي المستقل: https://${draft.username}.taqdom.me`,
@@ -487,7 +487,7 @@ function StudioContent() {
               <Link
                 href={publishedSuccessUrl}
                 data-testid="studio-open-published-link"
-                className="inline-flex items-center gap-1 rounded-lg bg-[#C5A059] px-3 py-1 font-bold text-[#111113]"
+                className="inline-flex items-center gap-1 rounded-lg bg-[#9A7B4F] dark:bg-[#C89D66] px-3 py-1 font-bold text-[#F7F5F0] dark:text-[#0A0A09]"
               >
                 <Eye className="h-3.5 w-3.5" />
                 <span>{t("افتح البورتفوليو المنشور", "Open Published Portfolio")}</span>
@@ -514,7 +514,7 @@ function StudioContent() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold transition cursor-pointer ${
                     active
-                      ? "bg-[#C5A059] text-[#111113] shadow"
+                      ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09] shadow"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                   }`}
                 >
@@ -547,16 +547,16 @@ function StudioContent() {
                         const clean = normalizeUsername(e.target.value);
                         setDraft((prev) => ({
                           ...prev,
-                          username: clean || "test",
+                          username: clean || "layla",
                         }));
                       }}
                       className="w-full bg-transparent font-mono text-sm focus:outline-none text-left"
                     />
-                    <span dir="ltr" className="font-mono text-xs font-bold text-[#C5A059]">
+                    <span dir="ltr" className="font-mono text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
                       .taqdom.me
                     </span>
                   </div>
-                  <p dir="ltr" className="mt-1 font-mono text-[11px] text-[#C5A059]">
+                  <p dir="ltr" className="mt-1 font-mono text-[11px] text-[#9A7B4F] dark:text-[#C89D66]">
                     https://{draft.username}.taqdom.me
                   </p>
                 </div>
@@ -567,15 +567,15 @@ function StudioContent() {
                     {t("الصورة الشخصية (بورتريه)", "Creator Portrait")}
                   </label>
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 border-[#C5A059] shrink-0">
+                    <div className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 border-[#9A7B4F] dark:border-[#C89D66] shrink-0">
                       <Image
-                        src={draft.avatar || "/images/creators/test.jpg"}
+                        src={draft.avatar || "/images/creators/layla.jpg"}
                         alt="Avatar"
                         fill
                         className="object-cover"
                       />
                     </div>
-                    <label className="cursor-pointer rounded-xl border border-border bg-secondary px-3 py-2 text-xs font-bold hover:border-[#C5A059]">
+                    <label className="cursor-pointer rounded-xl border border-border bg-secondary px-3 py-2 text-xs font-bold hover:border-[#9A7B4F]">
                       <span>{t("رفع صورة من جهازك", "Upload Custom Portrait")}</span>
                       <input
                         type="file"
@@ -596,7 +596,7 @@ function StudioContent() {
                         type="button"
                         onClick={() => setDraft((prev) => ({ ...prev, avatar: av }))}
                         className={`relative h-10 w-10 rounded-xl overflow-hidden border-2 ${
-                          draft.avatar === av ? "border-[#C5A059] scale-105" : "border-transparent opacity-70"
+                          draft.avatar === av ? "border-[#9A7B4F] scale-105" : "border-transparent opacity-70"
                         }`}
                       >
                         <Image src={av} alt="" fill className="object-cover" />
@@ -758,13 +758,13 @@ function StudioContent() {
               </div>
             )}
 
-            {/* TAB 2: TEMPLATE SWITCHER */}
+            {/* TAB 2: 7 TEMPLATES SWITCHER */}
             {activeTab === "template" && (
               <div className="space-y-4">
                 <p className="text-xs text-muted-foreground">
                   {t(
-                    "بدّل بين القوالب الأربعة فوراً مع الاحتفاظ بجميع مشاريعك وبياناتك:",
-                    "Switch between the 4 archetypes instantaneously while preserving all projects:"
+                    "بدّل بين القوالب السبعة فوراً مع الاحتفاظ بجميع مشاريعك وبياناتك:",
+                    "Switch between all 7 career archetypes instantaneously while preserving all projects:"
                   )}
                 </p>
                 {TEMPLATES_CATALOG.map((tpl) => {
@@ -777,8 +777,8 @@ function StudioContent() {
                       onClick={() => switchTemplate(tpl.id)}
                       className={`w-full text-start rounded-2xl border p-3.5 transition flex items-center gap-3.5 cursor-pointer ${
                         selected
-                          ? "border-[#C5A059] bg-[#C5A059]/15 shadow-md"
-                          : "border-border bg-background hover:border-[#C5A059]/50"
+                          ? "border-[#9A7B4F] dark:border-[#C89D66] bg-[#9A7B4F]/15 shadow-md"
+                          : "border-border bg-background hover:border-[#9A7B4F]/50"
                       }`}
                     >
                       <div className="relative h-16 w-24 rounded-xl overflow-hidden shrink-0 border border-border">
@@ -795,7 +795,7 @@ function StudioContent() {
                             {tpl.name.ar} | {tpl.name.en}
                           </span>
                           {selected && (
-                            <span className="rounded-full bg-[#C5A059] px-2 py-0.5 text-[10px] font-bold text-[#111113]">
+                            <span className="rounded-full bg-[#9A7B4F] dark:bg-[#C89D66] px-2 py-0.5 text-[10px] font-bold text-[#F7F5F0] dark:text-[#0A0A09]">
                               {t("نشط", "ACTIVE")}
                             </span>
                           )}
@@ -821,7 +821,7 @@ function StudioContent() {
                     type="button"
                     data-testid="studio-add-project-btn"
                     onClick={handleAddProject}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#C5A059] px-3 py-1.5 text-xs font-bold text-[#111113]"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] px-3 py-1.5 text-xs font-bold text-[#F7F5F0] dark:text-[#0A0A09]"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>{t("إضافة مشروع جديد", "Add Project")}</span>
@@ -835,14 +835,14 @@ function StudioContent() {
                       className="rounded-2xl border border-border bg-background p-4 space-y-3"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-xs font-bold text-[#C5A059]">
+                        <span className="font-mono text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
                           #{idx + 1} • {proj.year}
                         </span>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
                             onClick={() => handleMoveProject(idx, -1)}
-                            className="rounded-lg border border-border p-1 hover:border-[#C5A059]"
+                            className="rounded-lg border border-border p-1 hover:border-[#9A7B4F]"
                             title="Move Up"
                           >
                             <ArrowUp className="h-3.5 w-3.5" />
@@ -850,7 +850,7 @@ function StudioContent() {
                           <button
                             type="button"
                             onClick={() => handleMoveProject(idx, 1)}
-                            className="rounded-lg border border-border p-1 hover:border-[#C5A059]"
+                            className="rounded-lg border border-border p-1 hover:border-[#9A7B4F]"
                             title="Move Down"
                           >
                             <ArrowDown className="h-3.5 w-3.5" />
@@ -920,13 +920,13 @@ function StudioContent() {
                         className="w-full rounded-xl border border-border bg-card px-3 py-1.5 text-xs"
                       />
 
-                      {/* Quick Image Selector & Custom Upload */}
+                      {/* Quick 4K Image Selector & Custom Upload */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="block text-[11px] text-muted-foreground">
-                            {t("صورة المشروع الرئيسية:", "Primary Project Image:")}
+                            {t("صورة المشروع (4K):", "Primary Project Image (4K):")}
                           </span>
-                          <label className="cursor-pointer rounded-lg border border-border bg-secondary px-2.5 py-1 text-[11px] font-bold hover:border-[#C5A059]">
+                          <label className="cursor-pointer rounded-lg border border-border bg-secondary px-2.5 py-1 text-[11px] font-bold hover:border-[#9A7B4F]">
                             <span>{t("رفع صورة للمشروع", "Upload Project Image")}</span>
                             <input
                               type="file"
@@ -965,7 +965,7 @@ function StudioContent() {
                                 }));
                               }}
                               className={`relative h-10 w-14 shrink-0 rounded-lg overflow-hidden border-2 ${
-                                proj.images[0] === img ? "border-[#C5A059]" : "border-transparent opacity-60"
+                                proj.images[0] === img ? "border-[#9A7B4F]" : "border-transparent opacity-60"
                               }`}
                             >
                               <Image src={img} alt="" fill className="object-cover" />
@@ -979,7 +979,7 @@ function StudioContent() {
               </div>
             )}
 
-            {/* TAB 4: 3D & APPEARANCE CONTROLS */}
+            {/* TAB 4: APPEARANCE CONTROLS */}
             {activeTab === "look3d" && (
               <div className="space-y-5">
                 <div>
@@ -1000,13 +1000,13 @@ function StudioContent() {
                         }}
                         className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
                           draft.theme.mode === m
-                            ? "border-[#C5A059] bg-[#C5A059]/20"
+                            ? "border-[#9A7B4F] bg-[#9A7B4F]/20"
                             : "border-border bg-background"
                         }`}
                       >
                         {m === "light"
-                          ? t("نهار مرمري (#F6F4EE)", "Living Alabaster")
-                          : t("ليل أوبسيديان (#050508)", "Cyber Obsidian")}
+                          ? t("نهار مرمري (#F7F5F0)", "Warm Alabaster")
+                          : t("ليل سينمائي (#0A0A09)", "Cinema Noir")}
                       </button>
                     ))}
                   </div>
@@ -1015,7 +1015,7 @@ function StudioContent() {
                 {/* Accent Color Picker */}
                 <div>
                   <label className="block text-xs font-bold mb-2">
-                    {t("لون التمييز الملكي (Accent Color)", "Sovereign Accent Color")}
+                    {t("لون التمييز السيادي (Accent Color)", "Sovereign Accent Color")}
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {ACCENT_PRESETS.map((c) => (
@@ -1030,7 +1030,7 @@ function StudioContent() {
                           }));
                         }}
                         className={`flex items-center gap-2 rounded-xl border p-2 text-xs font-medium ${
-                          draft.theme.accent === c.hex ? "border-[#C5A059] bg-secondary" : "border-border"
+                          draft.theme.accent === c.hex ? "border-[#9A7B4F] bg-secondary" : "border-border"
                         }`}
                       >
                         <span
@@ -1040,114 +1040,6 @@ function StudioContent() {
                         <span className="truncate text-[11px]">{c.name}</span>
                       </button>
                     ))}
-                  </div>
-                </div>
-
-                {/* 3D Scene Controls */}
-                <div className="rounded-2xl border border-border bg-background p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold">
-                      {t("تفعيل مجسم صقر حورس 3D", "Enable 3D Horus Sculpture")}
-                    </span>
-                    <input
-                      type="checkbox"
-                      checked={draft.theme.scene3d.enabled}
-                      onChange={(e) => {
-                        setHasInteracted(true);
-                        setDraft((prev) => ({
-                          ...prev,
-                          theme: {
-                            ...prev.theme,
-                            scene3d: { ...prev.theme.scene3d, enabled: e.target.checked },
-                          },
-                        }));
-                      }}
-                      className="h-4 w-4 accent-[#C5A059]"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span>{t("شدة إضاءة الـ 3D", "3D Light Intensity")}</span>
-                      <span className="font-mono">{draft.theme.scene3d.intensity.toFixed(1)}x</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="2.2"
-                      step="0.1"
-                      value={draft.theme.scene3d.intensity}
-                      onChange={(e) => {
-                        setHasInteracted(true);
-                        setDraft((prev) => ({
-                          ...prev,
-                          theme: {
-                            ...prev.theme,
-                            scene3d: {
-                              ...prev.theme.scene3d,
-                              intensity: parseFloat(e.target.value),
-                            },
-                          },
-                        }));
-                      }}
-                      className="w-full accent-[#C5A059]"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span>{t("سرعة تنفس الأجنحة والمدار", "Wing & Orbit Speed")}</span>
-                      <span className="font-mono">{draft.theme.scene3d.speed.toFixed(1)}x</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.2"
-                      max="2.5"
-                      step="0.1"
-                      value={draft.theme.scene3d.speed}
-                      onChange={(e) => {
-                        setHasInteracted(true);
-                        setDraft((prev) => ({
-                          ...prev,
-                          theme: {
-                            ...prev.theme,
-                            scene3d: {
-                              ...prev.theme.scene3d,
-                              speed: parseFloat(e.target.value),
-                            },
-                          },
-                        }));
-                      }}
-                      className="w-full accent-[#C5A059]"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span>{t("زاوية سقوط الضوء", "Directional Light Angle")}</span>
-                      <span className="font-mono">{draft.theme.scene3d.lightAngle}°</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="180"
-                      step="5"
-                      value={draft.theme.scene3d.lightAngle}
-                      onChange={(e) => {
-                        setHasInteracted(true);
-                        setDraft((prev) => ({
-                          ...prev,
-                          theme: {
-                            ...prev.theme,
-                            scene3d: {
-                              ...prev.theme.scene3d,
-                              lightAngle: parseInt(e.target.value, 10),
-                            },
-                          },
-                        }));
-                      }}
-                      className="w-full accent-[#C5A059]"
-                    />
                   </div>
                 </div>
               </div>
@@ -1228,16 +1120,16 @@ function StudioContent() {
                         seo: { ...prev.seo, noindex: e.target.checked },
                       }));
                     }}
-                    className="h-4 w-4 accent-[#C5A059]"
+                    className="h-4 w-4 accent-[#9A7B4F]"
                   />
                 </label>
 
                 {/* Live Google Search Snippet Preview */}
                 <div className="rounded-2xl border border-border bg-background p-4 space-y-1.5">
-                  <span className="text-[10px] font-mono uppercase text-[#C5A059]">
+                  <span className="text-[10px] font-mono uppercase text-[#9A7B4F] dark:text-[#C89D66]">
                     GOOGLE SEARCH &amp; SCHEMA.ORG PREVIEW
                   </span>
-                  <p dir="ltr" className="text-xs text-emerald-600 dark:text-[#00F5D4] font-mono">
+                  <p dir="ltr" className="text-xs text-[#1E3A2F] dark:text-[#C89D66] font-mono">
                     https://{draft.username}.taqdom.me
                   </p>
                   <p className="text-sm font-bold text-foreground">
@@ -1253,8 +1145,8 @@ function StudioContent() {
             {/* TAB 6: DOMAIN & PUBLISH */}
             {activeTab === "domain" && (
               <div className="space-y-5">
-                <div className="rounded-2xl border border-[#C5A059]/50 bg-[#C5A059]/10 p-4 space-y-3">
-                  <span className="text-xs font-mono uppercase text-[#C5A059]">
+                <div className="rounded-2xl border border-[#9A7B4F]/50 bg-[#9A7B4F]/10 p-4 space-y-3">
+                  <span className="text-xs font-mono uppercase text-[#9A7B4F] dark:text-[#C89D66]">
                     SOVEREIGN SUBDOMAIN
                   </span>
                   <p dir="ltr" className="font-mono text-lg font-extrabold text-foreground break-all">
@@ -1270,7 +1162,7 @@ function StudioContent() {
                       }}
                       className="inline-flex items-center gap-1.5 rounded-xl bg-background border border-border px-3 py-1.5 text-xs font-bold"
                     >
-                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
                       <span>{copied ? t("تم النسخ", "Copied") : t("نسخ الرابط", "Copy URL")}</span>
                     </button>
 
@@ -1287,7 +1179,7 @@ function StudioContent() {
                       onClick={() => setFullscreenPreview(true)}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-bold"
                     >
-                      <Eye className="h-3.5 w-3.5 text-[#C5A059]" />
+                      <Eye className="h-3.5 w-3.5 text-[#9A7B4F] dark:text-[#C89D66]" />
                       <span>{t("معاينة بملء الشاشة", "Full Screen")}</span>
                     </button>
                   </div>
@@ -1297,7 +1189,7 @@ function StudioContent() {
                 <div className="rounded-2xl border border-border bg-background p-4 flex items-center gap-4">
                   <svg
                     viewBox="0 0 100 100"
-                    className="h-20 w-20 shrink-0 rounded-xl border border-[#C5A059]/40 bg-[#F6F4EE] p-2 text-[#111113]"
+                    className="h-20 w-20 shrink-0 rounded-xl border border-[#9A7B4F]/40 bg-[#F7F5F0] p-2 text-[#141413]"
                     aria-label="Subdomain QR Code"
                   >
                     <rect x="8" y="8" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="6" />
@@ -1309,7 +1201,7 @@ function StudioContent() {
                     <rect x="42" y="12" width="8" height="8" fill="currentColor" />
                     <rect x="42" y="28" width="8" height="16" fill="currentColor" />
                     <rect x="12" y="44" width="16" height="8" fill="currentColor" />
-                    <rect x="42" y="44" width="14" height="14" fill="#C5A059" />
+                    <rect x="42" y="44" width="14" height="14" fill="#9A7B4F" />
                     <rect x="64" y="44" width="10" height="8" fill="currentColor" />
                     <rect x="80" y="44" width="12" height="12" fill="currentColor" />
                     <rect x="44" y="66" width="12" height="10" fill="currentColor" />
@@ -1321,7 +1213,7 @@ function StudioContent() {
                     <p className="text-xs font-bold">
                       {t("رمز الاستجابة السريعة (QR) لنطاقك السيادي", "Sovereign Subdomain QR Pass")}
                     </p>
-                    <p dir="ltr" className="font-mono text-[11px] text-[#C5A059]">
+                    <p dir="ltr" className="font-mono text-[11px] text-[#9A7B4F] dark:text-[#C89D66]">
                       https://{draft.username}.taqdom.me
                     </p>
                   </div>
@@ -1331,7 +1223,7 @@ function StudioContent() {
                   type="button"
                   onClick={handlePublish}
                   disabled={publishing}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#C5A059] hover:bg-[#D4AF37] py-4 text-sm font-extrabold text-[#111113] shadow-xl transition cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-[#9A7B4F] dark:bg-[#C89D66] hover:opacity-95 py-4 text-sm font-extrabold text-[#F7F5F0] dark:text-[#0A0A09] shadow-xl transition cursor-pointer"
                 >
                   <Rocket className="h-4 w-4" />
                   <span>
@@ -1378,13 +1270,13 @@ function StudioContent() {
       {fullscreenPreview && (
         <div className="fixed inset-0 z-[95] flex flex-col bg-background">
           <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
-            <span className="font-mono text-xs font-bold text-[#C5A059]">
+            <span className="font-mono text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
               https://{draft.username}.taqdom.me • FULLSCREEN PREVIEW
             </span>
             <button
               type="button"
               onClick={() => setFullscreenPreview(false)}
-              className="rounded-xl bg-[#C5A059] px-4 py-1.5 text-xs font-bold text-[#111113]"
+              className="rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] px-4 py-1.5 text-xs font-bold text-[#F7F5F0] dark:text-[#0A0A09]"
             >
               {t("إغلاق المعاينة الكاملة", "Exit Full Screen")}
             </button>

@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
-import { resetTestAccountInDb } from "@/lib/db";
+import { resetShowcaseAccountInDb } from "@/lib/db";
 import { signSessionToken } from "@/lib/auth";
 
 export async function POST() {
-  const portfolio = await resetTestAccountInDb();
+  const portfolio = await resetShowcaseAccountInDb();
   const user = {
-    id: "user-test-sovereign",
-    email: "test@taqdom.me",
-    username: "test",
-    isTestAccount: true,
+    id: "user-layla",
+    email: "layla@taqdom.me",
+    username: "layla",
+    isFlagshipAccount: true,
   };
 
   const token = await signSessionToken({
     userId: user.id,
     email: user.email,
     username: user.username,
-    isTestAccount: true,
+    isTestAccount: false,
   });
 
   const res = NextResponse.json({

@@ -18,11 +18,13 @@ const edgeStore = {
   users: {},
   media: {},
   views: {
-    test: 4820,
     layla: 9340,
     youssef: 7615,
     farida: 6490,
     karim: 5290,
+    tariq: 8140,
+    salma: 7420,
+    nora: 5890,
   },
 };
 
@@ -304,7 +306,7 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
         .bind(
           targetUserId,
           clean,
-          updated.template || "athar",
+          updated.template || "haven",
           jsonStr,
           jsonStr,
           now,
@@ -358,12 +360,12 @@ async function handleApiRequest(request, url, env) {
   }
 
   if (pathname === "/api/auth/test-login" && request.method === "POST") {
-    const fresh = structuredClone(SEED_PORTFOLIOS.test);
+    const fresh = structuredClone(SEED_PORTFOLIOS.layla);
     await savePortfolioToD1AndMemory(env, fresh, true);
     const userPayload = {
-      id: "user-test-sovereign",
-      email: "test@taqdom.me",
-      username: "test",
+      id: "user-layla",
+      email: "layla@taqdom.me",
+      username: "layla",
       isTestAccount: true,
     };
     const token = await signEdgeSession(userPayload, env?.AUTH_SECRET);
@@ -402,7 +404,6 @@ async function handleApiRequest(request, url, env) {
       );
     }
 
-    // Check if username or email is already taken
     if (SEED_PORTFOLIOS[val.normalized]) {
       return jsonResponse(
         { error: "هذا النطاق مستخدم لحساب عرض رسمي / Reserved showcase username" },
@@ -443,7 +444,7 @@ async function handleApiRequest(request, url, env) {
 
     const starter = createStarterPortfolio(
       val.normalized,
-      body.template || "athar",
+      body.template || "haven",
       body.displayName || val.normalized
     );
     starter.email = email;
@@ -493,7 +494,6 @@ async function handleApiRequest(request, url, env) {
     }
 
     if (!dbUser) {
-      // Check in-memory users
       for (const u of Object.values(edgeStore.users)) {
         if (u.username === identifier || u.email === identifier) {
           dbUser = {
@@ -510,12 +510,11 @@ async function handleApiRequest(request, url, env) {
 
     if (!dbUser) {
       return jsonResponse(
-        { error: "الحساب غير موجود. يمكنك إنشاء حساب جديد أو استخدام حساب الاختبار الفوري." },
+        { error: "الحساب غير موجود. يمكنك إنشاء حساب جديد أو معاينة الحساب الموثق." },
         401
       );
     }
 
-    // Verify password for non-seeded accounts
     const isSeededHash =
       dbUser.password_hash === "seeded-pbkdf2" ||
       dbUser.password_hash === "seeded" ||
@@ -539,14 +538,14 @@ async function handleApiRequest(request, url, env) {
     const portfolio =
       (await getDraftPortfolioFromD1(env, dbUser.username)) ||
       SEED_PORTFOLIOS[dbUser.username] ||
-      createStarterPortfolio(dbUser.username, "athar", dbUser.username);
+      createStarterPortfolio(dbUser.username, "haven", dbUser.username);
 
     const sessionPayload = {
       id: dbUser.id,
       userId: dbUser.id,
       email: dbUser.email,
       username: dbUser.username,
-      isTestAccount: dbUser.username === "test",
+      isTestAccount: dbUser.username === "layla",
     };
     const token = await signEdgeSession(sessionPayload, env?.AUTH_SECRET);
 
@@ -616,7 +615,7 @@ async function handleApiRequest(request, url, env) {
       }
 
       const currentPortfolio =
-        (await getDraftPortfolioFromD1(env, cur)) || createStarterPortfolio(targetUsername, "athar", targetUsername);
+        (await getDraftPortfolioFromD1(env, cur)) || createStarterPortfolio(targetUsername, "haven", targetUsername);
       currentPortfolio.username = targetUsername;
 
       const saved = await savePortfolioToD1AndMemory(
@@ -638,7 +637,7 @@ async function handleApiRequest(request, url, env) {
         userId: `user-${targetUsername}`,
         email: saved.email || `${targetUsername}@taqdom.me`,
         username: targetUsername,
-        isTestAccount: targetUsername === "test",
+        isTestAccount: targetUsername === "layla",
       };
       const token = await signEdgeSession(sessionPayload, env?.AUTH_SECRET);
 
@@ -674,7 +673,7 @@ async function handleApiRequest(request, url, env) {
         const portfolios = await getAllPublishedPortfoliosFromD1(env);
         return jsonResponse({ portfolios });
       }
-      const u = normalizeUsername(searchParams.get("u") || "test");
+      const u = normalizeUsername(searchParams.get("u") || "layla");
       const mode = searchParams.get("mode") || "published";
       const p =
         mode === "draft"
@@ -776,7 +775,7 @@ async function handleApiRequest(request, url, env) {
 
   if (pathname === "/api/views" && request.method === "POST") {
     const body = await request.json().catch(() => ({}));
-    const clean = normalizeUsername(String(body.username || "test"));
+    const clean = normalizeUsername(String(body.username || "layla"));
     edgeStore.views[clean] = (edgeStore.views[clean] || 100) + 1;
     if (env.DB) {
       const day = new Date().toISOString().slice(0, 10);
@@ -797,6 +796,8 @@ async function handleApiRequest(request, url, env) {
 function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
   const canonicalUrl = `https://${targetUser}.taqdom.me`;
   let html = baseHtml
+    .replace(/https:\/\/layla\.taqdom\.me/g, canonicalUrl)
+    .replace(/layla\.taqdom\.me/g, `${targetUser}.taqdom.me`)
     .replace(/https:\/\/test\.taqdom\.me/g, canonicalUrl)
     .replace(/test\.taqdom\.me/g, `${targetUser}.taqdom.me`);
 
@@ -839,7 +840,7 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       alternateName: customData.name?.ar || targetUser,
       jobTitle: customData.title?.en || "",
       description: customData.bio?.en || customData.bio?.ar || "",
-      image: `https://taqdom.me${customData.avatar || "/images/creators/test.jpg"}`,
+      image: `https://taqdom.me${customData.avatar || "/images/creators/layla.jpg"}`,
       url: canonicalUrl,
       address: {
         "@type": "PostalAddress",
@@ -968,10 +969,10 @@ export default {
     // 6. Subdomain request: username.taqdom.me -> serve dynamically enriched portfolio
     if (root && sub && !RESERVED_USERNAMES.has(sub)) {
       const targetUser = normalizeUsername(sub);
-      const knownStatic = new Set(["test", "layla", "youssef", "farida", "karim"]);
+      const knownStatic = new Set(["layla", "youssef", "farida", "karim", "tariq", "salma", "nora"]);
       const targetPath = knownStatic.has(targetUser)
         ? `/portfolio/${targetUser}`
-        : `/portfolio/test`;
+        : `/portfolio/layla`;
 
       const assetUrl = new URL(request.url);
       assetUrl.pathname = targetPath;

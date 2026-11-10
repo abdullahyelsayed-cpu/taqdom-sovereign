@@ -16,10 +16,10 @@ export function CollectionSection() {
       titleAr: "احجز اسمك ونطاقك السيادي",
       titleEn: "Claim Your Sovereign Subdomain",
       descAr:
-        "اكتب اسمك ليصبح عنوانك الدائم على الإنترنت بصيغة username.taqdom.me مع شهادة أمان وتوجيه فوري.",
+        "اكتب اسمك ليصبح عنوانك الدائم على الإنترنت بصيغة username.taqdom.me مع شهادة أمان وتوجيه فوري عبر سحابة الحافة.",
       descEn:
         "Reserve your permanent creative address as username.taqdom.me with automatic edge routing and SSL.",
-      image: "/images/hero-side-1.png",
+      image: "/images/ultra/madar-1.webp",
       ctaHref: "/auth",
       ctaAr: "احجز نطاقك الآن",
       ctaEn: "Reserve Subdomain",
@@ -27,13 +27,13 @@ export function CollectionSection() {
     {
       step: "02",
       icon: Sliders,
-      titleAr: "شكّل عالمك في الاستوديو الحي",
-      titleEn: "Sculpt in the Live 3D Studio",
+      titleAr: "اختر هويتك من القوالب السبعة",
+      titleEn: "Select from 7 Career Archetypes",
       descAr:
-        "بدّل بين القوالب الأربعة (أَثَر، مَدَار، سِيَادَة، نُور)، تحكم في إضاءة الـ 3D، وأضف مشاريعك بالعربية والإنجليزية.",
+        "بدّل لحظياً بين (مَدَار، أَثَر، مَلاذ، سِيَادَة، وَمِيض، سَلَام، مِشْوَار) وأضف مشاريعك ومؤشرات أدائك بالعربية والإنجليزية.",
       descEn:
-        "Switch between Athar, Madar, Siyada, and Noor, tune 3D lighting angles, and curate bilingual projects live.",
-      image: "/images/hero-side-2.png",
+        "Switch between Madar, Athar, Haven, Siyada, Wameed, Salam, and Meshwar while curating bilingual projects live.",
+      image: "/images/ultra/haven-1.webp",
       ctaHref: "/studio",
       ctaAr: "افتح الاستوديو",
       ctaEn: "Open Live Studio",
@@ -44,13 +44,13 @@ export function CollectionSection() {
       titleAr: "انشر بضغطة واحدة للعالم",
       titleEn: "1-Click Global Edge Publish",
       descAr:
-        "بمجرد الضغط على زر النشر، ينطلق معرضك على حافة Cloudflare مع خرائط Sitemap وبيانات JSON-LD جاهزة لمحركات البحث.",
+        "بمجرد الضغط على زر النشر، ينطلق معرضك على حافة Cloudflare مع خرائط Sitemap وبيانات JSON-LD وبطاقة QR جاهزة للمشاركة.",
       descEn:
-        "Hit publish to deploy globally across 300+ edge nodes with instant OpenGraph cards and Schema.org SEO.",
-      image: "/images/hero-side-4.png",
+        "Hit publish to deploy globally across 300+ edge nodes with instant OpenGraph cards, QR badge, and Schema.org SEO.",
+      image: "/images/ultra/meshwar-hero.webp",
       ctaHref: "/templates",
-      ctaAr: "استعرض القوالب",
-      ctaEn: "Browse Templates",
+      ctaAr: "استعرض القوالب السبعة",
+      ctaEn: "Browse 7 Templates",
     },
   ];
 
@@ -58,12 +58,12 @@ export function CollectionSection() {
     <section id="workflow" className="relative py-24 md:py-32 border-t border-border/60">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <span className="text-xs font-mono uppercase tracking-[0.25em] text-[#C5A059]">
+          <span className="text-xs font-mono uppercase tracking-[0.25em] text-[#9A7B4F] dark:text-[#C89D66]">
             {t("٠٥ • رحلة البناء في ٣ خطوات", "05 • THREE-STEP SOVEREIGN WORKFLOW")}
           </span>
           <h2 className="arabic-diacritics mt-3 text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
             {t(
-              "من الفكرة إلى متحف رقمي منشور في دقائق",
+              "من الفكرة إلى هوية رقمية منشورة في دقائق",
               "From Vision to Published Monograph in Minutes"
             )}
           </h2>
@@ -84,15 +84,15 @@ export function CollectionSection() {
                     fill
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#050508]/85 via-transparent to-transparent" />
-                  <div className="absolute top-4 start-4 rounded-xl bg-[#050508]/80 border border-[#D4AF37]/50 px-3 py-1.5 font-mono text-sm font-bold text-[#D4AF37]">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A09]/85 via-transparent to-transparent" />
+                  <div className="absolute top-4 start-4 rounded-xl bg-[#0A0A09]/80 border border-[#C89D66]/50 px-3 py-1.5 font-mono text-sm font-bold text-[#C89D66]">
                     STEP {s.step}
                   </div>
                 </div>
 
                 <div className="p-7 flex-1 flex flex-col justify-between gap-6">
                   <div>
-                    <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#C5A059]/15 text-[#C5A059]">
+                    <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[#9A7B4F]/15 text-[#9A7B4F] dark:text-[#C89D66]">
                       <Icon className="h-5 w-5" />
                     </div>
                     <h3 className="arabic-diacritics text-xl font-bold text-foreground mb-2">
@@ -105,7 +105,7 @@ export function CollectionSection() {
 
                   <Link
                     href={s.ctaHref}
-                    className="inline-flex items-center justify-center rounded-xl border border-[#C5A059]/50 bg-secondary/70 hover:bg-[#C5A059] hover:text-[#111113] px-4 py-2.5 text-xs font-bold text-foreground transition"
+                    className="inline-flex items-center justify-center rounded-xl border border-[#9A7B4F]/50 bg-secondary/70 hover:bg-[#9A7B4F] hover:text-[#F7F5F0] dark:hover:bg-[#C89D66] dark:hover:text-[#0A0A09] px-4 py-2.5 text-xs font-bold text-foreground transition"
                   >
                     {t(s.ctaAr, s.ctaEn)}
                   </Link>

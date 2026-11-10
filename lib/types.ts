@@ -1,4 +1,21 @@
-export type TemplateId = "athar" | "madar" | "siyada" | "noor";
+export type TemplateId =
+  | "madar"
+  | "athar"
+  | "haven"
+  | "siyada"
+  | "wameed"
+  | "salam"
+  | "meshwar";
+
+export const ALL_TEMPLATE_IDS: TemplateId[] = [
+  "madar",
+  "athar",
+  "haven",
+  "siyada",
+  "wameed",
+  "salam",
+  "meshwar",
+];
 
 export type BilingualText = {
   ar: string;
@@ -61,7 +78,8 @@ export type PortfolioData = {
   city: BilingualText;
   email?: string;
   badge?: BilingualText;
-  isDemoShowcase?: boolean;
+  skills?: string[];
+  isFlagshipShowcase?: boolean;
   links: { label: string; url: string }[];
   projects: PortfolioProject[];
   metrics?: PortfolioMetric[];
@@ -169,7 +187,7 @@ export function validateUsername(raw: string): {
 }
 
 export function getSubdomainUrl(username: string, currentHost?: string): string {
-  const clean = normalizeUsername(username) || "test";
+  const clean = normalizeUsername(username) || "layla";
   if (currentHost) {
     const h = currentHost.toLowerCase();
     if (h.includes("localhost")) {

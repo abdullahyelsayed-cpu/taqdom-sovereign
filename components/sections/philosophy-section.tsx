@@ -15,27 +15,27 @@ export function PhilosophySection() {
       titleAr: "نطاق فرعي سيادي مستقل",
       titleEn: "Sovereign Subdomain Identity",
       descAr:
-        "لا روابط فرعية مزدحمة بعد اليوم. اسمك يسبق المنصة دائماً بصيغة username.taqdom.me ليمنحك هيبة المؤسسات الكبرى.",
+        "لا روابط فرعية مزدحمة بعد اليوم. اسمك يسبق المنصة دائماً بصيغة username.taqdom.me ليمنحك هيبة المؤسسات الكبرى كخريج أو محترف.",
       descEn:
         "Never settle for a buried slash path. Your name leads the domain as username.taqdom.me with full canonical authority.",
     },
     {
       icon: Sparkles,
-      titleAr: "روح بشرية وفخامة معمارية",
-      titleEn: "Human Soul & Architectural Craft",
+      titleAr: "سبع هويات مهنية لجيل Z وAlpha",
+      titleEn: "Seven Career-Defining Archetypes",
       descAr:
-        "تصميم يحتفي بالصورة الفوتوغرافية الحقيقية، ملمس الورق المرمري الدافئ، وتفاصيل الحرف العربي المشكّل دون جمود القوالب التقليدية.",
+        "من هندسة الذكاء الاصطناعي والعمارة إلى التلي سيلز، المارتيك، والموارد البشرية؛ كل قالب صُمم بلغة بصرية ومكونات تفاعلية خاصة بمجالك.",
       descEn:
-        "Warm Living Alabaster textures, tactile photography, and bespoke Arabic-Latin typography that feel curated by a human art director.",
+        "From AI Engineering and Architecture to Tele-Sales, MarTech, and People Ops — each template is purpose-built with domain-native widgets.",
     },
     {
       icon: Award,
-      titleAr: "فيزياء ثلاثية الأبعاد 60FPS",
-      titleEn: "60FPS Spatial WebGL Physics",
+      titleAr: "حركة سينمائية وخطوط محمية التشكيل",
+      titleEn: "Awwwards-Grade Motion & Typography",
       descAr:
-        "محرك إضاءة وانعكاس ثلاثي الأبعاد يستجيب لحركة الزائر ويبرز مشاريعك كأنها معروضة في قاعة متحف عالمي.",
+        "فيزياء تمرير GSAP ScrollTrigger ومنحنيات حركة مدروسة مع تناغم خط Readex Pro وInstrument Serif في وضعي النهار المرمري والليل السينمائي.",
       descEn:
-        "Real-time WebGL lighting and glass refraction that respond to cursor choreography at 60 frames per second.",
+        "Precision GSAP ScrollTrigger choreography and cubic-bezier(0.22, 1, 0.36, 1) transitions paired with Warm Alabaster and Cinema Noir modes.",
     },
   ];
 
@@ -45,21 +45,21 @@ export function PhilosophySection() {
         {/* Section Header */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-end mb-16">
           <div className="lg:col-span-7">
-            <span className="inline-block text-xs font-mono uppercase tracking-[0.25em] text-[#C5A059] mb-3">
-              {t("٠١ • فلسفة تَقَدُّم المعمارية", "01 • THE TAQDOM MANIFESTO")}
+            <span className="inline-block text-xs font-mono uppercase tracking-[0.25em] text-[#9A7B4F] dark:text-[#C89D66] mb-3">
+              {t("٠١ • بيان تَقَدُّم المعماري ٢٠٢٦", "01 • THE TAQDOM Q4 2026 MANIFESTO")}
             </span>
             <h2 className="arabic-diacritics text-3xl sm:text-5xl font-bold tracking-tight text-foreground">
               {t(
-                "كل مبدع يستحق متحفاً خاصاً به، لا مجرد صفحة عابرة.",
-                "Every Creator Deserves a Private Museum, Not a Generic Page."
+                "كل طالب وخريج ومحترف يستحق صالة عرض سيادية تحمل اسمه.",
+                "Every Graduate and Professional Deserves a Sovereign Exhibition."
               )}
             </h2>
           </div>
           <div className="lg:col-span-5">
             <p className="text-base sm:text-lg leading-relaxed text-muted-foreground">
               {t(
-                "ولدت «تَقَدُّم» في القاهرة لترتقي بمعارض أعمال المبدعين العرب والعالميين إلى مصافّ أرقى التجارب الرقمية الفائزة عالمياً، جامِعةً بين الأصالة البصرية وأحدث تقنيات الحافة.",
-                "Born in Cairo for visionary creators worldwide, Taqdom transforms static portfolios into living architectural monographs powered by edge computing and spatial WebGL."
+                "صُممت «تَقَدُّم» لترتقي بالهوية الرقمية لجيل Z وجيل Alpha إلى مصافّ أرقى المواقع الفائزة عالمياً، جامعةً بين الفخامة الهادئة وسرعة الحافة السحابية.",
+                "Engineered for Gen-Z and Gen-Alpha pioneers, Taqdom transforms static resumes into living digital monographs powered by Cloudflare Edge."
               )}
             </p>
           </div>
@@ -69,30 +69,30 @@ export function PhilosophySection() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-16">
           <div className="lg:col-span-7 relative min-h-[380px] md:min-h-[460px] rounded-3xl overflow-hidden border border-border group">
             <Image
-              src="/images/interior-view.png"
-              alt={t("قاعة عرض معمارية مضاءة طبيعياً", "Naturally lit architectural sanctuary")}
+              src="/images/ultra/haven-hero.webp"
+              alt={t("قاعة عرض معمارية مضاءة طبيعياً بدقة 4K", "4K Naturally lit architectural sanctuary")}
               fill
               className="object-cover transition-transform duration-700 group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050508]/85 via-[#050508]/25 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A09]/90 via-[#0A0A09]/25 to-transparent" />
             <div className="absolute bottom-6 inset-x-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
-                <span className="inline-block rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/50 px-3 py-1 text-xs font-semibold text-[#D4AF37] mb-2">
-                  {t("خامة المرمر الحي • Living Alabaster", "Living Alabaster Aesthetics")}
+                <span className="inline-block rounded-full bg-[#C89D66]/20 border border-[#C89D66]/50 px-3 py-1 text-xs font-semibold text-[#C89D66] mb-2">
+                  {t("خامة المرمر الدافئ • Warm Alabaster 2026", "Warm Alabaster Editorial")}
                 </span>
-                <h3 className="arabic-diacritics text-xl sm:text-2xl font-bold text-[#EDEAE2]">
+                <h3 className="arabic-diacritics text-xl sm:text-2xl font-bold text-[#F4F1EA]">
                   {t(
-                    "إضاءة متحفية تبرز أدق تفاصيل أعمالك",
-                    "Museum-Calibrated Light for Every Project"
+                    "صور 4K فائقة الحدة وإضاءة محيطية تبرز أدق تفاصيل مشاريعك",
+                    "Ultra-HD 4K Clarity & Museum-Calibrated Contrast"
                   )}
                 </h3>
               </div>
               <Link
                 href="/templates"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#D4AF37] px-4 py-2.5 text-xs font-bold text-[#050508] shrink-0"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#C89D66] px-4 py-2.5 text-xs font-bold text-[#0A0A09] shrink-0"
               >
                 <Eye className="h-3.5 w-3.5" />
-                <span>{t("عاين القوالب", "Inspect Templates")}</span>
+                <span>{t("عاين القوالب السبعة", "Inspect 7 Templates")}</span>
               </Link>
             </div>
           </div>
@@ -100,20 +100,20 @@ export function PhilosophySection() {
           <div className="lg:col-span-5 flex flex-col gap-6">
             <div className="relative flex-1 min-h-[240px] rounded-3xl overflow-hidden border border-border group">
               <Image
-                src="/images/rusted-metal.png"
-                alt={t("ملمس المعدن المعتق والذهب", "Weathered Corten & Gold Texture")}
+                src="/images/ultra/athar-hero.webp"
+                alt={t("استوديو إبداعي سينمائي", "Cinema Noir Creative Studio")}
                 fill
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#050508]/85 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A09]/90 via-transparent to-transparent" />
               <div className="absolute bottom-5 inset-x-5">
-                <p className="text-xs font-mono uppercase tracking-widest text-[#00F5D4]">
-                  MATERIALITY &amp; DEPTH
+                <p className="text-xs font-mono uppercase tracking-widest text-[#C89D66]">
+                  WARM ALABASTER &amp; CINEMA NOIR
                 </p>
-                <p className="mt-1 text-base font-bold text-[#EDEAE2]">
+                <p className="mt-1 text-base font-bold text-[#F4F1EA]">
                   {t(
-                    "تناغم الخامات الطبيعية مع شفق السايبر الليلي",
-                    "Tactile Corten, Alabaster & Cyber-Luxury Obsidian"
+                    "تناغم الخامات الدافئة نهاراً مع الكهرمان السينمائي ليلاً",
+                    "Tactile Warm Alabaster by Day, Cinema Noir & Amber by Night"
                   )}
                 </p>
               </div>
@@ -121,7 +121,7 @@ export function PhilosophySection() {
 
             {/* Human Curator Card */}
             <div className="glass-panel rounded-3xl p-6 flex items-center gap-4">
-              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[#C5A059]">
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[#9A7B4F] dark:border-[#C89D66]">
                 <Image
                   src="/images/creators/layla.jpg"
                   alt="Layla Mansour"
@@ -132,14 +132,14 @@ export function PhilosophySection() {
               <div>
                 <p className="text-sm font-medium text-foreground leading-relaxed">
                   {t(
-                    "«مع تَقَدُّم، أصبح موقعي المعماري layla.taqdom.me يُبهِر عملائي في القاهرة وميلانو من اللحظة الأولى.»",
-                    "“With Taqdom, my architectural practice at layla.taqdom.me feels like a private exhibition in Milan.”"
+                    "«مع تَقَدُّم، أصبح موقعي المعماري layla.taqdom.me يُبهِر مكاتب الاستشارات والعملاء في القاهرة وميلانو من اللحظة الأولى.»",
+                    "“With Taqdom, my architectural monograph at layla.taqdom.me feels like a private exhibition in Milan.”"
                   )}
                 </p>
-                <p className="mt-1.5 text-xs font-bold text-[#C5A059]">
+                <p className="mt-1.5 text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
                   {t(
-                    "ليلى منصور — مهندسة معمارية • القاهرة (حساب عرض)",
-                    "Layla Mansour — Principal Architect • Cairo (Showcase)"
+                    "ليلى منصور — مهندسة معمارية • layla.taqdom.me",
+                    "Layla Mansour — Principal Architect • layla.taqdom.me"
                   )}
                 </p>
               </div>
@@ -154,9 +154,9 @@ export function PhilosophySection() {
             return (
               <div
                 key={idx}
-                className="glass-panel rounded-3xl p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[#C5A059]"
+                className="glass-panel rounded-3xl p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[#9A7B4F] dark:hover:border-[#C89D66]"
               >
-                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#C5A059]/15 text-[#C5A059]">
+                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#9A7B4F]/15 text-[#9A7B4F] dark:text-[#C89D66]">
                   <Icon className="h-6 w-6" />
                 </div>
                 <h3 className="arabic-diacritics text-xl font-bold text-foreground mb-2.5">

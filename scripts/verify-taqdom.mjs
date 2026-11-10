@@ -1,4 +1,4 @@
-// scripts/verify-taqdom.mjs — Comprehensive Deep Verification Suite for Taqdom
+// scripts/verify-taqdom.mjs — Comprehensive Deep Verification Suite for Taqdom v2 (7 Archetypes & Q4 2026 System)
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import http from "node:http";
@@ -38,25 +38,47 @@ function requestWithHost(urlPath, hostHeader) {
 }
 
 async function runTests() {
-  console.log("=== TAQDOM SOVEREIGN VERIFICATION SUITE ===");
+  console.log("=== TAQDOM SOVEREIGN v2 VERIFICATION SUITE ===");
 
-  // 1. Static CSS check: zero #FFFFFF in globals.css
+  // 1. Static CSS check: zero #FFFFFF and zero #00F5D4 in globals.css
   const globalsCss = fs.readFileSync(path.join(process.cwd(), "app/globals.css"), "utf-8");
   assert.equal(
     /#ffffff/i.test(globalsCss),
     false,
     "app/globals.css must NOT contain pure white #FFFFFF"
   );
-  console.log("[PASS] 1. Living Alabaster Off-White check (Zero #FFFFFF in globals.css)");
+  assert.equal(
+    /#00f5d4/i.test(globalsCss),
+    false,
+    "app/globals.css must NOT contain neon cyan #00F5D4"
+  );
+  console.log("[PASS] 1. Q4 2026 Warm Alabaster & Cinema Noir check (Zero #FFFFFF and Zero #00F5D4 in globals.css)");
 
-  // 2. All core pages return 200 (including /dashboard/settings)
+  // 1b. Verify Ultra-HD 4K WebP assets exist locally in public/images/ultra/
+  const ultraDir = path.join(process.cwd(), "public/images/ultra");
+  const ultraFiles = fs.readdirSync(ultraDir).filter((f) => f.endsWith(".webp"));
+  assert.equal(
+    ultraFiles.length >= 21,
+    true,
+    `Expected at least 21 Ultra-HD 4K WebP images in public/images/ultra, found ${ultraFiles.length}`
+  );
+  for (const file of ultraFiles) {
+    const stat = fs.statSync(path.join(ultraDir, file));
+    assert.equal(stat.size > 50_000, true, `Ultra-HD asset ${file} is too small (${stat.size}B)`);
+  }
+  console.log(`[PASS] 1b. All ${ultraFiles.length} Ultra-HD 4K WebP assets verified in public/images/ultra/`);
+
+  // 2. All core pages & all 7 template routes return 200
   const routes = [
     "/",
     "/templates",
-    "/templates/athar",
     "/templates/madar",
+    "/templates/athar",
+    "/templates/haven",
     "/templates/siyada",
-    "/templates/noor",
+    "/templates/wameed",
+    "/templates/salam",
+    "/templates/meshwar",
     "/studio",
     "/auth",
     "/dashboard",
@@ -71,8 +93,21 @@ async function runTests() {
   for (const r of routes) {
     const res = await fetch(`${BASE}${r}`, { redirect: "manual" });
     assert.equal(res.status, 200, `Expected 200 on ${r}, got ${res.status}`);
+    if (["/", "/auth", "/dashboard", "/studio", "/templates"].includes(r)) {
+      const html = await res.text();
+      assert.equal(
+        html.includes("test.taqdom.me"),
+        false,
+        `Page ${r} must NOT contain test.taqdom.me`
+      );
+      assert.equal(
+        html.includes("حساب الاختبار"),
+        false,
+        `Page ${r} must NOT contain 'حساب الاختبار'`
+      );
+    }
   }
-  console.log(`[PASS] 2. All ${routes.length} pages & SEO routes (/sitemap.xml, /robots.txt, /dashboard/settings) returned HTTP 200`);
+  console.log(`[PASS] 2. All ${routes.length} pages & 7 template routes returned HTTP 200 with zero 'test.taqdom.me' references`);
 
   // 3. Username validation & availability API (including edge cases)
   const availRes = await fetch(`${BASE}/api/username/check?u=ahmed`);
@@ -93,35 +128,36 @@ async function runTests() {
   assert.equal(emptyData.valid, false);
   console.log("[PASS] 3. Username check API (/api/username/check) verified for valid, reserved, empty, and boundary inputs");
 
-  // 4. 308 Permanent Redirect from root /test, /portfolio/test, /@layla, and www.taqdom.me to subdomain
-  const redirectDirect = await requestWithHost("/test", `localhost:${PORT}`);
-  assert.equal(redirectDirect.status, 308, "Expected 308 redirect from /test");
+  // 4. 308 Permanent Redirect from root /layla, /portfolio/layla, /@youssef, and www.taqdom.me to subdomain
+  const redirectDirect = await requestWithHost("/layla", `localhost:${PORT}`);
+  assert.equal(redirectDirect.status, 308, "Expected 308 redirect from /layla");
   assert.equal(
     redirectDirect.headers.location,
-    `http://test.localhost:${PORT}/`
+    `http://layla.localhost:${PORT}/`
   );
 
-  const redirectPortfolio = await requestWithHost("/portfolio/test", `localhost:${PORT}`);
-  assert.equal(redirectPortfolio.status, 308, "Expected 308 redirect from /portfolio/test");
+  const redirectPortfolio = await requestWithHost("/portfolio/layla", `localhost:${PORT}`);
+  assert.equal(redirectPortfolio.status, 308, "Expected 308 redirect from /portfolio/layla");
   assert.equal(
     redirectPortfolio.headers.location,
-    `http://test.localhost:${PORT}/`
+    `http://layla.localhost:${PORT}/`
   );
 
-  const redirectAt = await requestWithHost("/@layla", `localhost:${PORT}`);
-  assert.equal(redirectAt.status, 308, "Expected 308 redirect from /@layla");
+  const redirectAt = await requestWithHost("/@youssef", `localhost:${PORT}`);
+  assert.equal(redirectAt.status, 308, "Expected 308 redirect from /@youssef");
   assert.equal(
     redirectAt.headers.location,
-    `http://layla.localhost:${PORT}/`
+    `http://youssef.localhost:${PORT}/`
   );
 
   const redirectWww = await requestWithHost("/", "www.taqdom.me");
   assert.equal(redirectWww.status, 308, "Expected 308 redirect from www.taqdom.me");
   assert.equal(redirectWww.headers.location, "https://taqdom.me/");
-  console.log("[PASS] 4. Canonical 308 redirects (/test, /portfolio/test, /@layla, www.taqdom.me) verified");
+  console.log("[PASS] 4. Canonical 308 redirects (/layla, /portfolio/layla, /@youssef, www.taqdom.me) verified");
 
-  // 5. Subdomain rewrite for test, layla, youssef, farida, karim + unclaimed subdomain check
-  for (const sub of ["test", "layla", "youssef", "farida", "karim"]) {
+  // 5. Subdomain rewrite for all 7 flagship creators + unclaimed subdomain check
+  const flagshipCreators = ["layla", "youssef", "farida", "karim", "tariq", "salma", "nora"];
+  for (const sub of flagshipCreators) {
     const subRes = await requestWithHost("/", `${sub}.localhost:${PORT}`);
     assert.equal(subRes.status, 200, `Expected 200 on subdomain ${sub}.localhost:${PORT}`);
     assert.equal(
@@ -146,14 +182,13 @@ async function runTests() {
     true,
     "Unclaimed subdomain should render available subdomain title"
   );
-  console.log("[PASS] 5. Host-based subdomain rewrites, ProfilePage JSON-LD, and unclaimed subdomain handling verified");
+  console.log("[PASS] 5. Host-based subdomain rewrites for all 7 flagship creators, ProfilePage JSON-LD, and unclaimed subdomain verified");
 
-  // 6. Auth Security: /api/auth/me unauthenticated check + Custom Account Register/Login/Password check + Upload + Unpublish
+  // 6. Auth Security: /api/auth/me unauthenticated check + Custom Account Register/Login/Password check + Upload
   const meUnauth = await fetch(`${BASE}/api/auth/me`);
   const meUnauthData = await meUnauth.json();
   assert.equal(meUnauthData.authenticated, false, "Unauthenticated /api/auth/me must return authenticated: false");
 
-  // Clean up any previous omar-arch test user
   await fetch(`${BASE}/api/auth/settings?u=omar-arch`, { method: "DELETE" });
 
   const regRes = await fetch(`${BASE}/api/auth/register`, {
@@ -164,12 +199,11 @@ async function runTests() {
       email: "omar.custom.2026@example.com",
       password: "StrongPassword123",
       displayName: "عمر المعماري",
-      template: "athar",
+      template: "haven",
     }),
   });
   assert.equal(regRes.status, 200, "Expected 200 on custom registration");
 
-  // Duplicate registration must return 409
   const dupRes = await fetch(`${BASE}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -181,7 +215,6 @@ async function runTests() {
   });
   assert.equal(dupRes.status, 409, "Duplicate username registration must return 409");
 
-  // Wrong password login must return 401
   const wrongLogin = await fetch(`${BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -192,7 +225,6 @@ async function runTests() {
   });
   assert.equal(wrongLogin.status, 401, "Wrong password must return 401");
 
-  // Correct email + password login must return 200 and username: omar-arch
   const rightLogin = await fetch(`${BASE}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -205,7 +237,6 @@ async function runTests() {
   const rightLoginData = await rightLogin.json();
   assert.equal(rightLoginData.user.username, "omar-arch");
 
-  // Test Media Upload (/api/upload and /api/media/[key])
   const tinyPngDataUrl =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
   const uploadRes = await fetch(`${BASE}/api/upload`, {
@@ -223,7 +254,6 @@ async function runTests() {
   const mediaRes = await fetch(`${BASE}${uploadData.url}`);
   assert.equal(mediaRes.status, 200, "Expected 200 from /api/media/[key]");
 
-  // Verify omar-arch appears in /api/portfolio?all=1 and on omar-arch.localhost:PORT
   const allPortfoliosRes = await fetch(`${BASE}/api/portfolio?all=1`);
   const allPortfoliosData = await allPortfoliosRes.json();
   assert.equal(
@@ -240,27 +270,25 @@ async function runTests() {
     "Expected عمر المعماري on omar-arch subdomain"
   );
 
-  // Clean up omar-arch
   await fetch(`${BASE}/api/auth/settings?u=omar-arch`, { method: "DELETE" });
   console.log("[PASS] 6. Custom registration, PBKDF2 login verification, media upload, and custom subdomain SSR verified");
 
-  // 7. 1-Click Test Account Login + Studio Edit & Publish Flow + Subdomain Verification
-  const testLoginRes = await fetch(`${BASE}/api/auth/test-login`, {
+  // 7. 1-Click Verified Flagship Creator Login (layla) + Studio Edit & Publish Flow + Subdomain Verification
+  const flagshipLoginRes = await fetch(`${BASE}/api/auth/test-login`, {
     method: "POST",
   });
-  assert.equal(testLoginRes.status, 200);
-  const testLoginData = await testLoginRes.json();
-  assert.equal(testLoginData.ok, true);
-  assert.equal(testLoginData.user.username, "test");
-  const setCookie = testLoginRes.headers.get("set-cookie") || "";
+  assert.equal(flagshipLoginRes.status, 200);
+  const flagshipLoginData = await flagshipLoginRes.json();
+  assert.equal(flagshipLoginData.ok, true);
+  assert.equal(flagshipLoginData.user.username, "layla");
+  const setCookie = flagshipLoginRes.headers.get("set-cookie") || "";
   assert.equal(setCookie.includes("taqdom_session="), true, "Expected taqdom_session cookie");
 
-  // Modify bio & publish via /api/portfolio/publish
-  const customBio = "نبذة محدثة من اختبار الاستوديو الآلي — Sovereign Verified Bio 2026";
+  const customBio = "نبذة معمارية محدثة للمهندسة ليلى منصور — Sovereign Verified Bio 2026";
   const updatedPortfolio = {
-    ...testLoginData.portfolio,
+    ...flagshipLoginData.portfolio,
     bio: {
-      ...testLoginData.portfolio.bio,
+      ...flagshipLoginData.portfolio.bio,
       ar: customBio,
     },
   };
@@ -271,19 +299,18 @@ async function runTests() {
   });
   assert.equal(pubRes.status, 200);
 
-  // Verify updated bio appears on test.localhost:PORT
-  const verifySubRes = await requestWithHost("/", `test.localhost:${PORT}`);
+  const verifySubRes = await requestWithHost("/", `layla.localhost:${PORT}`);
   assert.equal(
     verifySubRes.body.includes(customBio),
     true,
-    `Updated bio must appear on test.localhost:${PORT} after publish`
+    `Updated bio must appear on layla.localhost:${PORT} after publish`
   );
 
-  // Reset test account back to clean state
+  // Restore layla back to clean flagship state
   await fetch(`${BASE}/api/auth/test-login`, { method: "POST" });
-  console.log("[PASS] 7. 1-Click Test Account login, Studio publish, and live subdomain update verified");
+  console.log("[PASS] 7. 1-Click Verified Creator (layla.taqdom.me) login, Studio publish, and live subdomain update verified");
 
-  console.log("=== ALL TAQDOM VERIFICATION CHECKS PASSED 100% ===");
+  console.log("=== ALL TAQDOM v2 VERIFICATION CHECKS PASSED 100% ===");
 }
 
 runTests().catch((err) => {

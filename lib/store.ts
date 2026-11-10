@@ -9,7 +9,7 @@ export interface AuthUser {
   id: string;
   email: string;
   username: string;
-  isTestAccount?: boolean;
+  isFlagshipAccount?: boolean;
 }
 
 interface TaqdomStoreState {
@@ -20,11 +20,15 @@ interface TaqdomStoreState {
   publishedPortfolios: Record<string, PortfolioData>;
   saveStatus: "saved" | "saving" | "unsaved";
   setUser: (user: AuthUser | null) => void;
-  setDraft: (updater: PortfolioData | ((prev: PortfolioData) => PortfolioData), recordHistory?: boolean) => void;
+  setDraft: (
+    updater: PortfolioData | ((prev: PortfolioData) => PortfolioData),
+    recordHistory?: boolean
+  ) => void;
   switchTemplate: (template: TemplateId) => void;
   undo: () => void;
   redo: () => void;
   publishCurrentDraft: () => Promise<PortfolioData>;
+  loginFlagshipShowcase: () => Promise<PortfolioData>;
   resetTestAccount: () => Promise<PortfolioData>;
   loadPortfolioForUsername: (username: string) => PortfolioData | null;
 }
@@ -33,7 +37,7 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
   persist(
     (set, get) => ({
       user: null,
-      draft: structuredClone(SEED_PORTFOLIOS.test),
+      draft: structuredClone(SEED_PORTFOLIOS.layla),
       pastDrafts: [],
       futureDrafts: [],
       publishedPortfolios: { ...SEED_PORTFOLIOS },
@@ -47,7 +51,7 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
         const existing =
           get().publishedPortfolios[user.username] ||
           SEED_PORTFOLIOS[user.username] ||
-          createStarterPortfolio(user.username, "athar", user.username);
+          createStarterPortfolio(user.username, "madar", user.username);
         set({
           user,
           draft: structuredClone(existing),
@@ -61,7 +65,9 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
       setDraft: (updater, recordHistory = true) => {
         const current = get().draft;
         const next =
-          typeof updater === "function" ? updater(structuredClone(current)) : structuredClone(updater);
+          typeof updater === "function"
+            ? updater(structuredClone(current))
+            : structuredClone(updater);
         next.updatedAt = Date.now();
         set((state) => ({
           draft: next,
@@ -130,8 +136,8 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
         return current;
       },
 
-      resetTestAccount: async () => {
-        const fresh = structuredClone(SEED_PORTFOLIOS.test);
+      loginFlagshipShowcase: async () => {
+        const fresh = structuredClone(SEED_PORTFOLIOS.layla);
         try {
           await fetch("/api/auth/test-login", { method: "POST" });
         } catch {
@@ -139,15 +145,16 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
         }
         set((state) => ({
           user: {
-            id: "user-test-sovereign",
-            email: "test@taqdom.me",
-            username: "test",
-            isTestAccount: true,
+            id: "user-layla",
+            email: "layla@taqdom.me",
+            username: "layla",
+            isFlagshipAccount: true,
           },
           draft: structuredClone(fresh),
           publishedPortfolios: {
+            ...SEED_PORTFOLIOS,
             ...state.publishedPortfolios,
-            test: structuredClone(fresh),
+            layla: structuredClone(fresh),
           },
           pastDrafts: [],
           futureDrafts: [],
@@ -156,13 +163,17 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
         return fresh;
       },
 
+      resetTestAccount: async () => {
+        return get().loginFlagshipShowcase();
+      },
+
       loadPortfolioForUsername: (username) => {
         const clean = username.trim().toLowerCase();
         return get().publishedPortfolios[clean] || SEED_PORTFOLIOS[clean] || null;
       },
     }),
     {
-      name: "taqdom-sovereign-store-v1",
+      name: "taqdom-sovereign-store-v2",
       partialize: (state) => ({
         user: state.user,
         draft: state.draft,

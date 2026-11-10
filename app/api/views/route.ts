@@ -4,7 +4,7 @@ import { incrementPortfolioView } from "@/lib/db";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const username = String(body.username || "test");
+    const username = String(body.username || "layla");
     const views = await incrementPortfolioView(username);
     return NextResponse.json({ ok: true, views });
   } catch {
