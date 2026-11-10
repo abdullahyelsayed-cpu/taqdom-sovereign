@@ -111,6 +111,10 @@ export function HeroSection() {
   // GSAP ScrollTrigger Pinned Camera Portal animation
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // The pinned cinematic stage is intentionally desktop-only. On touch
+    // screens it stays natural and scrollable instead of hijacking gestures.
+    if (window.matchMedia("(max-width: 767px)").matches) return;
     gsap.registerPlugin(ScrollTrigger);
     const pinWrap = portalPinWrapRef.current;
     const frame = portalFrameRef.current;
@@ -122,13 +126,14 @@ export function HeroSection() {
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: pinWrap,
-          start: "top 12%",
-          end: "+=420",
+          start: "top 14%",
+          end: "+=360",
           pin: true,
           scrub: 0.6,
           anticipatePin: 1,
           onUpdate: (self) => {
-            setPortalProgress(Math.round(self.progress * 100));
+            const nextProgress = Math.round(self.progress * 10) * 10;
+          setPortalProgress((current) => current === nextProgress ? current : nextProgress);
           },
         },
       });

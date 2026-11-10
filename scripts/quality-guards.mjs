@@ -19,6 +19,10 @@ const exploreText = read("../app/explore/page.tsx");
 const dbText = read("../lib/db.ts");
 const dashboardText = read("../app/dashboard/page.tsx");
 const privacyText = read("../app/legal/privacy/page.tsx");
+const polishCss = read("../app/polish.css");
+const globalsCss = read("../app/globals.css");
+const smoothScrollText = read("../components/smooth-scroll.tsx");
+const rendererText = read("../components/templates/portfolio-renderer.tsx");
 
 assert.match(layoutText, /defaultTheme="dark"/, "Dark mode must be the default.");
 assert.match(homeText, /GraduationCreditsSection/, "Homepage must include the project credit section.");
@@ -41,6 +45,19 @@ assert.match(seedText, /taqdom-avatar-placeholder\.svg/, "New accounts must not 
 assert.doesNotMatch(seedText, /Verified Taqdom Member/, "New accounts must not claim a verified status.");
 assert.doesNotMatch(dashboardText, /4820/, "Dashboard must not show fabricated view totals.");
 assert.match(privacyText, /Explore is opt-in/, "Privacy policy must explain optional directory visibility.");
+assert.match(globalsCss, /--taq-violet: #A78BFA/, "The global dark theme must use the new violet palette.");
+assert.match(globalsCss, /--taq-coral: #FF8396/, "The global dark theme must use the new coral palette.");
+assert.match(polishCss, /prefers-reduced-motion/, "Motion must respect reduced-motion preferences.");
+assert.match(polishCss, /portfolio-canvas-section/, "Canvas layout styles must be present.");
+assert.match(smoothScrollText, /import\("lenis"\)/, "Lenis must load lazily rather than on every route.");
+assert.match(smoothScrollText, /prefers-reduced-motion/, "Smooth scrolling must respect reduced-motion settings.");
+assert.match(studioText, /handleCanvasBackgroundUpload/, "Studio must support background image uploads.");
+assert.match(studioText, /handleCanvasPointerDown/, "Canvas sections must be directly draggable.");
+assert.match(studioText, /updateCanvasSection/, "Canvas sections must have non-drag slider controls.");
+assert.match(studioText, /backgroundOverlay/, "Studio must allow background overlay tuning.");
+assert.match(rendererText, /backgroundImage: canvasBackgroundImage/, "Portfolio backgrounds must be applied to the rendered canvas.");
+assert.match(rendererText, /data-canvas-section="hero"/, "Portfolio sections must expose editable canvas regions.");
+
 
 
 console.log("Taqdom quality guards: PASS");

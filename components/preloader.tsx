@@ -11,7 +11,7 @@ export function Preloader() {
   useEffect(() => {
     try {
       const seen = sessionStorage.getItem("taqdom_preloader_done");
-      if (seen === "1") {
+      if (seen === "1" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         setVisible(false);
         return;
       }
@@ -23,7 +23,7 @@ export function Preloader() {
 
     let current = 0;
     const timer = setInterval(() => {
-      current += 16;
+      current += 25;
       if (current >= 100) {
         setProgress(100);
         clearInterval(timer);
@@ -34,12 +34,12 @@ export function Preloader() {
           } catch {
             // ignore
           }
-          setTimeout(() => setVisible(false), 400);
-        }, 150);
+          setTimeout(() => setVisible(false), 250);
+        }, 60);
       } else {
         setProgress(current);
       }
-    }, 45);
+    }, 24);
 
     return () => clearInterval(timer);
   }, []);
@@ -48,15 +48,15 @@ export function Preloader() {
 
   return (
     <div
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-between px-8 py-10 transition-all duration-500 ${
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-between px-8 py-10 transition-all duration-250 ${
         closing ? "opacity-0 pointer-events-none scale-105" : "opacity-100"
       }`}
       style={{
-        background: "#0A0A09",
-        color: "#F4F1EA",
+        background: "#10111B",
+        color: "#F7F5FC",
       }}
     >
-      <div className="flex w-full items-center justify-between font-mono text-xs tracking-[0.22em] uppercase text-[#C89D66]">
+      <div className="flex w-full items-center justify-between font-mono text-xs tracking-[0.22em] uppercase text-[#A78BFA]">
         <span>CAIRO • MILAN • DUBAI • RIYADH</span>
         <button
           type="button"
@@ -66,7 +66,7 @@ export function Preloader() {
             } catch {}
             setVisible(false);
           }}
-          className="rounded-full border border-[#C89D66]/40 px-3 py-1 text-[11px] text-[#F4F1EA] hover:border-[#C89D66]"
+          className="rounded-full border border-[#A78BFA]/40 px-3 py-1 text-[11px] text-[#F7F5FC] hover:border-[#A78BFA]"
         >
           تخطي / SKIP
         </button>
@@ -74,29 +74,29 @@ export function Preloader() {
 
       <div className="flex flex-col items-center gap-6 text-center">
         <TaqdomLogo size={72} showWordmark={false} />
-        <h2 className="arabic-diacritics text-4xl md:text-6xl font-bold tracking-tight text-[#F4F1EA]">
+        <h2 className="arabic-diacritics text-4xl md:text-6xl font-bold tracking-tight text-[#F7F5FC]">
           تَقَدُّم • TAQDOM
         </h2>
-        <p className="max-w-md text-sm md:text-base text-[#A09C94]">
-          منصة الهويات الرقمية ومعارض الأعمال السيادية • Sovereign Digital Identities
+        <p className="max-w-md text-sm md:text-base text-[#B7B8C8]">
+          مساحة لأفكارك ومشاريعك • A home for what you make
         </p>
       </div>
 
       <div className="w-full max-w-xl">
         <div className="flex items-baseline justify-between mb-2 font-mono">
-          <span className="text-xs tracking-[0.2em] uppercase text-[#A09C94]">
-            CURATING ARCHITECTURAL PORTAL
+          <span className="text-xs tracking-[0.2em] uppercase text-[#B7B8C8]">
+            SETTING UP YOUR CREATIVE SPACE
           </span>
-          <span className="text-3xl md:text-5xl font-bold text-[#C89D66]">
+          <span className="text-3xl md:text-5xl font-bold text-[#A78BFA]">
             {String(progress).padStart(2, "0")}%
           </span>
         </div>
-        <div className="h-1 w-full overflow-hidden rounded-full bg-[#181815]">
+        <div className="h-1 w-full overflow-hidden rounded-full bg-[#22263A]">
           <div
             className="h-full transition-all duration-150"
             style={{
               width: `${progress}%`,
-              background: "linear-gradient(90deg, #9A7B4F, #C89D66, #1E3A2F)",
+              background: "linear-gradient(90deg, #A78BFA, #FF8396, #7EE7C4)",
             }}
           />
         </div>

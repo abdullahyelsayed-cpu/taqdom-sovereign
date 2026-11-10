@@ -22,7 +22,7 @@ const readex = Readex_Pro({
 
 const ibmArabic = IBM_Plex_Sans_Arabic({
   subsets: ["arabic", "latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "700"],
   variable: "--font-ibm-arabic",
   display: "swap",
 });
@@ -95,10 +95,8 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/icon-light-32x32.png", media: "(prefers-color-scheme: light)" },
-      { url: "/icon-dark-32x32.png", media: "(prefers-color-scheme: dark)" },
     ],
-    apple: "/apple-icon.png",
+    apple: "/icon.svg",
   },
 };
 
@@ -141,7 +139,7 @@ export default function RootLayout({
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <meta name="color-scheme" content="dark light" />
-        <meta name="theme-color" content="#090B0D" />
+        <meta name="theme-color" content="#10111B" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(rootJsonLd) }}
