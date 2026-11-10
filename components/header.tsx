@@ -34,7 +34,8 @@ export function Header() {
 
       <nav className="neo-header-nav" aria-label={t("التنقل الرئيسي", "Main navigation")}>
         {navItems.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href.split("#")[0]);
+          const destination = item.href.split("#")[0] || "/";
+          const active = !item.href.includes("#") && pathname === destination;
           return (
             <Link
               key={item.href}
