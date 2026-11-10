@@ -8,11 +8,11 @@ import { Header } from "@/components/header";
 import { FooterSection } from "@/components/sections/footer-section";
 import { useLanguage } from "@/lib/i18n";
 import { useTaqdomStore } from "@/lib/store";
-import { SEED_PORTFOLIOS } from "@/lib/seed-data";
+import { SEED_PORTFOLIOS, TEMPLATES_CATALOG } from "@/lib/seed-data";
 import { getSubdomainUrl, PortfolioData, TemplateId, ALL_TEMPLATE_IDS } from "@/lib/types";
 
 export default function ExplorePage() {
-  const { t } = useLanguage();
+  const { lang, t } = useLanguage();
   const publishedPortfolios = useTaqdomStore((s) => s.publishedPortfolios);
   const [serverPortfolios, setServerPortfolios] = useState<Record<string, PortfolioData>>({});
   const [filterTemplate, setFilterTemplate] = useState<TemplateId | "all">("all");
@@ -98,7 +98,7 @@ export default function ExplorePage() {
                       : "border-border bg-card text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {tpl === "all" ? t("الكل (7)", "All (7)") : tpl}
+                  {tpl === "all" ? t("الكل", "All") : (TEMPLATES_CATALOG.find((item) => item.id === tpl)?.name[lang] || tpl)}
                 </button>
               ))}
             </div>
@@ -106,7 +106,15 @@ export default function ExplorePage() {
 
           {/* Creators Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
-            {allCreators.map((creator) => {
+            {allCreators.length === 0 ? (
+              <div className="col-span-full glass-panel rounded-3xl px-6 py-16 text-center">
+                <Compass className="mx-auto h-8 w-8 text-[#C7F36B]" />
+                <h2 className="mt-4 text-lg font-bold">{t("لا توجد نتائج بهذا البحث", "No matches yet")}</h2>
+                <p className="mx-auto mt-2 max-w-md text-sm leading-7 text-muted-foreground">
+                  {t("جرّب كلمة مختلفة أو اختر قالبًا آخر. المعارض الشخصية لا تظهر هنا إلا بعد اختيار صاحبها الإدراج في الدليل.", "Try another search or style. Personal portfolios appear here only when their owners opt in.")}
+                </p>
+              </div>
+            ) : allCreators.map((creator) => {
               const subUrl = getSubdomainUrl(creator.username, host);
               return (
                 <div
