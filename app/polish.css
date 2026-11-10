@@ -246,6 +246,38 @@ html[dir="rtl"] .taqdom-scroll-progress { transform-origin: right center; }
   -webkit-text-stroke: 1px rgba(167,139,250,.72);
 }
 
+
+/* Home, navigation, and Studio legacy tokens follow the new brand too. */
+.dark [class*="text-[#C89D66]"],
+.dark [class*="text-[#9A7B4F]"],
+.dark [class*="text-[#B68C51]"],
+.dark [class*="text-[#D7B77B]"],
+.dark [class*="text-[#E2C18D]"] { color: #A78BFA !important; }
+html:not(.dark) [class*="text-[#C89D66]"],
+html:not(.dark) [class*="text-[#9A7B4F]"],
+html:not(.dark) [class*="text-[#B68C51]"],
+html:not(.dark) [class*="text-[#D7B77B]"] { color: #6047B7 !important; }
+.dark [class*="text-[#1E3A2F]"] { color: #7EE7C4 !important; }
+html:not(.dark) [class*="text-[#1E3A2F]"] { color: #087567 !important; }
+.dark [class*="bg-[#C89D66]"]:not([class*="/"]),
+.dark [class*="bg-[#9A7B4F]"]:not([class*="/"]) {
+  background-color: #FF8396 !important;
+  color: #10111B !important;
+}
+html:not(.dark) [class*="bg-[#C89D66]"]:not([class*="/"]),
+html:not(.dark) [class*="bg-[#9A7B4F]"]:not([class*="/"]) {
+  background-color: #6047B7 !important;
+  color: #FFFFFF !important;
+}
+.dark [class*="bg-[#C89D66]/"], .dark [class*="bg-[#9A7B4F]/"] { background-color: rgba(167,139,250,.14) !important; }
+html:not(.dark) [class*="bg-[#C89D66]/"], html:not(.dark) [class*="bg-[#9A7B4F]/"] { background-color: rgba(96,71,183,.10) !important; }
+.dark [class*="border-[#C89D66]"], .dark [class*="border-[#9A7B4F]"] { border-color: rgba(167,139,250,.52) !important; }
+html:not(.dark) [class*="border-[#C89D66]"], html:not(.dark) [class*="border-[#9A7B4F]"] { border-color: rgba(96,71,183,.40) !important; }
+.dark [class*="bg-[#141413]"] { background-color: #181B29 !important; }
+html:not(.dark) [class*="bg-[#141413]"] { background-color: #6047B7 !important; color: #FFFFFF !important; }
+.dark [class*="text-[#F4F1EA]"], .dark [class*="text-[#F7F5F0]"] { color: #F7F5FC !important; }
+html:not(.dark) [class*="text-[#F4F1EA]"], html:not(.dark) [class*="text-[#F7F5F0]"] { color: #F7F5FC !important; }
+
 /* Scroll reveals: IntersectionObserver adds is-visible; content stays visible
    when JS is unavailable or reduced motion is requested. */
 .taq-motion-ready [data-reveal] {
