@@ -80,6 +80,8 @@ export type PortfolioData = {
   badge?: BilingualText;
   skills?: string[];
   isFlagshipShowcase?: boolean;
+  /** Explicit opt-in to appear in the public Explore directory. Direct published URLs remain public. */
+  discoverable?: boolean;
   links: { label: string; url: string }[];
   projects: PortfolioProject[];
   metrics?: PortfolioMetric[];
