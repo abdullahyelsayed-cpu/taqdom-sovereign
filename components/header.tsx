@@ -44,7 +44,7 @@ export function Header() {
     { href: "/dashboard", labelAr: "لوحتي", labelEn: "Dashboard" },
   ];
 
-  const isDark = mounted && resolvedTheme === "dark";
+  const isDark = !mounted || resolvedTheme === "dark";
 
   return (
     <header
