@@ -781,23 +781,23 @@ html[dir="ltr"] .neo-top-progress { transform-origin: left center; }
   border-color: rgba(228,235,255,.13);
   box-shadow: 0 20px 60px rgba(0,0,0,.22);
 }
-main:not(.neo-home) {
+main:not(.home-experience) {
   background:
     radial-gradient(900px circle at 5% 0%, rgba(49,91,255,.07), transparent 55%),
     radial-gradient(700px circle at 100% 28%, rgba(216,255,82,.10), transparent 60%),
     var(--neo-paper);
 }
-main:not(.neo-home) > section {
+main:not(.home-experience) > section {
   position: relative;
 }
-main:not(.neo-home) h1,
-main:not(.neo-home) h2,
-main:not(.neo-home) h3 {
+main:not(.home-experience) h1,
+main:not(.home-experience) h2,
+main:not(.home-experience) h3 {
   letter-spacing: -.035em;
 }
-main:not(.neo-home) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
-main:not(.neo-home) textarea,
-main:not(.neo-home) select,
+main:not(.home-experience) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+main:not(.home-experience) textarea,
+main:not(.home-experience) select,
 [data-taqdom-studio] input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
 [data-taqdom-studio] textarea,
 [data-taqdom-studio] select {
@@ -808,9 +808,9 @@ main:not(.neo-home) select,
   color: #171B2B;
   transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease;
 }
-.dark main:not(.neo-home) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
-.dark main:not(.neo-home) textarea,
-.dark main:not(.neo-home) select,
+.dark main:not(.home-experience) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.dark main:not(.home-experience) textarea,
+.dark main:not(.home-experience) select,
 .dark [data-taqdom-studio] input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
 .dark [data-taqdom-studio] textarea,
 .dark [data-taqdom-studio] select {
@@ -818,9 +818,9 @@ main:not(.neo-home) select,
   border-color: rgba(145,167,255,.3);
   color: #F7F8F3;
 }
-main:not(.neo-home) input:focus,
-main:not(.neo-home) textarea:focus,
-main:not(.neo-home) select:focus,
+main:not(.home-experience) input:focus,
+main:not(.home-experience) textarea:focus,
+main:not(.home-experience) select:focus,
 [data-taqdom-studio] input:focus,
 [data-taqdom-studio] textarea:focus,
 [data-taqdom-studio] select:focus {
@@ -928,45 +928,45 @@ main:not(.neo-home) select:focus,
 }
 
 /* Dashboard and account cards */
-main:not(.neo-home) .glass-panel:hover {
+main:not(.home-experience) .glass-panel:hover {
   border-color: rgba(49,91,255,.22);
 }
-main:not(.neo-home) .glass-panel[class*="rounded-3xl"] {
+main:not(.home-experience) .glass-panel[class*="rounded-3xl"] {
   border-radius: 24px;
 }
-main:not(.neo-home) a[class*="bg-[#9A7B4F]"],
-main:not(.neo-home) button[class*="bg-[#9A7B4F]"],
-main:not(.neo-home) a[class*="bg-[#C89D66]"],
-main:not(.neo-home) button[class*="bg-[#C89D66]"] {
+main:not(.home-experience) a[class*="bg-[#9A7B4F]"],
+main:not(.home-experience) button[class*="bg-[#9A7B4F]"],
+main:not(.home-experience) a[class*="bg-[#C89D66]"],
+main:not(.home-experience) button[class*="bg-[#C89D66]"] {
   min-height: 42px;
   font-weight: 850;
   box-shadow: 0 9px 20px rgba(49,91,255,.18);
 }
-main:not(.neo-home) button[class*="bg-foreground"] {
+main:not(.home-experience) button[class*="bg-foreground"] {
   background: #315BFF !important;
   color: #FFFFFF !important;
 }
-.dark main:not(.neo-home) button[class*="bg-foreground"] {
+.dark main:not(.home-experience) button[class*="bg-foreground"] {
   background: #91A7FF !important;
   color: #11192D !important;
 }
-main:not(.neo-home) button[class*="border-border"]:hover,
-main:not(.neo-home) a[class*="border-border"]:hover {
+main:not(.home-experience) button[class*="border-border"]:hover,
+main:not(.home-experience) a[class*="border-border"]:hover {
   border-color: rgba(49,91,255,.5);
   background-color: rgba(49,91,255,.055);
 }
-main:not(.neo-home) [class*="bg-[#0A0A09]"],
-main:not(.neo-home) [class*="bg-[#080807]"],
-main:not(.neo-home) [class*="bg-[#141413]"] {
+main:not(.home-experience) [class*="bg-[#0A0A09]"],
+main:not(.home-experience) [class*="bg-[#080807]"],
+main:not(.home-experience) [class*="bg-[#141413]"] {
   background-color: #171B2B;
 }
-main:not(.neo-home) [class*="text-[#F4F1EA]"] { color: #FFFFFF; }
-main:not(.neo-home) [class*="text-[#C89D66]"],
-main:not(.neo-home) [class*="text-[#D7B77B]"] { color: #D8FF52; }
-main:not(.neo-home) [class*="border-[#C89D66]"] { border-color: rgba(216,255,82,.55); }
+main:not(.home-experience) [class*="text-[#F4F1EA]"] { color: #FFFFFF; }
+main:not(.home-experience) [class*="text-[#C89D66]"],
+main:not(.home-experience) [class*="text-[#D7B77B]"] { color: #D8FF52; }
+main:not(.home-experience) [class*="border-[#C89D66]"] { border-color: rgba(216,255,82,.55); }
 
 /* Keyboard / pointer states */
-main:not(.neo-home) :where(button, a, input, textarea, select):focus-visible,
+main:not(.home-experience) :where(button, a, input, textarea, select):focus-visible,
 [data-taqdom-studio] :where(button, a, input, textarea, select):focus-visible {
   outline: 3px solid var(--neo-coral);
   outline-offset: 3px;
