@@ -60,8 +60,8 @@ export default function AuthPage() {
       setFlagshipLoggedIn(true);
       toast.success(
         t(
-          "تم الدخول إلى الحساب النموذجي الموثق (layla@taqdom.me)!",
-          "Signed in to Verified Creator Showcase (layla@taqdom.me)!"
+          "تم الدخول إلى الحساب التجريبي (layla@taqdom.me)!",
+          "Signed in to Demo Creator Preview (layla@taqdom.me)!"
         )
       );
       router.push("/dashboard");
@@ -160,7 +160,7 @@ export default function AuthPage() {
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>
                   {t(
-                    "معاينة فورية لحساب مبدع موثق • Verified Creator Showcase",
+                    "معاينة فورية لحساب مبدع موثق • Demo Creator Preview",
                     "VERIFIED CREATOR SHOWCASE ACCESS"
                   )}
                 </span>
@@ -168,14 +168,14 @@ export default function AuthPage() {
 
               <h1 className="arabic-diacritics text-3xl sm:text-4xl font-extrabold">
                 {t(
-                  "معاينة فورية لحساب المبدعة الموثقة ليلى منصور",
-                  "Instant Verified Creator Studio Preview"
+                  "معاينة فورية لالحساب التجريبي للمبدعة ليلى منصور",
+                  "Instant Demo Creator Studio Preview"
                 )}
               </h1>
 
               <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
                 {t(
-                  "استكشف لوحة التحكم والاستوديو الحي مباشرة عبر الحساب الموثق للمهندسة ليلى منصور (layla.taqdom.me) المحمّل مسبقاً بالمشاريع المعمارية والصور بدقة 4K.",
+                  "استكشف لوحة التحكم والاستوديو الحي مباشرة عبر الحساب التجريبي للمهندسة ليلى منصور (layla.taqdom.me) المحمّل مسبقاً بالمشاريع المعمارية والصور بدقة 4K.",
                   "Explore the live Studio and sovereign dashboard immediately through the verified portfolio of Principal Architect Layla Mansour (layla.taqdom.me)."
                 )}
               </p>
@@ -185,7 +185,7 @@ export default function AuthPage() {
                 <div className="relative h-16 w-16 rounded-2xl overflow-hidden border-2 border-[#9A7B4F] dark:border-[#C89D66] shrink-0">
                   <Image
                     src="/images/creators/layla.jpg"
-                    alt="Layla Mansour Verified Creator"
+                    alt="Layla Mansour Demo Creator"
                     fill
                     className="object-cover"
                   />
@@ -203,7 +203,7 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {/* 1-Click Verified Creator Login Button */}
+              {/* 1-Click Demo Creator Login Button */}
               <button
                 type="button"
                 data-testid="test-account-login-btn"
@@ -214,8 +214,8 @@ export default function AuthPage() {
                 <ShieldCheck className="h-5 w-5" />
                 <span>
                   {t(
-                    "دخول المعاينة السريعة للحساب الموثق (layla.taqdom.me)",
-                    "Launch Verified Creator Preview (layla.taqdom.me)"
+                    "دخول المعاينة السريعة للحساب التجريبي (layla.taqdom.me)",
+                    "Launch Demo Creator Preview (layla.taqdom.me)"
                   )}
                 </span>
               </button>
@@ -245,7 +245,7 @@ export default function AuthPage() {
                 <div className="rounded-xl bg-[#1E3A2F]/15 border border-[#1E3A2F]/40 p-3 flex items-center gap-2 text-xs font-bold">
                   <CheckCircle2 className="h-4 w-4 text-[#1E3A2F] dark:text-[#C89D66]" />
                   <span>
-                    {t("تم تفعيل جلسة المبدع الموثق بنجاح!", "Verified creator session activated!")}
+                    {t("تم تفعيل جلسة المبدع التجريبي بنجاح!", "Verified creator session activated!")}
                   </span>
                 </div>
               )}
