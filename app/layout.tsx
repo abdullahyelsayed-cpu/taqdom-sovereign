@@ -141,7 +141,7 @@ export default function RootLayout({
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
         <meta name="color-scheme" content="dark light" />
-        <meta name="theme-color" content="#090B0D" />
+        <meta name="theme-color" content="#10111B" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(rootJsonLd) }}
