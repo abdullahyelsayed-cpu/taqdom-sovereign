@@ -136,7 +136,7 @@ export default function DashboardPage() {
                 <Eye className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               </div>
               <p className="font-mono text-4xl font-extrabold text-foreground">
-                {(draft.isFlagshipShowcase ? null : (draft.views ?? 0)).toLocaleString?.() ?? '—'}
+                {draft.isFlagshipShowcase ? "—" : (draft.views ?? 0).toLocaleString()}
               </p>
             </div>
 
