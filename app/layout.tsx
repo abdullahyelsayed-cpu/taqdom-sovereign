@@ -68,10 +68,6 @@ export const metadata: Metadata = {
   ],
   alternates: {
     canonical: "https://taqdom.me",
-    languages: {
-      "ar-EG": "https://taqdom.me",
-      "en-US": "https://taqdom.me",
-    },
   },
   openGraph: {
     type: "website",
@@ -132,11 +128,6 @@ const rootJsonLd = {
       applicationCategory: "DesignApplication",
       operatingSystem: "Web",
       url: "https://taqdom.me/studio",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD",
-      },
     },
   ],
 };
