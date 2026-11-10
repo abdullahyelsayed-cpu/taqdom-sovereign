@@ -56,21 +56,21 @@ const PORTAL_SHOWCASE_PLATES = [
     titleAr: "وَمِيض • التلي سيلز وإغلاق الصفقات",
     titleEn: "Wameed • Tele-Sales & Closers",
     creator: "tariq.taqdom.me",
-    tag: "148% QUOTA",
+    tag: "SALES CASE STUDY",
   },
   {
     src: "/images/ultra/salam-hero.webp",
     titleAr: "سَلَام • تكنولوجيا التسويق والنمو",
     titleEn: "Salam • MarTech & Growth Tech",
     creator: "salma.taqdom.me",
-    tag: "6.8x ROAS",
+    tag: "GROWTH SYSTEMS",
   },
   {
     src: "/images/ultra/meshwar-hero.webp",
     titleAr: "مِشْوَار • الموارد البشرية والمواهب",
     titleEn: "Meshwar • Human-Centric HR",
     creator: "nora.taqdom.me",
-    tag: "340+ HIRES",
+    tag: "PEOPLE & CULTURE",
   },
 ];
 
@@ -168,8 +168,8 @@ export function HeroSection() {
         checking: false,
         available: true,
         isDemoAccount: false,
-        messageAr: "اكتب اسمك لمعاينة وحجز نطاقك السيادي المستقل",
-        messageEn: "Type your name to preview & claim your sovereign subdomain",
+        messageAr: "اكتب اسمًا لرابطك الشخصي على Taqdom",
+        messageEn: "Choose a username for your personal Taqdom address",
       });
       return;
     }
@@ -247,7 +247,7 @@ export function HeroSection() {
             <span>
               {t(
                 "منصة الهويات الرقمية ومعارض الأعمال الاحترافية • ٧ قوالب تخصصية مستقلة",
-                "Sovereign Digital Identity Platform • 7 Specialized Career Archetypes"
+                "A creative home for what you make • 7 distinct portfolio styles"
               )}
             </span>
           </div>
@@ -256,14 +256,13 @@ export function HeroSection() {
           <h1 className="arabic-diacritics mt-6 max-w-5xl text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-foreground">
             {lang === "ar" ? (
               <>
-                تَقَدُّم — امتلك <span className="gold-shimmer-text">هويتك الرقمية</span>{" "}
-                على نطاقك المستقل
+                تَقَدُّم — خلّي شغلك يتكلم <span className="gold-shimmer-text">عنّك</span>
               </>
             ) : (
               <>
                 TAQDOM — Architect Your{" "}
                 <span className="gold-shimmer-text editorial-serif italic">
-                  Sovereign Digital Identity
+                  Creative Portfolio
                 </span>
               </>
             )}
@@ -271,8 +270,8 @@ export function HeroSection() {
 
           <p className="mt-5 max-w-3xl text-base sm:text-lg md:text-xl leading-relaxed text-muted-foreground">
             {t(
-              "صُممت للطلاب، الخريجين، والمحترفين الطموحين من جيل Z وAlpha. اختر من بين ٧ قوالب متكاملة للبرمجة، التصميم السينمائي، العمارة، القانون والأعمال، التلي سيلز، تكنولوجيا التسويق (MarTech)، والموارد البشرية على نطاقك الفرعي username.taqdom.me.",
-              "Built for ambitious students, graduates, and top-tier professionals. Choose from 7 distinct portfolio worlds across AI/CS, Cinema, Architecture, Law & Strategy, Tele-Sales, MarTech, and People Ops on your own .taqdom.me subdomain."
+              "مساحة شخصية تعرض فيها مشاريعك وأفكارك ومهاراتك بطريقتك. اختَر ستايل يناسبك، عدّل كل تفصيلة، وشارك رابطك الخاص وقت ما تكون جاهز.",
+              "A personal space for your projects, ideas, and skills. Pick a style, make it yours, and share your own link when you are ready."
             )}
           </p>
         </div>
@@ -327,7 +326,7 @@ export function HeroSection() {
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-2 text-xs">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">
-                  {t("معاينة نطاقك المستقل الحي:", "Your live sovereign subdomain:")}
+                  {t("معاينة رابطك:", "Your address preview:")}
                 </span>
                 <span
                   dir="ltr"
@@ -354,7 +353,7 @@ export function HeroSection() {
           {/* 7 Live Creator Subdomain Showcase Pills */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs">
             <span className="text-muted-foreground font-medium">
-              {t("نطاقات حية لمبدعي تَقَدُّم:", "Live Flagship Subdomains:")}
+              {t("أمثلة لاستكشاف القوالب:", "Sample portfolios:")}
             </span>
             {(["layla", "youssef", "farida", "karim", "tariq", "salma", "nora"] as const).map(
               (uname) => (
@@ -382,7 +381,7 @@ export function HeroSection() {
               <div className="flex items-center gap-3">
                 <TaqdomLogo size={30} showWordmark={false} />
                 <span className="font-mono text-xs uppercase tracking-[0.2em] text-[#C89D66]">
-                  ARCHITECTURAL CAMERA PORTAL • 4K RETINA STAGE
+                  TAQDOM SHOWCASE • PICK A WORLD
                 </span>
                 <span className="hidden md:inline-block rounded-full bg-[#C89D66]/15 border border-[#C89D66]/40 px-2.5 py-0.5 font-mono text-[10px] text-[#C89D66]">
                   PINNED SCROLL {portalProgress}%
@@ -443,7 +442,7 @@ export function HeroSection() {
               <div className="relative z-10 mt-auto pt-32 flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div className="max-w-2xl">
                   <p className="font-mono text-xs uppercase tracking-[0.22em] text-[#C89D66] mb-2">
-                    ARCHETYPE 0{activePortalSlide + 1} OF 07
+                    STYLE 0{activePortalSlide + 1} OF 07
                   </p>
                   <h2 className="arabic-diacritics text-3xl sm:text-5xl font-extrabold text-[#F4F1EA]">
                     {t(currentPortal.titleAr, currentPortal.titleEn)}
@@ -456,7 +455,7 @@ export function HeroSection() {
                     className="inline-flex items-center gap-2 rounded-xl bg-[#C89D66] px-5 py-3 text-xs sm:text-sm font-bold text-[#0A0A09] shadow-lg hover:opacity-90 transition"
                   >
                     <Compass className="h-4 w-4" />
-                    <span>{t("استكشف المعرض الحي", "Visit Live Subdomain")}</span>
+                    <span>{t("شاهد المثال", "View sample")}</span>
                   </Link>
                   <Link
                     href="/templates"
@@ -499,7 +498,7 @@ export function HeroSection() {
             className="inline-flex items-center gap-2 rounded-xl border border-[#9A7B4F]/50 bg-secondary/80 px-6 py-3 text-sm font-bold text-foreground transition hover:border-[#9A7B4F] hover:bg-[#9A7B4F]/15"
           >
             <Layers className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
-            <span>{t("استكشف القوالب السبعة المستقلة", "Explore All 7 Sovereign Templates")}</span>
+            <span>{t("استكشف الستايلات السبعة", "Explore all 7 styles")}</span>
           </Link>
           <Link
             href="/auth"
@@ -508,8 +507,8 @@ export function HeroSection() {
             <ShieldCheck className="h-4 w-4 text-[#1E3A2F] dark:text-[#C89D66]" />
             <span>
               {t(
-                "معاينة فورية لحساب المبدعة الموثّق (layla.taqdom.me)",
-                "Instant Flagship Creator Access (layla.taqdom.me)"
+                "استكشف معرضًا تجريبيًا (layla.taqdom.me)",
+                "Explore a sample portfolio (layla.taqdom.me)"
               )}
             </span>
           </Link>
