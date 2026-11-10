@@ -48,7 +48,6 @@ export function SmoothScrollAndAura({ children }: { children: React.ReactNode })
         lenis = instance;
         instance.on("scroll", () => ScrollTrigger.update());
         const raf = (time: number) => instance.raf(time * 1000);
-        rafCallback = raf;
         gsap.ticker.add(raf);
         removeTicker = () => gsap.ticker.remove(raf);
         requestAnimationFrame(() => ScrollTrigger.refresh());
