@@ -93,12 +93,12 @@ export default function DashboardSettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="arabic-diacritics text-3xl sm:text-4xl font-extrabold">
-                {t("إعدادات الحساب والنطاق السيادي", "Sovereign Account Settings")}
+                {t("إعدادات الحساب والرابط الشخصي", "Account & personal link")}
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 {t(
-                  "إدارة اسم النطاق الفرعي وكلمة المرور وأمان حسابك على منصة تَقَدُّم.",
-                  "Manage your subdomain handle, password credentials, and account security."
+                  "إدارة اسم رابطك وكلمة المرور وأمان حسابك على تَقَدُّم.",
+                  "Manage your personal address, password, and account security."
                 )}
               </p>
             </div>
@@ -115,7 +115,7 @@ export default function DashboardSettingsPage() {
             <div>
               <label className="flex items-center gap-2 text-xs font-bold mb-2">
                 <Globe2 className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
-                <span>{t("تغيير اسم النطاق الفرعي (Subdomain)", "Change Subdomain Username")}</span>
+                <span>{t("تغيير اسم الرابط الشخصي", "Change personal link")}</span>
               </label>
               <div
                 dir="ltr"
@@ -134,8 +134,8 @@ export default function DashboardSettingsPage() {
               </div>
               <p className="mt-1.5 text-[11px] text-[#9A7B4F] dark:text-[#C89D66]">
                 {t(
-                  "تنبيه: تغيير اسم المستخدم ينقل معرضك فوراً إلى النطاق الفرعي الجديد.",
-                  "Warning: Changing your username immediately moves your portfolio to the new subdomain."
+                  "تنبيه: تغيير اسم المستخدم ينقل معرضك إلى الرابط الجديد.",
+                  "Changing your username moves your portfolio to the new address."
                 )}
               </p>
             </div>
@@ -173,8 +173,8 @@ export default function DashboardSettingsPage() {
             </div>
             <p className="text-xs text-muted-foreground">
               {t(
-                "حذف الحساب يؤدي إلى إزالة البورتفوليو وتحرير النطاق الفرعي الخاص بك نهائياً (حسابات العرض الرسمية محمية ضد الحذف).",
-                "Deleting your account permanently removes your portfolio and releases your subdomain (official showcase accounts are protected)."
+                "حذف الحساب يؤدي إلى إزالة البورتفوليو وتحرير النطاق الفرعي الخاص بك نهائياً (حسابات الأمثلة محمية من الحذف).",
+                "Deleting your account permanently removes your portfolio and releases your subdomain (sample accounts are protected)."
               )}
             </p>
             <button
