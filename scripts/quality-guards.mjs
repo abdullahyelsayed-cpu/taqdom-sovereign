@@ -7,6 +7,7 @@ import fs from "node:fs";
 
 const read = (p) => fs.readFileSync(new URL(p, import.meta.url), "utf8");
 const workerText = read("../cloudflare/worker.mjs");
+const proxyText = read("../proxy.ts");
 const layoutText = read("../app/layout.tsx");
 const homeText = read("../app/page.tsx");
 const creditsText = read("../components/sections/graduation-credits-section.tsx");
@@ -24,5 +25,6 @@ assert.doesNotMatch(workerText, /taqdom-sovereign-royal-secret-key-2026-egypt/, 
 assert.match(workerText, /if \(!session\?\.username\) return unauthorized\(\)/, "Protected write endpoints must require a session.");
 assert.match(workerText, /ownsUsername\(body\.portfolio\.username\)/, "Portfolio writes must be scoped to the signed-in owner.");
 assert.match(logoText, /taqdom-mark-gold/, "Brand mark must use the refined inline SVG emblem.");
+assert.match(proxyText, /export function proxy\(/, "Next.js 16 routing must use the proxy convention.");
 
 console.log("Taqdom quality guards: PASS");
