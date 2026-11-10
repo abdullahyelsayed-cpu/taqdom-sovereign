@@ -10,7 +10,6 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   ArrowDown,
   ArrowLeft,
-  ArrowRight,
   ArrowUpLeft,
   ArrowUpRight,
   CheckCircle2,
@@ -437,7 +436,9 @@ export function TaqdomReimagined() {
                 href={getSubdomainUrl(example.username, host)}
                 key={example.id}
                 className={`neo-showcase-card neo-showcase-card--${example.tone} neo-reveal`}
+                data-active={activeExample === index}
                 onMouseEnter={() => setActiveExample(index)}
+                onFocus={() => setActiveExample(index)}
               >
                 <div className="neo-showcase-image">
                   <Image src={example.image} alt={t(example.titleAr, example.titleEn)} fill sizes="(max-width: 900px) 100vw, 33vw" className="neo-image-parallax" />
