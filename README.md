@@ -33,6 +33,7 @@ Run checks before proposing changes:
 pnpm typecheck
 node scripts/quality-guards.mjs
 pnpm build
+pnpm build:cloudflare
 ```
 
 ## Environment and deployment notes
