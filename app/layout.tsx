@@ -13,6 +13,7 @@ import { SmoothScrollAndAura } from "@/components/smooth-scroll";
 import { Toaster } from "sonner";
 import "./globals.css";
 import "./polish.css";
+import "./reimagined.css";
 
 const readex = Readex_Pro({
   subsets: ["arabic", "latin"],
@@ -50,7 +51,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://taqdom.me"),
   title: {
-    default: "تَقَدُّم | Taqdom — مساحتك لعرض ما تصنع",
+    default: "تَقَدُّم | Taqdom — مساحة لكل ما تصنعه",
     template: "%s | تَقَدُّم • Taqdom",
   },
   description:
@@ -73,7 +74,7 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://taqdom.me",
     siteName: "تَقَدُّم | Taqdom",
-    title: "تَقَدُّم | Taqdom — مساحتك للي تصنعه",
+    title: "تَقَدُّم | Taqdom — مساحة لكل ما تصنعه",
     description:
       "اعرض مشاريعك وأفكارك ومهاراتك في مساحة شخصية، واختر بنفسك إن كنت تريد الظهور في دليل Explore.",
     images: [
@@ -138,8 +139,8 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
-        <meta name="color-scheme" content="dark light" />
-        <meta name="theme-color" content="#10111B" />
+        <meta name="color-scheme" content="light dark" />
+        <meta name="theme-color" content="#F7F8F3" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(rootJsonLd) }}
@@ -150,7 +151,7 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
+          defaultTheme="light"
           enableSystem={false}
           disableTransitionOnChange
         >

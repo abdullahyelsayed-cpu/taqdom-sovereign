@@ -38,11 +38,12 @@ export function SmoothScrollAndAura({ children }: { children: React.ReactNode })
         const gsap = gsapModule.default;
         const ScrollTrigger = triggerModule.ScrollTrigger;
         gsap.registerPlugin(ScrollTrigger);
+        gsap.ticker.lagSmoothing(0);
         const instance = new LenisConstructor({
-          duration: 0.78,
+          duration: 0.68,
           smoothWheel: true,
-          wheelMultiplier: 0.92,
-          touchMultiplier: 1.05,
+          wheelMultiplier: 1,
+          touchMultiplier: 1,
           anchors: true,
         });
         lenis = instance;
