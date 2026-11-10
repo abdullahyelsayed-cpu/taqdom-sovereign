@@ -246,7 +246,11 @@ async function getAllPublishedPortfoliosFromD1(env) {
       // Ignore D1 error
     }
   }
-  return Object.values(map);
+  return Object.values(map).filter(
+    (portfolio) =>
+      portfolio?.isFlagshipShowcase === true ||
+      portfolio?.discoverable === true
+  );
 }
 
 async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, userAuth = null) {
