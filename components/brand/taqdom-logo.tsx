@@ -20,6 +20,8 @@ export function TaqdomLogo({
   showWordmark = true,
   lang = "ar",
 }: TaqdomLogoProps) {
+  const gradientId = React.useId().replace(/:/g, "");
+
   return (
     <div className={`inline-flex items-center gap-3 select-none ${className}`}>
       <span
