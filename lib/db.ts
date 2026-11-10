@@ -147,10 +147,15 @@ export async function getAllPublishedPortfolios(): Promise<PortfolioData[]> {
   const list: PortfolioData[] = [];
   for (const [uname, entry] of Object.entries(db.portfolios)) {
     if (entry.published) {
-      list.push({
-        ...entry.published,
-        views: db.views[uname] ?? entry.published.views ?? 1,
-      });
+      if (
+        entry.published.isFlagshipShowcase === true ||
+        entry.published.discoverable === true
+      ) {
+        list.push({
+          ...entry.published,
+          views: db.views[uname] ?? entry.published.views ?? 0,
+        });
+      }
     }
   }
   return list;
