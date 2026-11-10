@@ -1233,6 +1233,10 @@ function StudioContent() {
                       <span className="text-xs font-bold">{t(CANVAS_SECTIONS.find((s) => s.id === selectedCanvasSection)?.labelAr || "القسم", CANVAS_SECTIONS.find((s) => s.id === selectedCanvasSection)?.labelEn || "Section")}</span>
                       <button type="button" onClick={() => updateCanvasSection(selectedCanvasSection, DEFAULT_CANVAS_LAYOUT)} className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-primary"><RotateCcw className="h-3 w-3" />{t("إعادة ضبط", "Reset")}</button>
                     </div>
+                    <label className="flex items-center gap-2 text-[10px] font-semibold">
+                      <input type="checkbox" checked={Boolean(canvasLayout.hidden)} onChange={(event) => updateCanvasSection(selectedCanvasSection, { hidden: event.target.checked })} className="accent-primary" />
+                      {t("إخفاء هذا القسم", "Hide this section")}
+                    </label>
                     {[
                       { key: "x" as const, label: t("أفقي", "Horizontal"), min: -180, max: 180, value: canvasLayout.x, suffix: "px" },
                       { key: "y" as const, label: t("رأسي", "Vertical"), min: -180, max: 180, value: canvasLayout.y, suffix: "px" },
