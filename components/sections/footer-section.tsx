@@ -61,7 +61,7 @@ export function FooterSection() {
               </li>
               <li>
                 <Link href="/studio" className="text-muted-foreground hover:text-foreground">
-                  {t("استوديو تَقَدُّم الحي", "Taqdom Studio")}
+                  {t("استوديو تَقَدُّم", "Taqdom Studio")}
                 </Link>
               </li>
               <li>
@@ -128,7 +128,7 @@ export function FooterSection() {
           <p>
             {t(
               "© ٢٠٢٦ تَقَدُّم (Taqdom.me) — صُنع بفخر وإتقان في مصر للعالم.",
-              "© 2026 Taqdom.me — Crafted with Sovereign Pride in Cairo, Egypt."
+              "© 2026 Taqdom.me — Made with care in Egypt."
             )}
           </p>
           <div className="flex items-center gap-6">
