@@ -1111,8 +1111,8 @@ export function createStarterPortfolio(
     metrics: [],
     timeline: [],
     theme: {
-      mode: "dark",
-      accent: "#A78BFA",
+      mode: "light",
+      accent: "#315BFF",
       scene3d: { enabled: false, intensity: 1, speed: 1, lightAngle: 45 },
     },
     canvas: {

@@ -192,24 +192,24 @@ export function PortfolioRenderer({
       ? "dark"
       : "light";
   const legacyAccentMap: Record<string, string> = {
-    "#C7F36B": "#A78BFA",
-    "#8B7CFF": "#A78BFA",
-    "#E9C991": "#FFC978",
-    "#7AB7FF": "#87A8FF",
-    "#FF8BB6": "#FF8396",
-    "#53D8E8": "#87A8FF",
-    "#B7A8FF": "#A78BFA",
-    "#C89D66": "#A78BFA",
-    "#9A7B4F": "#6047B7",
-    "#1E3A2F": "#7EE7C4",
+    "#C7F36B": "#D8FF52",
+    "#8B7CFF": "#315BFF",
+    "#E9C991": "#315BFF",
+    "#7AB7FF": "#315BFF",
+    "#FF8BB6": "#F36D5D",
+    "#53D8E8": "#315BFF",
+    "#B7A8FF": "#315BFF",
+    "#C89D66": "#315BFF",
+    "#9A7B4F": "#315BFF",
+    "#1E3A2F": "#087D66",
   };
   const savedAccent = data.theme?.accent || "";
   const accent =
     legacyAccentMap[savedAccent.toUpperCase()] ||
     savedAccent ||
-    (themeMode === "dark" ? "#A78BFA" : "#6047B7");
+    (themeMode === "dark" ? "#91A7FF" : "#315BFF");
   const canvas = data.canvas || {};
-  const canvasBackground = canvas.backgroundColor || (themeMode === "dark" ? "#10111B" : "#F4F2FA");
+  const canvasBackground = canvas.backgroundColor || (themeMode === "dark" ? "#11192D" : "#F7F8F3");
   const canvasOverlay = Math.max(0, Math.min(90, canvas.backgroundOverlay ?? 18)) / 100;
   const safeBackgroundImage = (canvas.backgroundImage || "").replace(/["\\]/g, "");
   const canvasBackgroundImage = safeBackgroundImage
