@@ -39,7 +39,7 @@ export function TaqdomLogo({
           aria-label="Taqdom falcon and digital pillar emblem"
         >
           <defs>
-            <linearGradient id="taqdom-mark-gold" x1="20" y1="12" x2="92" y2="108" gradientUnits="userSpaceOnUse">
+            <linearGradient id={`taqdom-mark-gold-${gradientId}`} x1="20" y1="12" x2="92" y2="108" gradientUnits="userSpaceOnUse">
               <stop stopColor="#F3DEB6" />
               <stop offset=".48" stopColor="#D7B77B" />
               <stop offset="1" stopColor="#9B713C" />
@@ -47,7 +47,7 @@ export function TaqdomLogo({
           </defs>
           <path
             d="M60 10C47 10 38 19 35 34C24 31 16 24 9 16C13 39 26 53 45 60L45 94L60 110L75 94V60C94 53 107 39 111 16C104 24 96 31 85 34C82 19 73 10 60 10Z"
-            fill="url(#taqdom-mark-gold)"
+            fill={`url(#taqdom-mark-gold-${gradientId})`}
           />
           <path
             d="M60 23C54 29 50 36 49 45L60 39L71 45C70 36 66 29 60 23Z"
