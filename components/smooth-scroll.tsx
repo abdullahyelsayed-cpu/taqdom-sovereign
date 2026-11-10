@@ -7,9 +7,8 @@ export function SmoothScrollAndAura({ children }: { children: React.ReactNode })
     if (typeof window === "undefined") return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let observer: IntersectionObserver | null = null;
-    let lenis: { raf: (time: number) => void; destroy: () => void; on: (name: string, cb: () => void) => void } | null = null;
-    let ticker: { add: (fn: (time: number) => void) => void; remove: (fn: (time: number) => void) => void; lagSmoothing: (threshold?: number, adjustedLag?: number) => void } | null = null;
-    let rafCallback: ((time: number) => void) | null = null;
+    let lenis: { raf: (time: number) => void; destroy: () => void } | null = null;
+    let removeTicker: (() => void) | null = null;
     let disposed = false;
 
     const revealNodes = Array.from(document.querySelectorAll<HTMLElement>("[data-reveal]"));
@@ -50,9 +49,8 @@ export function SmoothScrollAndAura({ children }: { children: React.ReactNode })
         instance.on("scroll", () => ScrollTrigger.update());
         const raf = (time: number) => instance.raf(time * 1000);
         rafCallback = raf;
-        ticker = gsap.ticker;
         gsap.ticker.add(raf);
-        gsap.ticker.lagSmoothing(500, 33);
+        removeTicker = () => gsap.ticker.remove(raf);
         requestAnimationFrame(() => ScrollTrigger.refresh());
       }).catch(() => {
         // Native browser scrolling is the reliable fallback.
@@ -63,7 +61,7 @@ export function SmoothScrollAndAura({ children }: { children: React.ReactNode })
       disposed = true;
       observer?.disconnect();
       document.documentElement.classList.remove("taq-motion-ready");
-      if (ticker && rafCallback) ticker.remove(rafCallback);
+      removeTicker?.();
       lenis?.destroy();
     };
   }, []);
