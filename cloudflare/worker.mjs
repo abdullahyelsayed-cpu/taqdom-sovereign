@@ -112,7 +112,10 @@ function base64UrlDecode(b64) {
   return decodeURIComponent(escape(atob(padded)));
 }
 
-async function signEdgeSession(payload, secret = "taqdom-sovereign-royal-secret-key-2026-egypt") {
+async function signEdgeSession(payload, secret) {
+  if (typeof secret !== "string" || secret.length < 32) {
+    throw new Error("AUTH_SECRET is not configured. Set a Worker secret of at least 32 characters.");
+  }
   const encoder = new TextEncoder();
   const data = base64UrlEncode(JSON.stringify({ ...payload, exp: Date.now() + 30 * 86400 * 1000 }));
   const key = await crypto.subtle.importKey(
@@ -129,7 +132,8 @@ async function signEdgeSession(payload, secret = "taqdom-sovereign-royal-secret-
   return `${data}.${sigHex}`;
 }
 
-async function verifyEdgeSession(token, secret = "taqdom-sovereign-royal-secret-key-2026-egypt") {
+async function verifyEdgeSession(token, secret) {
+  if (typeof secret !== "string" || secret.length < 32) return null;
   if (!token || !token.includes(".")) return null;
   const [data, sigHex] = token.split(".");
   if (!data || !sigHex) return null;
@@ -157,8 +161,12 @@ async function parseSessionFromRequest(request, env) {
   const cookieHeader = request.headers.get("cookie") || "";
   const match = cookieHeader.match(/(?:^|;\s*)taqdom_session=([^;]+)/);
   if (!match) return null;
-  const token = decodeURIComponent(match[1].trim());
-  return await verifyEdgeSession(token, env?.AUTH_SECRET);
+  try {
+    const token = decodeURIComponent(match[1].trim());
+    return await verifyEdgeSession(token, env?.AUTH_SECRET);
+  } catch {
+    return null;
+  }
 }
 
 function makeSessionCookie(token, isSecure = true) {
@@ -324,6 +332,13 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
 async function handleApiRequest(request, url, env) {
   const { pathname, searchParams } = url;
   const isSecure = url.protocol === "https:";
+  const session = await parseSessionFromRequest(request, env);
+  const ownsUsername = (username) =>
+    Boolean(session?.username) && session.username === normalizeUsername(username);
+  const unauthorized = () =>
+    jsonResponse({ error: "يجب تسجيل الدخول أولاً / Authentication required" }, 401);
+  const forbidden = () =>
+    jsonResponse({ error: "لا تملك صلاحية تعديل هذا الحساب / You cannot modify this account" }, 403);
 
   if (pathname === "/api/username/check" && request.method === "GET") {
     const u = searchParams.get("u") || "";
@@ -520,17 +535,19 @@ async function handleApiRequest(request, url, env) {
       dbUser.password_hash === "seeded" ||
       dbUser.password_hash === "d1-hash";
 
-    if (!isSeededHash) {
-      const { hash } = await hashPasswordEdge(password, dbUser.salt);
-      if (hash !== dbUser.password_hash) {
-        return jsonResponse(
-          { error: "كلمة المرور غير صحيحة / Invalid credentials" },
-          401
-        );
-      }
-    } else if (!password) {
+    if (isSeededHash) {
       return jsonResponse(
-        { error: "يرجى إدخال كلمة المرور / Password required" },
+        {
+          error: "هذا حساب عرض تجريبي. استخدم زر «معاينة الحساب التجريبي» من صفحة الدخول.",
+        },
+        403
+      );
+    }
+
+    const { hash } = await hashPasswordEdge(password, dbUser.salt);
+    if (!password || hash !== dbUser.password_hash) {
+      return jsonResponse(
+        { error: "بيانات الدخول غير صحيحة / Invalid credentials" },
         401
       );
     }
@@ -593,9 +610,11 @@ async function handleApiRequest(request, url, env) {
 
   if (pathname === "/api/auth/settings") {
     if (request.method === "POST") {
+      if (!session?.username) return unauthorized();
       const body = await request.json().catch(() => ({}));
       const cur = normalizeUsername(String(body.currentUsername || ""));
       if (!cur) return jsonResponse({ error: "Missing currentUsername" }, 400);
+      if (!ownsUsername(cur)) return forbidden();
 
       let targetUsername = cur;
       if (body.newUsername && normalizeUsername(String(body.newUsername)) !== cur) {
@@ -649,10 +668,12 @@ async function handleApiRequest(request, url, env) {
     }
 
     if (request.method === "DELETE") {
+      if (!session?.username) return unauthorized();
       const u = normalizeUsername(searchParams.get("u") || "");
       if (!u || SEED_PORTFOLIOS[u]) {
         return jsonResponse({ error: "Cannot delete showcase account" }, 403);
       }
+      if (!ownsUsername(u)) return forbidden();
       delete edgeStore.portfolios[u];
       delete edgeStore.users[u];
       if (env.DB) {
@@ -675,6 +696,7 @@ async function handleApiRequest(request, url, env) {
       }
       const u = normalizeUsername(searchParams.get("u") || "layla");
       const mode = searchParams.get("mode") || "published";
+      if (mode === "draft" && !ownsUsername(u)) return unauthorized();
       const p =
         mode === "draft"
           ? await getDraftPortfolioFromD1(env, u)
@@ -683,8 +705,10 @@ async function handleApiRequest(request, url, env) {
       return jsonResponse({ portfolio: p });
     }
     if (request.method === "PUT") {
+      if (!session?.username) return unauthorized();
       const body = await request.json().catch(() => ({}));
       if (body?.portfolio?.username) {
+        if (!ownsUsername(body.portfolio.username)) return forbidden();
         const saved = await savePortfolioToD1AndMemory(env, body.portfolio, false);
         return jsonResponse({ ok: true, portfolio: saved });
       }
@@ -694,8 +718,10 @@ async function handleApiRequest(request, url, env) {
 
   if (pathname === "/api/portfolio/publish") {
     if (request.method === "POST") {
+      if (!session?.username) return unauthorized();
       const body = await request.json().catch(() => ({}));
       if (body?.portfolio?.username) {
+        if (!ownsUsername(body.portfolio.username)) return forbidden();
         const val = validateUsername(String(body.portfolio.username));
         if (!val.valid) {
           return jsonResponse({ error: val.reasonAr || "Invalid username" }, 400);
@@ -715,10 +741,12 @@ async function handleApiRequest(request, url, env) {
     }
 
     if (request.method === "DELETE") {
+      if (!session?.username) return unauthorized();
       const uParam = searchParams.get("u");
       const body = await request.json().catch(() => ({}));
       const clean = normalizeUsername(String(uParam || body.username || ""));
       if (!clean) return jsonResponse({ error: "Missing username" }, 400);
+      if (!ownsUsername(clean)) return forbidden();
       edgeStore.unpublished.add(clean);
       if (env.DB) {
         await env.DB.prepare(
@@ -733,6 +761,7 @@ async function handleApiRequest(request, url, env) {
   }
 
   if (pathname === "/api/upload" && request.method === "POST") {
+    if (!session?.username) return unauthorized();
     const body = await request.json().catch(() => ({}));
     const dataUrl = String(body.dataUrl || "");
     if (!dataUrl.startsWith("data:image/")) {
