@@ -13,19 +13,19 @@ import { FooterSection } from "@/components/sections/footer-section";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="home-experience min-h-screen bg-background text-foreground">
       <Preloader />
       <Header />
       <HeroSection />
-      <PhilosophySection />
-      <FeaturedProductsSection />
-      <TechnologySection />
-      <GallerySection />
-      <CollectionSection />
-      <EditorialSection />
-      <TestimonialsSection />
-      <GraduationCreditsSection />
-      <FooterSection />
+      <div data-reveal="01"><PhilosophySection /></div>
+      <div data-reveal="02"><FeaturedProductsSection /></div>
+      <div data-reveal="03"><TechnologySection /></div>
+      <div data-reveal="04"><GallerySection /></div>
+      <div data-reveal="05"><CollectionSection /></div>
+      <div data-reveal="06"><EditorialSection /></div>
+      <div data-reveal="07"><TestimonialsSection /></div>
+      <div data-reveal="08"><GraduationCreditsSection /></div>
+      <div data-reveal="09"><FooterSection /></div>
     </main>
   );
 }
