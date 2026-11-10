@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       userId: updated.user.id,
       email: updated.user.email,
       username: updated.user.username,
-      isTestAccount: updated.user.username === "test",
+      isTestAccount: updated.user.username === "layla",
     });
 
     const res = NextResponse.json({
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
         id: updated.user.id,
         email: updated.user.email,
         username: updated.user.username,
-        isTestAccount: updated.user.username === "test",
+        isTestAccount: updated.user.username === "layla",
       },
       portfolio: updated.portfolio,
     });

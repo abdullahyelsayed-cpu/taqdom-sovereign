@@ -69,7 +69,7 @@ export function PhilosophySection() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-16">
           <div className="lg:col-span-7 relative min-h-[380px] md:min-h-[460px] rounded-3xl overflow-hidden border border-border group">
             <Image
-              src="/images/ultra/haven-hero.webp"
+              src="/images/ultra/haven-1.webp"
               alt={t("قاعة عرض معمارية مضاءة طبيعياً بدقة 4K", "4K Naturally lit architectural sanctuary")}
               fill
               className="object-cover transition-transform duration-700 group-hover:scale-105"

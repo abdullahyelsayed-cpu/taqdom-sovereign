@@ -61,7 +61,7 @@ export function TestimonialsSection() {
         {/* Cinematic Banner with Architectural Backdrop */}
         <div className="relative rounded-3xl overflow-hidden border border-border mb-20 min-h-[340px] flex items-end p-8 sm:p-12">
           <Image
-            src="/images/ultra/haven-hero.webp"
+            src="/images/ultra/siyada-2.webp"
             alt="Taqdom Architectural Sanctuary"
             fill
             className="object-cover"

@@ -352,9 +352,13 @@ export async function updateUserSettingsInDb(params: {
 }): Promise<{ user: StoredUser; portfolio: PortfolioData } | null> {
   const cur = normalizeUsername(params.currentUsername);
   const db = await readDiskOrMemoryDb();
-  const user = db.users[cur];
-  const pf = db.portfolios[cur];
-  if (!user || !pf) return null;
+  const existingUser = db.users[cur];
+  const existingPf = db.portfolios[cur];
+  if (!existingUser || !existingPf) return null;
+
+  const isFlagshipSeed = Boolean(SEED_PORTFOLIOS[cur]);
+  const user: StoredUser = isFlagshipSeed ? structuredClone(existingUser) : existingUser;
+  const pf = isFlagshipSeed ? structuredClone(existingPf) : existingPf;
 
   if (params.newPasswordHash && params.newSalt) {
     user.passwordHash = params.newPasswordHash;
@@ -364,10 +368,22 @@ export async function updateUserSettingsInDb(params: {
   let targetUsername = cur;
   if (params.newUsername) {
     const nextClean = normalizeUsername(params.newUsername);
-    if (nextClean && nextClean !== cur && !db.users[nextClean] && !RESERVED_USERNAMES.has(nextClean)) {
+    if (
+      nextClean &&
+      nextClean !== cur &&
+      !db.users[nextClean] &&
+      !db.portfolios[nextClean] &&
+      !RESERVED_USERNAMES.has(nextClean)
+    ) {
       targetUsername = nextClean;
-      delete db.users[cur];
-      delete db.portfolios[cur];
+      if (!isFlagshipSeed) {
+        delete db.users[cur];
+        delete db.portfolios[cur];
+        delete db.views[cur];
+      } else {
+        user.id = `user-${targetUsername}-${Date.now()}`;
+        user.email = `${targetUsername}@taqdom.me`;
+      }
       user.username = targetUsername;
       pf.draft.username = targetUsername;
       if (pf.published) pf.published.username = targetUsername;

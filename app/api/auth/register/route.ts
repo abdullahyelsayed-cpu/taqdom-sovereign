@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { validateUsername } from "@/lib/types";
-import { checkUsernameAvailability, registerUserInDb } from "@/lib/db";
+import {
+  checkUsernameAvailability,
+  findUserByUsernameOrEmail,
+  registerUserInDb,
+} from "@/lib/db";
 import { hashPasswordPBKDF2, signSessionToken } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -32,6 +36,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "كلمة المرور يجب أن تكون ٦ أحرف على الأقل / Password min 6 chars" },
         { status: 400 }
+      );
+    }
+
+    const existingEmailUser = await findUserByUsernameOrEmail(email);
+    if (existingEmailUser) {
+      return NextResponse.json(
+        { error: "البريد الإلكتروني مسجل بالفعل / Email already registered" },
+        { status: 409 }
       );
     }
 
