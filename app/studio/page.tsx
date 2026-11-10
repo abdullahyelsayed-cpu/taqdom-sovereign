@@ -1202,7 +1202,7 @@ function StudioContent() {
                     </div>
                     <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-[11px] font-bold text-primary-foreground">
                       {backgroundUploading ? <span className="animate-pulse">{t("جارٍ الرفع", "Uploading")}</span> : <><ImagePlus className="h-3.5 w-3.5" />{t("رفع صورة", "Upload image")}</>}
-                      <input type="file" accept="image/jpeg,image/png,image/webp" disabled={backgroundUploading} onChange={handleCanvasBackgroundUpload} className="sr-only" />
+                      <input type="file" accept="image/jpeg,image/png,image/webp" aria-label={t("رفع صورة خلفية", "Upload a background image")} disabled={backgroundUploading} onChange={handleCanvasBackgroundUpload} className="sr-only" />
                     </label>
                   </div>
                   {draft.canvas?.backgroundImage ? (
@@ -1322,7 +1322,7 @@ function StudioContent() {
                   <div className="grid grid-cols-3 gap-2">
                     <label className="col-span-3 flex items-center gap-3 rounded-xl border border-border p-3">
                       <span className="text-xs font-bold">{t("لون مخصص", "Custom accent")}</span>
-                      <input type="color" aria-label={t("لون تمييز مخصص", "Custom accent colour")} value={draft.theme.accent} onChange={(event) => setDraft((prev) => ({ ...prev, theme: { ...prev.theme, accent: event.target.value } }))} className="ms-auto h-8 w-12 cursor-pointer rounded-lg border border-border bg-transparent" />
+                      <input type="color" aria-label={t("لون تمييز مخصص", "Custom accent colour")} value={draft.theme.accent} onChange={(event) => { setHasInteracted(true); setDraft((prev) => ({ ...prev, theme: { ...prev.theme, accent: event.target.value } })); }} className="ms-auto h-8 w-12 cursor-pointer rounded-lg border border-border bg-transparent" />
                     </label>
                     {ACCENT_PRESETS.map((c) => (
                       <button
