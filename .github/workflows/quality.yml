@@ -1,0 +1,57 @@
+name: Quality checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Run source quality guards
+        run: node scripts/quality-guards.mjs
+
+      - name: Build production app
+        run: pnpm build
+
+      - name: Package Cloudflare static assets
+        run: pnpm build:cloudflare
+
+      - name: Upload Cloudflare deployment assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: taqdom-cloudflare-assets
+          path: .cf-assets
+          if-no-files-found: error
+          retention-days: 7
+          include-hidden-files: true

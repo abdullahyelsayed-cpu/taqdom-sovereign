@@ -31,9 +31,7 @@ export function Header() {
 
   useEffect(() => {
     setMounted(true);
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 24);
-    };
+    const handleScroll = () => setIsScrolled(window.scrollY > 24);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -46,37 +44,32 @@ export function Header() {
     { href: "/dashboard", labelAr: "لوحتي", labelEn: "Dashboard" },
   ];
 
-  const isDark = mounted && resolvedTheme === "dark";
+  const isDark = !mounted || resolvedTheme === "dark";
 
   return (
     <header
-      className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-6xl transition-all duration-500 rounded-2xl ${
-        isScrolled
-          ? "glass-panel shadow-2xl py-2.5 px-4 md:px-6"
-          : "glass-panel py-3 px-4 md:px-6"
+      className={`fixed top-4 left-1/2 z-50 w-[94%] max-w-6xl -translate-x-1/2 rounded-2xl transition-all duration-500 ${
+        isScrolled ? "glass-panel px-4 py-2.5 shadow-2xl md:px-6" : "glass-panel px-4 py-3 md:px-6"
       }`}
     >
       <div className="flex items-center justify-between gap-3">
-        {/* Brand Logo */}
-        <Link href="/" className="shrink-0 focus:outline-none">
-          <TaqdomLogo size={38} lang={lang} />
+        <Link href="/" className="shrink-0 rounded-lg focus-visible:outline-offset-4" aria-label={t("الصفحة الرئيسية لتَقَدُّم", "Taqdom home")}>
+          <TaqdomLogo size={40} lang={lang} />
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden lg:flex items-center gap-1">
+        <nav className="hidden items-center gap-1 lg:flex" aria-label={t("التنقل الرئيسي", "Main navigation")}>
           {navItems.map((item) => {
             const active =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname?.startsWith(item.href);
+              item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-300 ${
+                aria-current={active ? "page" : undefined}
+                className={`rounded-xl px-3.5 py-2 text-sm font-medium transition-all duration-300 ${
                   active
-                    ? "bg-[#9A7B4F]/15 text-foreground font-bold border border-[#9A7B4F]/40"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                    ? "border border-[#C89D66]/40 bg-[#C89D66]/10 font-bold text-foreground"
+                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
                 }`}
               >
                 {t(item.labelAr, item.labelEn)}
@@ -85,46 +78,44 @@ export function Header() {
           })}
         </nav>
 
-        {/* Controls: Theme + Language + Auth CTA */}
-        <div className="hidden md:flex items-center gap-2.5">
-          {/* Day / Night Mode Switcher */}
+        <div className="hidden items-center gap-2.5 md:flex">
           <button
             type="button"
             data-testid="theme-toggle"
             onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-secondary/70 px-3 py-2 text-xs font-medium text-foreground transition hover:border-[#9A7B4F] cursor-pointer"
-            title={t("تبديل الوضع النهاري / الليلي", "Toggle Day / Night Mode")}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-secondary/70 px-3 py-2 text-xs font-medium text-foreground transition hover:border-[#C89D66]"
+            title={t("تبديل الوضع النهاري والليلي", "Toggle light and dark appearance")}
+            aria-label={t("تبديل الوضع النهاري والليلي", "Toggle light and dark appearance")}
           >
             {isDark ? (
               <>
-                <Sun className="h-3.5 w-3.5 text-[#C89D66]" />
-                <span>{t("نهار مرمري", "Alabaster")}</span>
+                <Sun className="h-3.5 w-3.5 text-[#D7B77B]" />
+                <span>{t("الوضع النهاري", "Light mode")}</span>
               </>
             ) : (
               <>
-                <Moon className="h-3.5 w-3.5 text-[#9A7B4F]" />
-                <span>{t("ليل سينمائي", "Cinema Noir")}</span>
+                <Moon className="h-3.5 w-3.5 text-[#B68C51]" />
+                <span>{t("الوضع الليلي", "Dark mode")}</span>
               </>
             )}
           </button>
 
-          {/* Instant AR / EN Switcher */}
           <button
             type="button"
             data-testid="lang-toggle"
             onClick={toggleLang}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-secondary/70 px-3 py-2 text-xs font-bold text-foreground transition hover:border-[#9A7B4F] cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-secondary/70 px-3 py-2 text-xs font-bold text-foreground transition hover:border-[#C89D66]"
             title="Switch Language / تغيير اللغة"
+            aria-label={t("التبديل إلى الإنجليزية", "Switch to Arabic")}
           >
-            <Globe className="h-3.5 w-3.5 text-[#9A7B4F] dark:text-[#C89D66]" />
+            <Globe className="h-3.5 w-3.5 text-[#C89D66]" />
             <span>{lang === "ar" ? "EN" : "عربي"}</span>
           </button>
 
-          {/* Auth / Account Button */}
           {user ? (
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] px-4 py-2 text-xs font-bold text-[#F7F5F0] dark:text-[#0A0A09] shadow-lg transition hover:opacity-90"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#C89D66] px-4 py-2 text-xs font-bold text-[#090B0D] shadow-lg transition hover:opacity-90"
             >
               <UserCheck className="h-3.5 w-3.5" />
               <span dir="ltr">{user.username}.taqdom.me</span>
@@ -133,51 +124,53 @@ export function Header() {
             <Link
               href="/auth"
               data-testid="header-auth-btn"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#141413] dark:bg-[#C89D66] px-4 py-2 text-xs font-bold text-[#F7F5F0] dark:text-[#0A0A09] shadow-lg transition hover:opacity-90"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#C89D66] px-4 py-2 text-xs font-bold text-[#090B0D] shadow-lg transition hover:opacity-90"
             >
-              <Sparkles className="h-3.5 w-3.5 text-[#C89D66] dark:text-[#0A0A09]" />
-              <span>{t("دخول / احجز نطاقك", "Sign In / Claim Domain")}</span>
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>{t("دخول / احجز نطاقك", "Sign in / Claim your domain")}</span>
             </Link>
           )}
         </div>
 
-        {/* Mobile Controls */}
         <div className="flex items-center gap-2 lg:hidden">
           <button
             type="button"
             onClick={toggleLang}
             className="rounded-lg border border-border bg-secondary/80 px-2.5 py-1.5 text-xs font-bold text-foreground"
+            aria-label={t("التبديل إلى الإنجليزية", "Switch to Arabic")}
           >
             {lang === "ar" ? "EN" : "عربي"}
           </button>
           <button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="rounded-lg border border-border bg-secondary/80 p-1.5 text-foreground"
-            aria-label="Toggle theme"
+            className="rounded-lg border border-border bg-secondary/80 p-2 text-foreground"
+            aria-label={t("تبديل الوضع النهاري والليلي", "Toggle light and dark appearance")}
           >
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <button
             type="button"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="rounded-lg border border-border bg-secondary/80 p-1.5 text-foreground"
-            aria-label="Toggle menu"
+            onClick={() => setIsMenuOpen((open) => !open)}
+            className="rounded-lg border border-border bg-secondary/80 p-2 text-foreground"
+            aria-label={isMenuOpen ? t("إغلاق القائمة", "Close menu") : t("فتح القائمة", "Open menu")}
+            aria-expanded={isMenuOpen}
+            aria-controls="taqdom-mobile-navigation"
           >
             {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
       {isMenuOpen && (
-        <div className="mt-3 border-t border-border pt-4 pb-2 lg:hidden">
-          <nav className="flex flex-col gap-2">
+        <div id="taqdom-mobile-navigation" className="mt-3 border-t border-border pt-4 pb-2 lg:hidden">
+          <nav className="flex flex-col gap-2" aria-label={t("التنقل الرئيسي", "Main navigation")}>
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={() => setIsMenuOpen(false)}
+                aria-current={item.href === pathname ? "page" : undefined}
                 className="rounded-xl px-3 py-2.5 text-sm font-medium text-foreground hover:bg-secondary"
               >
                 {t(item.labelAr, item.labelEn)}
@@ -186,10 +179,10 @@ export function Header() {
             <Link
               href="/auth"
               onClick={() => setIsMenuOpen(false)}
-              className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] px-4 py-3 text-sm font-bold text-[#F7F5F0] dark:text-[#0A0A09]"
+              className="mt-2 flex items-center justify-center gap-2 rounded-xl bg-[#C89D66] px-4 py-3 text-sm font-bold text-[#090B0D]"
             >
               <Sparkles className="h-4 w-4" />
-              <span>{t("دخول / استعراض حساب نموذجي موثق", "Sign In / Verified Creator Preview")}</span>
+              <span>{t("دخول / استعراض الحساب التجريبي", "Sign in / Explore the demo account")}</span>
             </Link>
           </nav>
         </div>

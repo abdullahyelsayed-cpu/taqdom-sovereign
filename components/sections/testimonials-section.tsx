@@ -9,45 +9,45 @@ const TESTIMONIALS = [
   {
     nameAr: "ليلى منصور",
     nameEn: "Layla Mansour",
-    roleAr: "مهندسة معمارية وباحثة في التراث المعاصر — القاهرة وميلانو",
-    roleEn: "Principal Architect & Heritage Researcher — Cairo & Milan",
+    roleAr: "نموذج مهني توضيحي • العمارة والبحث التراثي",
+    roleEn: "Illustrative profile • Architecture & heritage research",
     avatar: "/images/creators/layla.jpg",
     quoteAr:
-      "«قالب مَلاذ (Haven) في تَقَدُّم حوّل مشروع تخرجي وأعمالي المعمارية إلى معرض رقمي ينافس كبرى المكاتب العالمية. النطاق المستقل layla.taqdom.me منحني حضوراً فورياً أمام لجان التحكيم.»",
+      "«قالب مَلاذ (Haven) يقدّم مساحة هادئة لعرض المشاريع المعمارية، مع تسلسل بصري يترك للعمل نفسه مساحة الظهور.»",
     quoteEn:
-      "“The Haven template transformed my architectural thesis and studio works into a monograph that rivals international practices. Having layla.taqdom.me gave me instant authority.”",
+      "“The Haven template offers a calm space for architectural work, with a visual rhythm that lets the projects speak for themselves.”",
   },
   {
     nameAr: "يوسف الشريف",
     nameEn: "Youssef El-Sherif",
-    roleAr: "مهندس ذكاء اصطناعي ونظم موزعة — القاهرة",
-    roleEn: "AI Systems & Full-Stack Engineer — Cairo",
+    roleAr: "نموذج مهني توضيحي • الذكاء الاصطناعي والنظم",
+    roleEn: "Illustrative profile • AI systems & engineering",
     avatar: "/images/creators/youssef.jpg",
     quoteAr:
-      "«لوحة الأوامر السريعة Cmd+K وشبكة Bento في قالب مَدَار أبهرت مسؤولي التوظيف في شركات التقنية الكبرى منذ الثانية الأولى.»",
+      "«قالب مَدَار يجمع بين المشاريع والمهارات والنتائج في بنية واضحة يسهل استكشافها.»",
     quoteEn:
-      "“The Cmd+K command palette and Bento telemetry grid in the Madar template impressed engineering hiring managers from the very first second.”",
+      "“The Madar template brings projects, skills, and outcomes into a clear structure that is easy to explore.”",
   },
 ];
 
 const FAQS = [
   {
     qAr: "كيف يعمل النطاق الفرعي المستقل (username.taqdom.me)؟",
-    qEn: "How does the sovereign subdomain (username.taqdom.me) work?",
-    aAr: "بمجرد اختيار اسم المستخدم ونشر البورتفوليو من الاستوديو، يقوم نظام الحافة بتوجيه الزوار مباشرة إلى https://username.taqdom.me، ويحوّل أي رابط فرعي قديم تلقائياً برمز 308 للحفاظ على قوة السيو.",
-    aEn: "As soon as you claim your username and publish in the Studio, our Edge middleware serves your portfolio directly at https://username.taqdom.me with automatic 308 canonical redirects.",
+    qEn: "How does the personal subdomain (username.taqdom.me) work?",
+    aAr: "بعد اختيار اسم المستخدم ونشر المعرض، يوجّه نظام الحافة الزوار إلى عنوانك المستقل مثل https://username.taqdom.me. وتُستخدم التحويلات الدائمة للروابط المعتمدة عند الحاجة.",
+    aEn: "After choosing a username and publishing a portfolio, edge routing serves it at an address such as https://username.taqdom.me. Permanent redirects are used for canonical paths where appropriate.",
   },
   {
-    qAr: "هل يمكنني معاينة حساب مبدع موثق وتجربة الاستوديو فوراً؟",
-    qEn: "Can I preview a verified flagship creator account in the Studio right away?",
-    aAr: "نعم! وفرنا في صفحة الدخول زر المعاينة السريعة للحساب النموذجي الموثق للمهندسة ليلى منصور (layla.taqdom.me) لتتمكن من استكشاف الاستوديو الحي وتجربة القوالب السبعة فوراً.",
-    aEn: "Yes! On the sign-in page you can launch the 1-click verified flagship creator session (layla.taqdom.me) pre-loaded with 4K architectural projects to explore the Studio immediately.",
+    qAr: "هل يمكنني معاينة حساب نموذجي وتجربة الاستوديو؟",
+    qEn: "Can I preview a sample account and explore the Studio?",
+    aAr: "نعم. تتيح صفحة الدخول فتح حساب عرض تجريبي لاستكشاف لوحة التحكم والاستوديو والقوالب قبل إنشاء حسابك.",
+    aEn: "Yes. The sign-in page includes a demo account to explore the dashboard, Studio, and templates before creating an account.",
   },
   {
-    qAr: "هل يمكنني التبديل بين القوالب السبعة دون فقدان بياناتي؟",
-    qEn: "Can I switch between all 7 templates without losing my projects?",
-    aAr: "بكل تأكيد. جميع القوالب السبعة (مَدَار، أَثَر، مَلاذ، سِيَادَة، وَمِيض، سَلَام، مِشْوَار) تشترك في هيكل البيانات الموحد، مما يتيح لك التبديل بينها بضغطة واحدة داخل الاستوديو.",
-    aEn: "Absolutely. All seven archetypes (Madar, Athar, Haven, Siyada, Wameed, Salam, and Meshwar) share a unified data schema so you can switch templates instantaneously inside the Studio.",
+    qAr: "هل يمكنني التبديل بين القوالب السبعة دون إعادة إدخال بياناتي؟",
+    qEn: "Can I switch between the seven templates without re-entering my content?",
+    aAr: "تستخدم القوالب هيكل بيانات موحدًا، ويمكن تغيير القالب من الاستوديو مع الاحتفاظ بمحتوى المعرض وفق الحقول التي يدعمها القالب المختار.",
+    aEn: "The templates share a unified content model. You can change a template in the Studio while retaining the portfolio content supported by the selected design.",
   },
 ];
 
@@ -56,86 +56,84 @@ export function TestimonialsSection() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   return (
-    <section id="testimonials" className="relative py-24 md:py-32 border-t border-border/60">
+    <section id="testimonials" className="relative border-t border-border/60 py-24 md:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Cinematic Banner with Architectural Backdrop */}
-        <div className="relative rounded-3xl overflow-hidden border border-border mb-20 min-h-[340px] flex items-end p-8 sm:p-12">
+        <div className="relative mb-12 flex min-h-[320px] items-end overflow-hidden rounded-3xl border border-border p-8 sm:p-12">
           <Image
             src="/images/ultra/siyada-2.webp"
-            alt="Taqdom Architectural Sanctuary"
+            alt={t("مساحة معمارية هادئة", "A calm architectural space")}
             fill
+            sizes="100vw"
             className="object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A09]/90 via-[#0A0A09]/45 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#090B0D]/95 via-[#090B0D]/50 to-transparent" />
           <div className="relative z-10 max-w-4xl">
-            <span className="inline-block rounded-full bg-[#C89D66]/20 border border-[#C89D66]/50 px-3.5 py-1 text-xs font-semibold text-[#C89D66] mb-4">
-              {t("٠٧ • شهادات الخريجين والمحترفين", "07 • VOICES OF SOVEREIGN CREATORS")}
+            <span className="mb-4 inline-block rounded-full border border-[#D7B77B]/45 bg-[#C89D66]/15 px-3.5 py-1 text-xs font-semibold text-[#E2C18D]">
+              {t("٠٧ • نماذج عرض توضيحية", "07 • ILLUSTRATIVE SHOWCASE PROFILES")}
             </span>
-            <p className="arabic-diacritics text-2xl sm:text-4xl font-bold text-[#F4F1EA] leading-snug">
+            <p className="arabic-diacritics text-2xl font-bold leading-snug text-[#F4F1EA] sm:text-4xl">
               {t(
-                "«تَقَدُّم ليست مجرد أداة لبناء المواقع، بل هوية سيادية تمنح الخريج والمحترف العربي مكانته العالمية المستحقة.»",
-                "“Taqdom is not merely a portfolio builder — it is a sovereign digital identity engineered for creators who refuse mediocrity.”"
+                "كل مهنة لها قصة، وكل مشروع يستحق طريقة عرض تُظهر قيمته.",
+                "Every discipline has a story. Every project deserves a presentation that reveals its value."
               )}
             </p>
           </div>
         </div>
 
-        {/* Human Testimonials */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-20">
+        <p className="mb-6 rounded-xl border border-[#C89D66]/25 bg-[#C89D66]/[0.06] px-4 py-3 text-xs leading-6 text-muted-foreground">
+          {t(
+            "تنويه: الأسماء والملفات والعبارات التالية نماذج افتراضية أُضيفت لشرح طريقة العرض، ولا تمثل شهادات عملاء موثّقة.",
+            "Note: The names, profiles, and sample statements below are illustrative demo content, not verified customer testimonials."
+          )}
+        </p>
+
+        <div className="mb-20 grid grid-cols-1 gap-8 md:grid-cols-2">
           {TESTIMONIALS.map((item, idx) => (
-            <div key={idx} className="glass-panel rounded-3xl p-8 flex flex-col justify-between gap-6">
+            <article key={idx} className="glass-panel flex flex-col justify-between gap-6 rounded-3xl p-8">
               <div>
-                <Quote className="h-8 w-8 text-[#9A7B4F] dark:text-[#C89D66] mb-4 opacity-80" />
-                <p className="text-base sm:text-lg text-foreground leading-relaxed">
+                <Quote className="mb-4 h-8 w-8 text-[#C89D66] opacity-80" aria-hidden="true" />
+                <p className="text-base leading-8 text-foreground sm:text-lg">
                   {t(item.quoteAr, item.quoteEn)}
                 </p>
               </div>
-              <div className="flex items-center gap-4 pt-4 border-t border-border/60">
-                <div className="relative h-14 w-14 overflow-hidden rounded-2xl border border-[#9A7B4F] dark:border-[#C89D66]">
-                  <Image
-                    src={item.avatar}
-                    alt={t(item.nameAr, item.nameEn)}
-                    fill
-                    className="object-cover"
-                  />
+              <div className="flex items-center gap-4 border-t border-border/60 pt-4">
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-[#C89D66]/50">
+                  <Image src={item.avatar} alt="" fill sizes="56px" className="object-cover" />
                 </div>
                 <div>
                   <h3 className="arabic-diacritics font-bold text-foreground">
                     {t(item.nameAr, item.nameEn)}
                   </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {t(item.roleAr, item.roleEn)}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{t(item.roleAr, item.roleEn)}</p>
                 </div>
               </div>
-            </div>
+            </article>
           ))}
         </div>
 
-        {/* FAQ Accordion */}
         <div className="mx-auto max-w-3xl">
-          <h3 className="arabic-diacritics text-2xl sm:text-3xl font-bold text-center text-foreground mb-8">
+          <h3 className="arabic-diacritics mb-8 text-center text-2xl font-bold text-foreground sm:text-3xl">
             {t("الأسئلة الشائعة حول تَقَدُّم", "Frequently Asked Questions")}
           </h3>
           <div className="space-y-4">
             {FAQS.map((faq, idx) => {
               const isOpen = openFaq === idx;
               return (
-                <div key={idx} className="glass-panel rounded-2xl overflow-hidden">
+                <div key={idx} className="glass-panel overflow-hidden rounded-2xl">
                   <button
                     type="button"
                     onClick={() => setOpenFaq(isOpen ? null : idx)}
-                    className="w-full flex items-center justify-between gap-4 p-5 text-start font-bold text-foreground"
+                    className="flex w-full items-center justify-between gap-4 p-5 text-start font-bold text-foreground"
+                    aria-expanded={isOpen}
                   >
                     <span>{t(faq.qAr, faq.qEn)}</span>
                     <ChevronDown
-                      className={`h-5 w-5 text-[#9A7B4F] dark:text-[#C89D66] shrink-0 transition-transform ${
-                        isOpen ? "rotate-180" : ""
-                      }`}
+                      className={`h-5 w-5 shrink-0 text-[#C89D66] transition-transform ${isOpen ? "rotate-180" : ""}`}
+                      aria-hidden="true"
                     />
                   </button>
                   {isOpen && (
-                    <div className="px-5 pb-5 text-sm text-muted-foreground leading-relaxed border-t border-border/50 pt-3">
+                    <div className="border-t border-border/50 px-5 pb-5 pt-3 text-sm leading-8 text-muted-foreground">
                       {t(faq.aAr, faq.aEn)}
                     </div>
                   )}

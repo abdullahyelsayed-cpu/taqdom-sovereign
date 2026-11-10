@@ -50,7 +50,7 @@ function parseHost(rawHost: string): { root: string | null; sub: string | null; 
   return { root: null, sub: null, isLocal: false };
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const rawHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
   const url = req.nextUrl;
   const { pathname } = url;
