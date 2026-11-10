@@ -260,7 +260,7 @@ export function HeroSection() {
               </>
             ) : (
               <>
-                TAQDOM — Architect Your{" "}
+                TAQDOM — A home for{" "}
                 <span className="gold-shimmer-text editorial-serif italic">
                   what you make.
                 </span>
