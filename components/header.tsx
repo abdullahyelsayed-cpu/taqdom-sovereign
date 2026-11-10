@@ -3,16 +3,22 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Sparkles, UserCheck } from "lucide-react";
+import { Menu, X, Sparkles, UserCheck, Sun, Moon } from "lucide-react";
+import { useTheme } from "next-themes";
 import { TaqdomLogo } from "@/components/brand/taqdom-logo";
 import { useLanguage } from "@/lib/i18n";
 import { useTaqdomStore } from "@/lib/store";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
   const pathname = usePathname();
   const { lang, toggleLang, t } = useLanguage();
   const user = useTaqdomStore((state) => state.user);
+
+  React.useEffect(() => setMounted(true), []);
+  const isDark = mounted && resolvedTheme === "dark";
 
   const navItems = [
     { href: "/", labelAr: "الرئيسية", labelEn: "Home" },
@@ -49,6 +55,15 @@ export function Header() {
       </nav>
 
       <div className="neo-header-actions">
+        <button
+          type="button"
+          className="neo-header-theme"
+          onClick={() => setTheme(isDark ? "light" : "dark")}
+          aria-label={t("تبديل الوضع اللوني", "Toggle colour theme")}
+          title={t("تبديل الوضع اللوني", "Toggle colour theme")}
+        >
+          {isDark ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
         <button
           type="button"
           data-testid="lang-toggle"
