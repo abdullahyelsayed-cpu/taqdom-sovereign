@@ -130,6 +130,56 @@ async function main() {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "07-subdomain-test.png") });
   console.log("[PASS] Browser E2E 8: Subdomain http://test.localhost:PORT/ renders updated portfolio");
 
+  // 8. Untested Edge Case Verification: Register brand-new account 'omar-arch', upload custom project image in /studio, publish, and visit http://omar-arch.localhost:PORT/ in a fresh incognito browser context
+  await page.request.delete(`${BASE}/api/auth/settings?u=omar-arch`);
+  const regRes = await page.request.post(`${BASE}/api/auth/register`, {
+    data: {
+      username: "omar-arch",
+      email: "omar.e2e@taqdom.me",
+      password: "OmarPassword123",
+      displayName: "عمر المعماري السيادي",
+      template: "athar",
+    },
+  });
+  assert.equal(regRes.status(), 200, "Expected 200 when registering omar-arch");
+
+  await page.goto(`${BASE}/studio?u=omar-arch`, { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(600);
+  await page.getByTestId("studio-tab-projects").click();
+  await page.waitForTimeout(300);
+
+  // Upload custom project image in Tab 3
+  const sampleImagePath = path.join(process.cwd(), "public/images/creators/omar.jpg");
+  await page.getByTestId("studio-upload-project-img-0").setInputFiles(sampleImagePath);
+  await page.waitForTimeout(500);
+  await page.getByTestId("studio-publish-btn").click();
+  await page.getByTestId("studio-publish-banner").waitFor({ state: "visible", timeout: 10000 });
+
+  // Open incognito browser context and visit http://omar-arch.localhost:PORT/
+  const incognitoContext = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
+  const incognitoPage = await incognitoContext.newPage();
+  await incognitoPage.goto(`http://omar-arch.localhost:${PORT}/`, {
+    waitUntil: "domcontentloaded",
+  });
+  await incognitoPage.waitForTimeout(600);
+  const incognitoTitle = await incognitoPage.title();
+  const incognitoContent = await incognitoPage.content();
+  assert.equal(
+    incognitoTitle.includes("عمر المعماري السيادي"),
+    true,
+    `Incognito omar-arch title must contain عمر المعماري السيادي, got ${incognitoTitle}`
+  );
+  assert.equal(
+    incognitoContent.includes("عمر المعماري السيادي"),
+    true,
+    "Incognito omar-arch page must render عمر المعماري السيادي"
+  );
+  await incognitoContext.close();
+  await page.request.delete(`${BASE}/api/auth/settings?u=omar-arch`);
+  console.log("[PASS] Browser E2E 9: Custom account 'omar-arch' registration, custom project image upload, publish, and incognito subdomain verification passed");
+
   // Reset test account back to clean state
   await page.request.post(`${BASE}/api/auth/test-login`);
 

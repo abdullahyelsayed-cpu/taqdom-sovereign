@@ -13,6 +13,7 @@ export function SmoothScrollAndAura({ children }: { children: React.ReactNode })
 
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let lenis: Lenis | null = null;
+    let updateLenis: ((time: number) => void) | null = null;
 
     if (!prefersReduced) {
       lenis = new Lenis({
@@ -22,7 +23,7 @@ export function SmoothScrollAndAura({ children }: { children: React.ReactNode })
 
       lenis.on("scroll", ScrollTrigger.update);
 
-      const updateLenis = (time: number) => {
+      updateLenis = (time: number) => {
         lenis?.raf(time * 1000);
       };
       gsap.ticker.add(updateLenis);
@@ -38,6 +39,9 @@ export function SmoothScrollAndAura({ children }: { children: React.ReactNode })
 
     return () => {
       window.removeEventListener("mousemove", handlePointerMove);
+      if (updateLenis) {
+        gsap.ticker.remove(updateLenis);
+      }
       if (lenis) {
         lenis.destroy();
       }

@@ -175,7 +175,15 @@ export default function DashboardPage() {
                 )}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/dashboard/settings"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-bold hover:border-[#C5A059]"
+              >
+                <Sliders className="h-3.5 w-3.5 text-[#C5A059]" />
+                <span>{t("إعدادات الحساب", "Account Settings")}</span>
+              </Link>
+
               <button
                 type="button"
                 onClick={handleResetTest}

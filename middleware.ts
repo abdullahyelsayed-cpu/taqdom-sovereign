@@ -17,6 +17,12 @@ const RESERVED = new Set([
   "templates",
   "explore",
   "legal",
+  "portfolio",
+  "root",
+  "support",
+  "icon",
+  "apple-icon",
+  "opengraph-image",
 ]);
 
 function parseHost(rawHost: string): { root: string | null; sub: string | null; isLocal: boolean } {
@@ -80,12 +86,22 @@ export function middleware(req: NextRequest) {
     });
   }
 
-  // 3. Direct path access on apex (taqdom.me/portfolio/x or taqdom.me/@x) -> 308 redirect to x.taqdom.me
+  // 3. Direct path access on apex (taqdom.me/portfolio/x, taqdom.me/@x, or taqdom.me/x) -> 308 redirect to x.taqdom.me
   if (root && !sub && !req.headers.get("x-taqdom-sub")) {
-    const match = pathname.match(/^\/(?:portfolio\/|@)([a-z0-9-]{3,30})\/?$/i);
-    if (match) {
-      const targetUser = match[1].toLowerCase();
-      return NextResponse.redirect(`${proto}://${targetUser}.${root}/`, 308);
+    const explicitMatch = pathname.match(/^\/(?:portfolio\/|@)([a-z0-9-]{3,30})\/?$/i);
+    if (explicitMatch) {
+      const targetUser = explicitMatch[1].toLowerCase();
+      if (!RESERVED.has(targetUser) && !targetUser.startsWith("-") && !targetUser.endsWith("-")) {
+        return NextResponse.redirect(`${proto}://${targetUser}.${root}/`, 308);
+      }
+    }
+
+    const directUserMatch = pathname.match(/^\/([a-z0-9-]{3,30})\/?$/i);
+    if (directUserMatch) {
+      const candidate = directUserMatch[1].toLowerCase();
+      if (!RESERVED.has(candidate) && !candidate.startsWith("-") && !candidate.endsWith("-")) {
+        return NextResponse.redirect(`${proto}://${candidate}.${root}/`, 308);
+      }
     }
   }
 

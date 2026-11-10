@@ -33,7 +33,7 @@ import { TaqdomLogo } from "@/components/brand/taqdom-logo";
 import { PortfolioRenderer } from "@/components/templates/portfolio-renderer";
 import { useLanguage } from "@/lib/i18n";
 import { useTaqdomStore } from "@/lib/store";
-import { TEMPLATES_CATALOG } from "@/lib/seed-data";
+import { TEMPLATES_CATALOG, SEED_PORTFOLIOS, createStarterPortfolio } from "@/lib/seed-data";
 import {
   TemplateId,
   normalizeUsername,
@@ -97,6 +97,8 @@ function StudioContent() {
   const [publishedSuccessUrl, setPublishedSuccessUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [host, setHost] = useState("taqdom.me");
+  const [fullscreenPreview, setFullscreenPreview] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -104,36 +106,103 @@ function StudioContent() {
     }
   }, []);
 
-  // Apply URL query parameters (?template=... & ?u=...)
+  // Apply URL query parameters (?template=... & ?u=...) and fetch user's draft from server
   useEffect(() => {
     const tplParam = searchParams.get("template") as TemplateId | null;
     const uParam = searchParams.get("u");
+    const validTpl =
+      tplParam && ["athar", "madar", "siyada", "noor"].includes(tplParam)
+        ? tplParam
+        : null;
 
-    if (tplParam && ["athar", "madar", "siyada", "noor"].includes(tplParam)) {
-      switchTemplate(tplParam);
+    if (validTpl && !uParam) {
+      switchTemplate(validTpl);
     }
+
     if (uParam) {
       const clean = normalizeUsername(uParam);
       if (clean.length >= 3) {
-        setDraft((prev) => ({
-          ...prev,
-          username: clean,
-        }));
+        let cancelled = false;
+        fetch(`/api/portfolio?u=${encodeURIComponent(clean)}&mode=draft`, {
+          cache: "no-store",
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (cancelled) return;
+            if (data?.portfolio) {
+              const loaded = {
+                ...data.portfolio,
+                template: validTpl || data.portfolio.template,
+              };
+              setDraft(loaded, false);
+            } else if (SEED_PORTFOLIOS[clean]) {
+              const seeded = {
+                ...structuredClone(SEED_PORTFOLIOS[clean]),
+                template: validTpl || SEED_PORTFOLIOS[clean].template,
+              };
+              setDraft(seeded, false);
+            } else {
+              const current = useTaqdomStore.getState().draft;
+              if (current.username === clean) {
+                if (validTpl) switchTemplate(validTpl);
+              } else {
+                const starter = createStarterPortfolio(
+                  clean,
+                  validTpl || current.template || "athar",
+                  clean
+                );
+                setDraft(starter, false);
+              }
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setDraft((prev) => ({
+                ...prev,
+                username: clean,
+                template: validTpl || prev.template,
+              }), false);
+            }
+          });
+        return () => {
+          cancelled = true;
+        };
       }
     }
   }, [searchParams, switchTemplate, setDraft]);
 
-  // Debounced autosave to /api/portfolio
+  // Keyboard shortcuts: Ctrl+Z (Undo), Ctrl+Y (Redo), Ctrl+S (Save & Publish)
   useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        fetch("/api/portfolio", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portfolio: useTaqdomStore.getState().draft }),
+        }).catch(() => {});
+        toast.success(t("تم حفظ المسودة! (Ctrl+S)", "Draft saved! (Ctrl+S)"));
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [undo, t]);
+
+  // Debounced autosave to /api/portfolio only after user edits
+  useEffect(() => {
+    if (!hasInteracted && pastDrafts.length === 0) return;
     const timer = setTimeout(() => {
       fetch("/api/portfolio", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ portfolio: draft }),
       }).catch(() => {});
-    }, 900);
+    }, 800);
     return () => clearTimeout(timer);
-  }, [draft]);
+  }, [draft, hasInteracted, pastDrafts.length]);
 
   const handlePublish = async () => {
     setPublishing(true);
@@ -162,7 +231,27 @@ function StudioContent() {
     }
   };
 
+  const handleUnpublish = async () => {
+    try {
+      const res = await fetch(`/api/portfolio/publish?u=${encodeURIComponent(draft.username)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setPublishedSuccessUrl(null);
+        toast.success(
+          t(
+            `تم إيقاف النشر المؤقت للنطاق ${draft.username}.taqdom.me`,
+            `Unpublished ${draft.username}.taqdom.me`
+          )
+        );
+      }
+    } catch {
+      toast.error(t("تعذر إيقاف النشر", "Failed to unpublish"));
+    }
+  };
+
   const handleAddProject = () => {
+    setHasInteracted(true);
     const newProj: PortfolioProject = {
       id: `proj-${Date.now()}`,
       title: {
@@ -185,6 +274,7 @@ function StudioContent() {
   };
 
   const handleDeleteProject = (id: string) => {
+    setHasInteracted(true);
     setDraft((prev) => ({
       ...prev,
       projects: prev.projects.filter((p) => p.id !== id),
@@ -192,6 +282,7 @@ function StudioContent() {
   };
 
   const handleMoveProject = (index: number, direction: -1 | 1) => {
+    setHasInteracted(true);
     setDraft((prev) => {
       const list = [...prev.projects];
       const targetIdx = index + direction;
@@ -205,14 +296,35 @@ function StudioContent() {
 
   const handleFileUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
-    onLoaded: (dataUrl: string) => void
+    onLoaded: (url: string) => void
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setHasInteracted(true);
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       if (typeof reader.result === "string") {
-        onLoaded(reader.result);
+        const dataUrl = reader.result;
+        onLoaded(dataUrl);
+        try {
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              dataUrl,
+              mime: file.type || "image/webp",
+              username: draft.username,
+            }),
+          });
+          if (res.ok) {
+            const uploaded = await res.json();
+            if (uploaded?.dataUrl) {
+              onLoaded(uploaded.dataUrl);
+            }
+          }
+        } catch {
+          // Keep local dataUrl
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -808,17 +920,41 @@ function StudioContent() {
                         className="w-full rounded-xl border border-border bg-card px-3 py-1.5 text-xs"
                       />
 
-                      {/* Quick Image Selector */}
-                      <div>
-                        <span className="block text-[11px] text-muted-foreground mb-1.5">
-                          {t("صورة المشروع الرئيسية:", "Primary Project Image:")}
-                        </span>
+                      {/* Quick Image Selector & Custom Upload */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="block text-[11px] text-muted-foreground">
+                            {t("صورة المشروع الرئيسية:", "Primary Project Image:")}
+                          </span>
+                          <label className="cursor-pointer rounded-lg border border-border bg-secondary px-2.5 py-1 text-[11px] font-bold hover:border-[#C5A059]">
+                            <span>{t("رفع صورة للمشروع", "Upload Project Image")}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              data-testid={`studio-upload-project-img-${idx}`}
+                              className="hidden"
+                              onChange={(e) =>
+                                handleFileUpload(e, (url) =>
+                                  setDraft((prev) => ({
+                                    ...prev,
+                                    projects: prev.projects.map((item) =>
+                                      item.id === proj.id
+                                        ? { ...item, images: [url, ...item.images.slice(1)] }
+                                        : item
+                                    ),
+                                  }))
+                                )
+                              }
+                            />
+                          </label>
+                        </div>
                         <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
                           {PRESET_PROJECT_IMAGES.slice(0, 6).map((img) => (
                             <button
                               key={img}
                               type="button"
-                              onClick={() =>
+                              onClick={() => {
+                                setHasInteracted(true);
                                 setDraft((prev) => ({
                                   ...prev,
                                   projects: prev.projects.map((item) =>
@@ -826,8 +962,8 @@ function StudioContent() {
                                       ? { ...item, images: [img, ...item.images.slice(1)] }
                                       : item
                                   ),
-                                }))
-                              }
+                                }));
+                              }}
                               className={`relative h-10 w-14 shrink-0 rounded-lg overflow-hidden border-2 ${
                                 proj.images[0] === img ? "border-[#C5A059]" : "border-transparent opacity-60"
                               }`}
@@ -855,12 +991,13 @@ function StudioContent() {
                       <button
                         key={m}
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          setHasInteracted(true);
                           setDraft((prev) => ({
                             ...prev,
                             theme: { ...prev.theme, mode: m },
-                          }))
-                        }
+                          }));
+                        }}
                         className={`rounded-xl border px-3 py-2.5 text-xs font-bold ${
                           draft.theme.mode === m
                             ? "border-[#C5A059] bg-[#C5A059]/20"
@@ -885,12 +1022,13 @@ function StudioContent() {
                       <button
                         key={c.hex}
                         type="button"
-                        onClick={() =>
+                        onClick={() => {
+                          setHasInteracted(true);
                           setDraft((prev) => ({
                             ...prev,
                             theme: { ...prev.theme, accent: c.hex },
-                          }))
-                        }
+                          }));
+                        }}
                         className={`flex items-center gap-2 rounded-xl border p-2 text-xs font-medium ${
                           draft.theme.accent === c.hex ? "border-[#C5A059] bg-secondary" : "border-border"
                         }`}
@@ -914,15 +1052,16 @@ function StudioContent() {
                     <input
                       type="checkbox"
                       checked={draft.theme.scene3d.enabled}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           theme: {
                             ...prev.theme,
                             scene3d: { ...prev.theme.scene3d, enabled: e.target.checked },
                           },
-                        }))
-                      }
+                        }));
+                      }}
                       className="h-4 w-4 accent-[#C5A059]"
                     />
                   </div>
@@ -938,7 +1077,8 @@ function StudioContent() {
                       max="2.2"
                       step="0.1"
                       value={draft.theme.scene3d.intensity}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           theme: {
@@ -948,8 +1088,8 @@ function StudioContent() {
                               intensity: parseFloat(e.target.value),
                             },
                           },
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full accent-[#C5A059]"
                     />
                   </div>
@@ -965,7 +1105,8 @@ function StudioContent() {
                       max="2.5"
                       step="0.1"
                       value={draft.theme.scene3d.speed}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           theme: {
@@ -975,8 +1116,8 @@ function StudioContent() {
                               speed: parseFloat(e.target.value),
                             },
                           },
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full accent-[#C5A059]"
                     />
                   </div>
@@ -992,7 +1133,8 @@ function StudioContent() {
                       max="180"
                       step="5"
                       value={draft.theme.scene3d.lightAngle}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           theme: {
@@ -1002,8 +1144,8 @@ function StudioContent() {
                               lightAngle: parseInt(e.target.value, 10),
                             },
                           },
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full accent-[#C5A059]"
                     />
                   </div>
@@ -1021,12 +1163,13 @@ function StudioContent() {
                   <input
                     type="text"
                     value={draft.seo.title || `${draft.name.ar} | ${draft.name.en} — تَقَدُّم`}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setHasInteracted(true);
                       setDraft((prev) => ({
                         ...prev,
                         seo: { ...prev.seo, title: e.target.value },
-                      }))
-                    }
+                      }));
+                    }}
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs"
                   />
                 </div>
@@ -1038,15 +1181,56 @@ function StudioContent() {
                   <textarea
                     rows={3}
                     value={draft.seo.description || draft.bio.ar}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setHasInteracted(true);
                       setDraft((prev) => ({
                         ...prev,
                         seo: { ...prev.seo, description: e.target.value },
-                      }))
-                    }
+                      }));
+                    }}
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1">
+                    {t("الكلمات المفتاحية (Keywords مفصولة بفاصلة)", "SEO Keywords (comma-separated)")}
+                  </label>
+                  <input
+                    type="text"
+                    value={(draft.seo.keywords || [draft.name.ar, draft.name.en, "Taqdom"]).join(", ")}
+                    onChange={(e) => {
+                      setHasInteracted(true);
+                      const kw = e.target.value
+                        .split(",")
+                        .map((k) => k.trim())
+                        .filter(Boolean);
+                      setDraft((prev) => ({
+                        ...prev,
+                        seo: { ...prev.seo, keywords: kw },
+                      }));
+                    }}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-2 text-xs"
+                  />
+                </div>
+
+                <label className="flex items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5 cursor-pointer">
+                  <span className="text-xs font-medium">
+                    {t("إخفاء البورتفوليو من محركات البحث (noindex)", "Hide from search engines (noindex)")}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(draft.seo.noindex)}
+                    onChange={(e) => {
+                      setHasInteracted(true);
+                      setDraft((prev) => ({
+                        ...prev,
+                        seo: { ...prev.seo, noindex: e.target.checked },
+                      }));
+                    }}
+                    className="h-4 w-4 accent-[#C5A059]"
+                  />
+                </label>
 
                 {/* Live Google Search Snippet Preview */}
                 <div className="rounded-2xl border border-border bg-background p-4 space-y-1.5">
@@ -1076,7 +1260,7 @@ function StudioContent() {
                   <p dir="ltr" className="font-mono text-lg font-extrabold text-foreground break-all">
                     https://{draft.username}.taqdom.me
                   </p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -1097,6 +1281,49 @@ function StudioContent() {
                       <ExternalLink className="h-3.5 w-3.5" />
                       <span>{t("معاينة النطاق الحي", "Visit Subdomain")}</span>
                     </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => setFullscreenPreview(true)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-1.5 text-xs font-bold"
+                    >
+                      <Eye className="h-3.5 w-3.5 text-[#C5A059]" />
+                      <span>{t("معاينة بملء الشاشة", "Full Screen")}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sovereign Subdomain QR Code Card */}
+                <div className="rounded-2xl border border-border bg-background p-4 flex items-center gap-4">
+                  <svg
+                    viewBox="0 0 100 100"
+                    className="h-20 w-20 shrink-0 rounded-xl border border-[#C5A059]/40 bg-[#F6F4EE] p-2 text-[#111113]"
+                    aria-label="Subdomain QR Code"
+                  >
+                    <rect x="8" y="8" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="6" />
+                    <rect x="16" y="16" width="10" height="10" fill="currentColor" />
+                    <rect x="66" y="8" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="6" />
+                    <rect x="74" y="16" width="10" height="10" fill="currentColor" />
+                    <rect x="8" y="66" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="6" />
+                    <rect x="16" y="74" width="10" height="10" fill="currentColor" />
+                    <rect x="42" y="12" width="8" height="8" fill="currentColor" />
+                    <rect x="42" y="28" width="8" height="16" fill="currentColor" />
+                    <rect x="12" y="44" width="16" height="8" fill="currentColor" />
+                    <rect x="42" y="44" width="14" height="14" fill="#C5A059" />
+                    <rect x="64" y="44" width="10" height="8" fill="currentColor" />
+                    <rect x="80" y="44" width="12" height="12" fill="currentColor" />
+                    <rect x="44" y="66" width="12" height="10" fill="currentColor" />
+                    <rect x="64" y="64" width="14" height="14" fill="currentColor" />
+                    <rect x="82" y="76" width="10" height="16" fill="currentColor" />
+                    <rect x="44" y="84" width="26" height="8" fill="currentColor" />
+                  </svg>
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold">
+                      {t("رمز الاستجابة السريعة (QR) لنطاقك السيادي", "Sovereign Subdomain QR Pass")}
+                    </p>
+                    <p dir="ltr" className="font-mono text-[11px] text-[#C5A059]">
+                      https://{draft.username}.taqdom.me
+                    </p>
                   </div>
                 </div>
 
@@ -1113,6 +1340,14 @@ function StudioContent() {
                       `Publish Now to https://${draft.username}.taqdom.me`
                     )}
                   </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleUnpublish}
+                  className="w-full rounded-xl border border-border bg-background hover:border-red-500/60 py-2.5 text-xs font-bold text-muted-foreground hover:text-red-500 transition cursor-pointer"
+                >
+                  {t("إيقاف النشر المؤقت (Unpublish)", "Unpublish Subdomain")}
                 </button>
               </div>
             )}
@@ -1138,6 +1373,27 @@ function StudioContent() {
           </div>
         </section>
       </div>
+
+      {/* Fullscreen Live Preview Modal */}
+      {fullscreenPreview && (
+        <div className="fixed inset-0 z-[95] flex flex-col bg-background">
+          <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
+            <span className="font-mono text-xs font-bold text-[#C5A059]">
+              https://{draft.username}.taqdom.me • FULLSCREEN PREVIEW
+            </span>
+            <button
+              type="button"
+              onClick={() => setFullscreenPreview(false)}
+              className="rounded-xl bg-[#C5A059] px-4 py-1.5 text-xs font-bold text-[#111113]"
+            >
+              {t("إغلاق المعاينة الكاملة", "Exit Full Screen")}
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <PortfolioRenderer data={draft} previewLang={previewLang} isStudioPreview />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

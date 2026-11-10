@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { validateUsername } from "@/lib/types";
 import { checkUsernameAvailability, registerUserInDb } from "@/lib/db";
 import { hashPasswordPBKDF2, signSessionToken } from "@/lib/auth";
@@ -51,6 +52,13 @@ export async function POST(req: NextRequest) {
       displayName: displayName || val.normalized,
       template,
     });
+
+    try {
+      revalidatePath(`/portfolio/${user.username}`);
+      revalidatePath("/sitemap.xml");
+    } catch {
+      // ignore
+    }
 
     const token = await signSessionToken({
       userId: user.id,

@@ -9,11 +9,12 @@ import { FooterSection } from "@/components/sections/footer-section";
 import { useLanguage } from "@/lib/i18n";
 import { useTaqdomStore } from "@/lib/store";
 import { SEED_PORTFOLIOS } from "@/lib/seed-data";
-import { getSubdomainUrl, TemplateId } from "@/lib/types";
+import { getSubdomainUrl, PortfolioData, TemplateId } from "@/lib/types";
 
 export default function ExplorePage() {
   const { t } = useLanguage();
   const publishedPortfolios = useTaqdomStore((s) => s.publishedPortfolios);
+  const [serverPortfolios, setServerPortfolios] = useState<Record<string, PortfolioData>>({});
   const [filterTemplate, setFilterTemplate] = useState<TemplateId | "all">("all");
   const [query, setQuery] = useState("");
   const [host, setHost] = useState("taqdom.me");
@@ -22,9 +23,23 @@ export default function ExplorePage() {
     if (typeof window !== "undefined") {
       setHost(window.location.host);
     }
+    fetch("/api/portfolio?all=1", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (Array.isArray(data?.portfolios)) {
+          const map: Record<string, PortfolioData> = {};
+          for (const item of data.portfolios) {
+            if (item?.username) {
+              map[item.username] = item;
+            }
+          }
+          setServerPortfolios(map);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const mergedMap = { ...SEED_PORTFOLIOS, ...publishedPortfolios };
+  const mergedMap = { ...SEED_PORTFOLIOS, ...publishedPortfolios, ...serverPortfolios };
   const allCreators = Object.values(mergedMap).filter((c) => {
     if (filterTemplate !== "all" && c.template !== filterTemplate) return false;
     if (!query.trim()) return true;

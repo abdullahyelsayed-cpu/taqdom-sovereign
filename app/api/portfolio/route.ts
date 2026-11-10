@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDraftPortfolio, getPublishedPortfolio, saveDraftPortfolio } from "@/lib/db";
+import {
+  getAllPublishedPortfolios,
+  getDraftPortfolio,
+  getPublishedPortfolio,
+  saveDraftPortfolio,
+} from "@/lib/db";
 import { PortfolioData } from "@/lib/types";
 
 export async function GET(req: NextRequest) {
+  if (req.nextUrl.searchParams.get("all") === "1") {
+    const portfolios = await getAllPublishedPortfolios();
+    return NextResponse.json({ portfolios });
+  }
   const u = req.nextUrl.searchParams.get("u") || "test";
   const mode = req.nextUrl.searchParams.get("mode") || "published";
   const portfolio =

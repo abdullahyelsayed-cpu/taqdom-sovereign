@@ -58,6 +58,12 @@ copyDirRecursive(
 const appServer = path.join(ROOT, ".next/server/app");
 copyAppServerPages(appServer, OUT);
 
+// 3b. Copy pre-rendered portfolio shells from portfolio-static -> portfolio
+const portfolioStaticDir = path.join(appServer, "portfolio-static");
+if (fs.existsSync(portfolioStaticDir)) {
+  copyAppServerPages(portfolioStaticDir, path.join(OUT, "portfolio"));
+}
+
 // 4. Copy robots.txt and sitemap.xml bodies
 const robotsBody = path.join(appServer, "robots.txt.body");
 if (fs.existsSync(robotsBody)) {

@@ -10,10 +10,21 @@ export interface StoredUser {
   createdAt: number;
 }
 
+export interface StoredMedia {
+  id: string;
+  userId: string;
+  key: string;
+  mime: string;
+  size: number;
+  dataUrl: string;
+  createdAt: number;
+}
+
 interface DbSnapshot {
   users: Record<string, StoredUser>;
   portfolios: Record<string, { draft: PortfolioData; published: PortfolioData | null }>;
   views: Record<string, number>;
+  media?: Record<string, StoredMedia>;
 }
 
 const globalForDb = globalThis as unknown as {
@@ -24,6 +35,7 @@ function createInitialSnapshot(): DbSnapshot {
   const users: Record<string, StoredUser> = {};
   const portfolios: Record<string, { draft: PortfolioData; published: PortfolioData | null }> = {};
   const views: Record<string, number> = {};
+  const media: Record<string, StoredMedia> = {};
 
   for (const [uname, p] of Object.entries(SEED_PORTFOLIOS)) {
     users[uname] = {
@@ -41,7 +53,7 @@ function createInitialSnapshot(): DbSnapshot {
     views[uname] = p.views || 1200;
   }
 
-  return { users, portfolios, views };
+  return { users, portfolios, views, media };
 }
 
 function getMemoryDb(): DbSnapshot {
@@ -62,6 +74,7 @@ async function readDiskOrMemoryDb(): Promise<DbSnapshot> {
         const raw = fs.readFileSync(file, "utf-8");
         const parsed = JSON.parse(raw) as DbSnapshot;
         if (parsed && parsed.portfolios) {
+          if (!parsed.media) parsed.media = {};
           globalForDb.__taqdomMemoryDb = parsed;
           return parsed;
         }
@@ -92,7 +105,8 @@ export async function getPublishedPortfolio(username: string): Promise<Portfolio
   if (!clean) return null;
   const db = await readDiskOrMemoryDb();
   const entry = db.portfolios[clean];
-  if (entry?.published) {
+  if (entry) {
+    if (!entry.published) return null;
     return {
       ...entry.published,
       views: db.views[clean] ?? entry.published.views ?? 1,
@@ -136,7 +150,7 @@ export async function saveDraftPortfolio(portfolio: PortfolioData): Promise<Port
   };
   db.portfolios[clean] = {
     draft: updated,
-    published: existing?.published ?? updated,
+    published: existing ? existing.published : updated,
   };
   await writeDiskAndMemoryDb(db);
   return updated;
@@ -162,6 +176,20 @@ export async function publishPortfolioInDb(portfolio: PortfolioData): Promise<Po
   }
   await writeDiskAndMemoryDb(db);
   return published;
+}
+
+export async function unpublishPortfolioInDb(username: string): Promise<boolean> {
+  const clean = normalizeUsername(username);
+  if (!clean) return false;
+  const db = await readDiskOrMemoryDb();
+  const existing = db.portfolios[clean];
+  if (!existing) return false;
+  db.portfolios[clean] = {
+    draft: existing.draft,
+    published: null,
+  };
+  await writeDiskAndMemoryDb(db);
+  return true;
 }
 
 export async function resetTestAccountInDb(): Promise<PortfolioData> {
@@ -260,4 +288,80 @@ export async function incrementPortfolioView(username: string): Promise<number> 
   db.views[clean] = (db.views[clean] || 100) + 1;
   await writeDiskAndMemoryDb(db);
   return db.views[clean];
+}
+
+export async function saveMediaInDb(params: {
+  userId?: string;
+  key: string;
+  mime: string;
+  size: number;
+  dataUrl: string;
+}): Promise<StoredMedia> {
+  const db = await readDiskOrMemoryDb();
+  if (!db.media) db.media = {};
+  const item: StoredMedia = {
+    id: `media-${params.key}`,
+    userId: params.userId || "anonymous",
+    key: params.key,
+    mime: params.mime,
+    size: params.size,
+    dataUrl: params.dataUrl,
+    createdAt: Date.now(),
+  };
+  db.media[params.key] = item;
+  await writeDiskAndMemoryDb(db);
+  return item;
+}
+
+export async function getMediaFromDb(key: string): Promise<StoredMedia | null> {
+  const db = await readDiskOrMemoryDb();
+  return db.media?.[key] || null;
+}
+
+export async function updateUserSettingsInDb(params: {
+  currentUsername: string;
+  newUsername?: string;
+  newPasswordHash?: string;
+  newSalt?: string;
+}): Promise<{ user: StoredUser; portfolio: PortfolioData } | null> {
+  const cur = normalizeUsername(params.currentUsername);
+  const db = await readDiskOrMemoryDb();
+  const user = db.users[cur];
+  const pf = db.portfolios[cur];
+  if (!user || !pf) return null;
+
+  if (params.newPasswordHash && params.newSalt) {
+    user.passwordHash = params.newPasswordHash;
+    user.salt = params.newSalt;
+  }
+
+  let targetUsername = cur;
+  if (params.newUsername) {
+    const nextClean = normalizeUsername(params.newUsername);
+    if (nextClean && nextClean !== cur && !db.users[nextClean] && !RESERVED_USERNAMES.has(nextClean)) {
+      targetUsername = nextClean;
+      delete db.users[cur];
+      delete db.portfolios[cur];
+      user.username = targetUsername;
+      pf.draft.username = targetUsername;
+      if (pf.published) pf.published.username = targetUsername;
+      db.views[targetUsername] = db.views[cur] || 1;
+    }
+  }
+
+  db.users[targetUsername] = user;
+  db.portfolios[targetUsername] = pf;
+  await writeDiskAndMemoryDb(db);
+  return { user, portfolio: pf.draft };
+}
+
+export async function deleteUserInDb(username: string): Promise<boolean> {
+  const clean = normalizeUsername(username);
+  if (!clean || SEED_PORTFOLIOS[clean]) return false;
+  const db = await readDiskOrMemoryDb();
+  delete db.users[clean];
+  delete db.portfolios[clean];
+  delete db.views[clean];
+  await writeDiskAndMemoryDb(db);
+  return true;
 }

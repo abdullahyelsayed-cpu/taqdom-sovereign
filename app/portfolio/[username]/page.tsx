@@ -4,17 +4,7 @@ import { getPublishedPortfolio } from "@/lib/db";
 import { normalizeUsername } from "@/lib/types";
 import { PublishedPortfolioClient } from "@/components/templates/published-portfolio-client";
 
-export const dynamicParams = true;
-
-export async function generateStaticParams() {
-  return [
-    { username: "test" },
-    { username: "layla" },
-    { username: "youssef" },
-    { username: "farida" },
-    { username: "karim" },
-  ];
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
