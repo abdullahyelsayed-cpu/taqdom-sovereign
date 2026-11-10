@@ -191,8 +191,23 @@ export function PortfolioRenderer({
       : defaultDarkTemplates.includes(activeTemplate)
       ? "dark"
       : "light";
+  const legacyAccentMap: Record<string, string> = {
+    "#C7F36B": "#A78BFA",
+    "#8B7CFF": "#A78BFA",
+    "#E9C991": "#FFC978",
+    "#7AB7FF": "#87A8FF",
+    "#FF8BB6": "#FF8396",
+    "#53D8E8": "#87A8FF",
+    "#B7A8FF": "#A78BFA",
+    "#C89D66": "#A78BFA",
+    "#9A7B4F": "#6047B7",
+    "#1E3A2F": "#7EE7C4",
+  };
+  const savedAccent = data.theme?.accent || "";
   const accent =
-    data.theme?.accent || (themeMode === "dark" ? "#A78BFA" : "#6047B7");
+    legacyAccentMap[savedAccent.toUpperCase()] ||
+    savedAccent ||
+    (themeMode === "dark" ? "#A78BFA" : "#6047B7");
   const canvas = data.canvas || {};
   const canvasBackground = canvas.backgroundColor || (themeMode === "dark" ? "#10111B" : "#F4F2FA");
   const canvasOverlay = Math.max(0, Math.min(90, canvas.backgroundOverlay ?? 18)) / 100;
@@ -829,7 +844,7 @@ export function PortfolioRenderer({
             </div>
 
             {/* Bottom Reel Metrics */}
-            <div className="relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-[#F4F1EA]/12">
+            <div data-canvas-section="metrics" className="portfolio-canvas-section relative z-10 grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-[#F4F1EA]/12" style={canvasSectionStyle("metrics")} data-canvas-selected={selectedCanvasSection === "metrics" ? "true" : "false"}>
               {(data.metrics || []).map((m, i) => (
                 <div key={i}>
                   <p className="font-mono text-2xl sm:text-3xl font-black text-[#C89D66]">
@@ -2290,7 +2305,7 @@ export function PortfolioRenderer({
             </div>
 
             {/* Embedded Interactive Career Consultation & Talent Nomination Form */}
-            <div className="rounded-3xl bg-[#141413] text-[#F4F1EA] p-8 sm:p-10">
+            <div data-canvas-section="contact" className="portfolio-canvas-section rounded-3xl bg-[#141413] text-[#F4F1EA] p-8 sm:p-10" style={canvasSectionStyle("contact")} data-canvas-selected={selectedCanvasSection === "contact" ? "true" : "false"}>
               <div className="max-w-2xl mx-auto space-y-6">
                 <div className="text-center space-y-2">
                   <CalendarCheck className="h-7 w-7 text-[#C89D66] mx-auto" />
