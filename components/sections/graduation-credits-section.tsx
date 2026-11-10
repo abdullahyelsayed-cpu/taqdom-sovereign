@@ -191,8 +191,8 @@ export function GraduationCreditsSection() {
               </p>
               <p className="text-sm leading-7 text-muted-foreground">
                 {t(
-                  "التقدير لجهوده في تنظيم قطاع الاتصالات ودعم بيئة رقمية أكثر موثوقية وابتكارًا.",
-                  "With appreciation for its work to regulate the telecommunications sector and support a trusted digital environment."
+                  "تقدير لدوره في تنظيم قطاع الاتصالات ودعم بيئة رقمية موثوقة ومبتكرة، بقيادة المهندس محمد شمروخ، الرئيس التنفيذي للجهاز.",
+                  "With appreciation for its work to regulate the telecommunications sector and support a trusted digital environment, under Eng. Mohamed Shamroukh, Executive President."
                 )}
               </p>
               <a href="https://www.tra.gov.eg/" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#C89D66] underline-offset-4 hover:underline">
