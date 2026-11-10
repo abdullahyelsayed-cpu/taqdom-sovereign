@@ -7,7 +7,8 @@
     "dev": "next dev",
     "lint": "tsc --noEmit",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:cloudflare": "node scripts/build-cloudflare.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
