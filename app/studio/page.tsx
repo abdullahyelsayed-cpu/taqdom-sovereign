@@ -35,12 +35,13 @@ import {
   X,
 } from "lucide-react";
 import { TaqdomLogo } from "@/components/brand/taqdom-logo";
+import { useLanguage } from "@/lib/i18n";
+import { useTaqdomStore } from "@/lib/store";
+
 const PortfolioRenderer = dynamic(
   () => import("@/components/templates/portfolio-renderer").then((module) => module.PortfolioRenderer),
   { ssr: false, loading: () => <div className="min-h-[60vh] w-full animate-pulse rounded-3xl bg-secondary" /> }
 );
-import { useLanguage } from "@/lib/i18n";
-import { useTaqdomStore } from "@/lib/store";
 import { TEMPLATES_CATALOG, SEED_PORTFOLIOS, createStarterPortfolio } from "@/lib/seed-data";
 import {
   TemplateId,
