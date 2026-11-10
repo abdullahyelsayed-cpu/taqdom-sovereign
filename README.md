@@ -20,7 +20,7 @@ Taqdom is an Arabic-first digital identity and portfolio platform built for stud
 
 ## Local development
 
-Requirements: Node.js 22 and pnpm 9.
+Requirements: Node.js 22, pnpm 9, and Next.js 16.4.6.
 
 ```bash
 pnpm install --frozen-lockfile
