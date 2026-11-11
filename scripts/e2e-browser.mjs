@@ -102,12 +102,13 @@ async function main() {
   // 6. Visit /studio?u=layla, test Appearance tab (theme mode & accent), edit bio, and click Publish
   await page.goto(`${BASE}/studio?u=layla`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
+  const studioThemeBefore = await page.evaluate(() => document.documentElement.classList.contains("dark"));
   await page.getByTestId("studio-theme-toggle").click();
-  const studioDark = await page.evaluate(() => document.documentElement.classList.contains("dark"));
-  assert.equal(studioDark, true, "Studio must switch to the shared night theme");
+  const studioThemeAfter = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+  assert.notEqual(studioThemeAfter, studioThemeBefore, "Studio must toggle between the shared day and night themes");
   await page.getByTestId("studio-theme-toggle").click();
-  const studioDay = await page.evaluate(() => !document.documentElement.classList.contains("dark"));
-  assert.equal(studioDay, true, "Studio must switch back to the shared day theme");
+  const studioThemeRestored = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+  assert.equal(studioThemeRestored, studioThemeBefore, "Studio theme toggle must restore the original mode");
   const e2eBio = "نبذة معمارية تم تحديثها ونشرها حياً عبر الاستوديو — Layla Studio E2E 2026";
   await page.getByTestId("studio-bio-ar-input").fill(e2eBio);
   await page.getByTestId("studio-publish-btn").click();
