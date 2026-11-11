@@ -24,8 +24,8 @@ export function Header() {
     { href: "/", labelAr: "الرئيسية", labelEn: "Home" },
     { href: "/templates", labelAr: "القوالب", labelEn: "Templates" },
     { href: "/#studio-preview", labelAr: "الاستوديو", labelEn: "Studio" },
-    { href: "/explore", labelAr: "استكشف", labelEn: "Explore" },
-    { href: "/#about", labelAr: "عن تقدّم", labelEn: "About Taqdom" },
+    { href: "/#pricing", labelAr: "الأسعار", labelEn: "Pricing" },
+    { href: "/#about", labelAr: "المطورون", labelEn: "Creators" },
     { href: "/#faq", labelAr: "الأسئلة الشائعة", labelEn: "FAQ" },
   ];
 
