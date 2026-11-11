@@ -33,78 +33,6 @@ const templateCards = [
   { id: "meshwar", ar: "مِشْوَار", en: "Kin", useAr: "الموارد البشرية والاستشارات", useEn: "People & consulting", image: "/images/ultra/meshwar-2.webp" },
 ];
 
-function RoyalCityScene() {
-  return (
-    <svg className="royal-city-svg" viewBox="0 0 1800 780" preserveAspectRatio="xMidYMid slice" role="presentation" aria-hidden="true">
-      <defs>
-        <linearGradient id="royal-sky" x1="0" y1="0" x2="0.9" y2="1">
-          <stop offset="0" stopColor="var(--royal-sky-top)" />
-          <stop offset="0.62" stopColor="var(--royal-sky-mid)" />
-          <stop offset="1" stopColor="var(--royal-sky-bottom)" />
-        </linearGradient>
-        <linearGradient id="royal-glass" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="var(--royal-glass-a)" />
-          <stop offset="0.48" stopColor="var(--royal-glass-b)" />
-          <stop offset="1" stopColor="var(--royal-glass-c)" />
-        </linearGradient>
-        <linearGradient id="royal-water" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="var(--royal-water-top)" />
-          <stop offset="1" stopColor="var(--royal-water-bottom)" />
-        </linearGradient>
-        <linearGradient id="royal-gold" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#A66E2B" />
-          <stop offset="0.48" stopColor="#F8D79A" />
-          <stop offset="1" stopColor="#B67B35" />
-        </linearGradient>
-        <pattern id="royal-windows" width="34" height="28" patternUnits="userSpaceOnUse">
-          <path d="M5 5h20v15H5z" fill="var(--royal-window)" opacity=".7" />
-        </pattern>
-        <filter id="royal-glow"><feGaussianBlur stdDeviation="10" /></filter>
-      </defs>
-      <rect width="1800" height="780" fill="url(#royal-sky)" />
-      <g className="royal-sky-details" fill="none" stroke="var(--royal-cloud)" strokeWidth="3" opacity=".72">
-        <path d="M40 150c65-36 140-36 205 0 33-42 100-57 151-22 46-24 105-17 142 17" />
-        <path d="M1080 135c58-38 126-30 176 4 46-35 101-31 142-5" opacity=".62" />
-        <path d="M1290 218c56-20 100-13 151 10 34-25 75-26 112-6" opacity=".42" />
-      </g>
-      <g className="royal-stars" fill="#F6D79E">
-        {Array.from({ length: 36 }).map((_, i) => <circle key={i} cx={75 + ((i * 157) % 1640)} cy={35 + ((i * 71) % 290)} r={i % 4 === 0 ? 2.6 : 1.2} opacity={i % 3 === 0 ? .9 : .45} />)}
-      </g>
-      <g opacity=".82" fill="var(--royal-skyline)">
-        <path d="M1000 490V304h53v-76h16v76h42v186z" />
-        <path d="M1110 490V260h62v-35h12v35h52v230z" />
-        <path d="M1247 490V330h72v-82h13v82h39v160z" />
-        <path d="M1380 490V285h50v-116h14v116h43v205z" />
-        <path d="M1490 490V325h64v-66h13v66h43v165z" />
-        <path d="M1624 490V365h58v-42h12v42h35v125z" />
-        <path d="M905 490V360h40v-42h13v42h34v130z" />
-      </g>
-      <g className="royal-tower-lights" stroke="var(--royal-lights)" strokeWidth="3" opacity=".75">
-        {Array.from({ length: 55 }).map((_, i) => <path key={i} d={`M${1000 + (i * 31) % 690} ${302 + (i * 19) % 160}h10`} />)}
-      </g>
-      <g>
-        <path d="M0 470C80 396 188 364 306 362L680 366C790 367 872 417 920 492L920 640H0Z" fill="url(#royal-glass)" stroke="var(--royal-building-line)" strokeWidth="5" />
-        <path d="M0 470C120 390 230 382 350 384H641C752 384 847 436 896 505" fill="none" stroke="url(#royal-gold)" strokeWidth="10" opacity=".95" />
-        <path d="M0 498C126 428 231 414 352 416H627C731 416 812 460 865 524" fill="none" stroke="var(--royal-building-line)" strokeWidth="4" opacity=".8" />
-        <path d="M0 535C130 470 242 458 357 458H615C706 458 786 495 830 552" fill="none" stroke="var(--royal-building-line)" strokeWidth="3" opacity=".72" />
-        <path d="M0 470C100 390 200 360 310 362H650C770 365 870 430 920 505V640H0Z" fill="url(#royal-windows)" opacity=".34" />
-        <path d="M0 590H920" stroke="var(--royal-building-line)" strokeWidth="3" opacity=".55" />
-        <path d="M110 442v176M230 407v211M354 385v235M480 384v236M607 387v231M732 411v206M846 457v160" stroke="var(--royal-building-line)" strokeWidth="2" opacity=".45" />
-        <path d="M0 628C164 581 292 580 450 601c146 20 284 19 470-9v188H0Z" fill="url(#royal-water)" opacity=".9" />
-      </g>
-      <g opacity=".98">
-        <path d="M0 644c200-48 360-40 535-14 145 22 265 23 385-4" fill="none" stroke="url(#royal-gold)" strokeWidth="4" opacity=".9" />
-        <path d="M0 685c190-25 340-20 500 0 126 16 250 14 390-11" fill="none" stroke="var(--royal-reflection)" strokeWidth="3" opacity=".6" />
-        <path d="M0 733c190-20 324-18 458-3 147 17 270 11 404-8" fill="none" stroke="var(--royal-reflection)" strokeWidth="2" opacity=".4" />
-      </g>
-      <g className="royal-horizon" opacity=".55">
-        <path d="M920 500h880" stroke="var(--royal-horizon-line)" strokeWidth="2" />
-        <path d="M930 530h870M980 580h820M1020 632h780" stroke="var(--royal-horizon-line)" strokeWidth="1" />
-      </g>
-    </svg>
-  );
-}
-
 function FeatureStrip({ t }: { t: (ar: string, en: string) => string }) {
   const features = [
     { icon: Cloud, ar: "استضافة سحابية", en: "Cloud hosting", subAr: "رابطك متاح دائمًا", subEn: "Your link, always available" },
@@ -139,12 +67,10 @@ export function TaqdomWorldExperience() {
     <div className="royal-site">
       <main>
         <section className="royal-hero" id="top">
-          <div className="royal-scene"><RoyalCityScene /></div>
+          <div className="royal-scene"><Image src="/images/taqdom-waterfront-hero.webp" alt="" fill priority sizes="100vw" className="royal-city-photo" /></div>
           <div className="royal-hero-shade" />
           <div className="royal-hero-content royal-container">
             <div className="royal-hero-copy">
-              <div className="royal-badge"><Sparkles size={15} /><span>{t("بورتفوليو مجاني دائمًا • لكل شخص", "A free portfolio. Always. For everyone.")}</span></div>
-              <p className="royal-overline">{t("مساحتك الرقمية تبدأ من اسمك", "YOUR SPACE STARTS WITH YOUR NAME")}</p>
               <h1>{t("تقدّم..", "Taqdom.")}<span>{t("بورتفوليو يتجاوز التوقعات", "A portfolio beyond expectations.")}</span></h1>
               <p className="royal-hero-description">{t("أنشئ بورتفوليو شخصيًا كاملًا يعرض مشاريعك ومهاراتك وإنجازاتك، وشاركه برابط يحمل اسمك — مجانًا دائمًا، وفي أي وقت.", "Create a complete personal portfolio for your projects, skills, and achievements, then share it on a link with your name — free forever, whenever you are.")}</p>
               <div className="royal-hero-actions">
