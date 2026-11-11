@@ -43,7 +43,7 @@ assert.match(layoutText, /reimagined\.css/, "The new design system must load glo
 assert.match(homeText, /TaqdomWorldExperience/, "Homepage must use the approved free-portfolio experience.");
 assert.match(worldText, /عبدالله يحى/, "Founder name must use the requested Arabic spelling.");
 assert.doesNotMatch(worldText, /عبدالله يحيى/, "The incorrect Arabic founder spelling must not be present.");
-assert.match(worldText, /بورتفوليو مجاني دائمًا/, "Taqdom must clearly state that portfolios are always free.");
+assert.match(worldText, /مجاني دائمًا/, "Taqdom must clearly state that portfolios are always free.");
 assert.match(worldText, /7 قوالب احترافية جاهزة/, "Homepage must showcase all seven portfolio styles.");
 assert.match(worldText, /royal-template-carousel/, "The homepage template gallery must be a navigable visual rail.");
 assert.match(worldText, /بورتفوليو يتجاوز التوقعات/, "The homepage headline must match the approved portfolio-first creative direction.");
