@@ -38,6 +38,9 @@ jobs:
       - name: Type-check
         run: pnpm typecheck
 
+      - name: Syntax-check Cloudflare Worker
+        run: node --check cloudflare/worker.mjs
+
       - name: Run source quality guards
         run: node scripts/quality-guards.mjs
 
