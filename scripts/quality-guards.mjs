@@ -28,6 +28,12 @@ const polishCss = read("../app/polish.css");
 const reimaginedCss = read("../app/reimagined.css");
 const smoothScrollText = read("../components/smooth-scroll.tsx");
 const rendererText = read("../components/templates/portfolio-renderer.tsx");
+const apiSessionText = read("../lib/api-session.ts");
+const portfolioApiText = read("../app/api/portfolio/route.ts");
+const publishApiText = read("../app/api/portfolio/publish/route.ts");
+const uploadApiText = read("../app/api/upload/route.ts");
+const staticHeaders = read("../public/_headers");
+
 
 assert.match(layoutText, /defaultTheme="light"/, "The visual experience must start in light mode.");
 assert.match(layoutText, /reimagined\.css/, "The new design system must load globally.");
@@ -52,6 +58,14 @@ assert.match(workerText, /ownsUsername\(body\.portfolio\.username\)/, "Portfolio
 assert.match(logoText, /taqdom-step-mark/, "The logo must use the refreshed Taqdom monogram.");
 assert.match(logoText, /<strong>Taqdom<\/strong>/, "The brand wordmark must be Taqdom.");
 assert.match(proxyText, /export function proxy\(/, "Next.js 16 routing must use the proxy convention.");
+assert.match(apiSessionText, /verifySessionToken/, "Local API routes must verify the signed session.");
+assert.match(apiSessionText, /sessionOwnsUsername/, "Local API routes must enforce username ownership.");
+assert.match(portfolioApiText, /sessionOwnsUsername/, "Portfolio draft writes must be owner-scoped.");
+assert.match(publishApiText, /sessionOwnsUsername/, "Publishing and unpublishing must be owner-scoped.");
+assert.match(uploadApiText, /ALLOWED_IMAGE_TYPES/, "Uploads must validate JPG, PNG, and WebP formats.");
+assert.match(workerText, /Cross-origin request rejected/, "Worker write APIs must reject cross-origin requests.");
+assert.match(staticHeaders, /31536000, immutable/, "Fingerprintable static assets must use immutable caching.");
+assert.match(staticHeaders, /X-Content-Type-Options: nosniff/, "Static responses must include a MIME sniffing protection header.");
 assert.match(studioText, /studio-explore-visibility/, "Explore listing must be an explicit opt-in.");
 assert.match(exploreText, /c\.discoverable !== true/, "Explore must filter out portfolios without opt-in.");
 assert.match(dbText, /entry\.published\.discoverable === true/, "Server-side public directory query must enforce discoverability.");
@@ -66,17 +80,20 @@ assert.match(reimaginedCss, /--neo-lime: #D8FF52/, "The new lime highlight colou
 assert.match(reimaginedCss, /prefers-reduced-motion/, "The redesign must respect reduced-motion preferences.");
 assert.match(reimaginedCss, /neo-button-primary/, "Primary actions must have a strong, visible button style.");
 assert.match(studioText, /studio-side-intro/, "Studio must provide a creator-first workspace identity panel.");
+assert.match(studioText, /data-testid="studio-theme-toggle"/, "Studio must have its own day/night toggle.");
+assert.match(studioText, /useTheme\(\)/, "Studio theme toggle must use the shared application theme.");
 assert.match(studioText, /profileCompletion/, "Studio must show profile completion progress.");
 assert.match(studioText, /studio-preview-frame/, "Studio must expose a dedicated live preview frame.");
 assert.match(reimaginedCss, /studio-workspace-grid/, "Studio workspace layout styles must be defined.");
 assert.match(reimaginedCss, /studio-tab\.is-active/, "Active Studio tabs must be visually distinct.");
 assert.match(reimaginedCss, /portfolio-mode-light \[class\*="bg-\[#0A0A09\]"\]/, "Light portfolio theme must map legacy dark panels to the new navy surface.");
-assert.match(seedText, /mode: "light",\s+accent: "#C99750"/, "New portfolios must use the light-first cobalt visual system.");
+assert.match(seedText, /mode: "light",\s+accent: "#C99750"/, "New portfolios must use the light champagne visual system.");
 assert.match(rendererText, /"#315BFF"/, "Portfolio templates must support the new cobalt accent mapping.");
 assert.match(dashboardText, /taqdom-avatar-placeholder\.svg/, "Dashboard must not fall back to a demo portrait.");
 const headerText = read("../components/header.tsx");
 assert.match(headerText, /neo-header-theme/, "The redesigned navigation must retain the theme toggle.");
 assert.match(headerText, /data-testid="theme-toggle"/, "The theme control must be browser-testable.");
+assert.match(headerText, /القوالب/, "Navigation must expose the template gallery.");
 
 assert.match(polishCss, /portfolio-canvas-section/, "Canvas layout styles must remain available.");
 assert.match(smoothScrollText, /import\("lenis"\)/, "Lenis must load lazily rather than on every route.");
