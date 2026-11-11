@@ -22,6 +22,10 @@ export async function POST(req: NextRequest) {
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
+      const requestedUsername = String(formData.get("username") || "");
+      if (requestedUsername && requestedUsername.toLowerCase() !== session.username.toLowerCase()) {
+        return NextResponse.json({ error: "You can only upload to your own portfolio" }, { status: 403 });
+      }
       const file = formData.get("file");
       if (!(file instanceof File)) {
         return NextResponse.json({ error: "Missing file" }, { status: 400 });
@@ -41,6 +45,9 @@ export async function POST(req: NextRequest) {
       dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
     } else {
       const body = await req.json();
+      if (body.username && String(body.username).toLowerCase() !== session.username.toLowerCase()) {
+        return NextResponse.json({ error: "You can only upload to your own portfolio" }, { status: 403 });
+      }
       dataUrl = String(body.dataUrl || "");
       const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
       if (!match) {
