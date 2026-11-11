@@ -1119,7 +1119,7 @@ export default {
       if (directMatch) {
         const candidate = directMatch[1].toLowerCase();
         if (!APP_ROUTES.has(candidate) && !candidate.startsWith("-") && !candidate.endsWith("-")) {
-          return Response.redirect(`https://${candidate}.${root}/`, 308);
+          return applySecurityHeaders(Response.redirect(`https://${candidate}.${root}/`, 308));
         }
       }
     }
@@ -1151,6 +1151,6 @@ export default {
     }
 
     // 7. Standard Marketing / App routes on root domain
-    return env.ASSETS.fetch(request);
+    return applySecurityHeaders(await env.ASSETS.fetch(request));
   },
 };
