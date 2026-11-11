@@ -71,7 +71,7 @@ export default function TemplatesPage() {
             </p>
           </div>
 
-          <p className="mx-auto -mt-8 mb-12 max-w-3xl rounded-2xl border border-[#C7F36B]/25 bg-[#C7F36B]/[0.06] px-5 py-4 text-center text-sm leading-7 text-muted-foreground">
+          <p className="mx-auto -mt-8 mb-12 max-w-3xl rounded-2xl border border-[#C99750]/25 bg-[#C99750]/[0.07] px-5 py-4 text-center text-sm leading-7 text-muted-foreground">
             {t("المعارض المعروضة هنا أمثلة توضيحية لتجربة القوالب، وليست ملفات عملاء موثّقة.", "The portfolios shown here are illustrative samples to preview each style, not verified customer profiles.")}
           </p>
 
@@ -85,7 +85,7 @@ export default function TemplatesPage() {
                 <div
                   key={tpl.id}
                   data-testid={`template-card-${tpl.id}`}
-                  className="glass-panel rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-border hover:border-[#9A7B4F] dark:hover:border-[#C89D66] transition-all duration-500 shadow-xl"
+                  className="glass-panel rounded-3xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 border border-border hover:border-[#C99750] dark:hover:border-[#E4B66F] transition-all duration-500 shadow-xl"
                 >
                   {/* Visual Gallery Column */}
                   <div className="lg:col-span-7 relative min-h-[360px] bg-[#0A0A09] flex flex-col justify-between p-6 overflow-hidden">

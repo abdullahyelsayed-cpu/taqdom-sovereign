@@ -267,6 +267,12 @@ async function getAllPublishedPortfoliosFromD1(env) {
 
 async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, userAuth = null) {
   const clean = normalizeUsername(portfolio.username);
+  if (!clean) throw new Error("A valid portfolio username is required.");
+
+  if (!env.DB) {
+    throw new Error("Cloudflare D1 is not configured; persistent portfolio storage is unavailable.");
+  }
+
   const now = Date.now();
   const updated = {
     ...portfolio,
@@ -274,74 +280,73 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
     updatedAt: now,
     publishedAt: isPublish ? now : portfolio.publishedAt || now,
   };
-  edgeStore.portfolios[clean] = updated;
-  if (isPublish) {
-    edgeStore.unpublished.delete(clean);
-  }
 
-  if (env.DB) {
-    try {
-      const jsonStr = JSON.stringify(updated);
-      const userId = userAuth?.id || `user-${clean}`;
-      const email = (userAuth?.email || updated.email || `${clean}@taqdom.me`).toLowerCase().trim();
-      const pwdHash = userAuth?.passwordHash || "d1-hash";
-      const salt = userAuth?.salt || "d1-salt";
+  try {
+    const jsonStr = JSON.stringify(updated);
+    const userId = userAuth?.id || `user-${clean}`;
+    const email = (userAuth?.email || updated.email || `${clean}@taqdom.me`).toLowerCase().trim();
+    const pwdHash = userAuth?.passwordHash || "d1-hash";
+    const salt = userAuth?.salt || "d1-salt";
 
-      const existingUser = await env.DB.prepare(
-        "SELECT id, email FROM users WHERE username = ?1"
+    const existingUser = await env.DB.prepare(
+      "SELECT id, email FROM users WHERE username = ?1"
+    )
+      .bind(clean)
+      .first();
+
+    const targetUserId = existingUser?.id || userId;
+    if (!existingUser) {
+      const emailConflict = await env.DB.prepare(
+        "SELECT id FROM users WHERE email = ?1"
       )
-        .bind(clean)
+        .bind(email)
         .first();
-
-      let targetUserId = existingUser?.id || userId;
-      if (!existingUser) {
-        const emailConflict = await env.DB.prepare(
-          "SELECT id FROM users WHERE email = ?1"
-        )
-          .bind(email)
-          .first();
-        const safeEmail = emailConflict ? `${clean}.${now}@taqdom.me` : email;
-        await env.DB.prepare(
-          `INSERT OR IGNORE INTO users (id, email, username, password_hash, salt, created_at)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
-        )
-          .bind(targetUserId, safeEmail, clean, pwdHash, salt, now)
-          .run();
-      } else if (userAuth?.passwordHash) {
-        await env.DB.prepare(
-          `UPDATE users SET email = ?1, password_hash = ?2, salt = ?3 WHERE username = ?4`
-        )
-          .bind(email, pwdHash, salt, clean)
-          .run()
-          .catch(() => {});
-      }
-
+      const safeEmail = emailConflict ? `${clean}.${now}@taqdom.me` : email;
       await env.DB.prepare(
-        `INSERT INTO portfolios (user_id, username, template, draft_json, published_json, published_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-         ON CONFLICT(user_id) DO UPDATE SET
-           username = excluded.username,
-           template = excluded.template,
-           draft_json = excluded.draft_json,
-           published_json = CASE WHEN ?8 = 1 THEN excluded.published_json ELSE portfolios.published_json END,
-           published_at = CASE WHEN ?8 = 1 THEN excluded.published_at ELSE portfolios.published_at END,
-           updated_at = excluded.updated_at`
+        `INSERT OR IGNORE INTO users (id, email, username, password_hash, salt, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)`
       )
-        .bind(
-          targetUserId,
-          clean,
-          updated.template || "haven",
-          jsonStr,
-          jsonStr,
-          now,
-          now,
-          isPublish ? 1 : 0
-        )
+        .bind(targetUserId, safeEmail, clean, pwdHash, salt, now)
         .run();
-    } catch {
-      // Ignore D1 errors
+    } else if (userAuth?.passwordHash) {
+      await env.DB.prepare(
+        `UPDATE users SET email = ?1, password_hash = ?2, salt = ?3 WHERE username = ?4`
+      )
+        .bind(email, pwdHash, salt, clean)
+        .run();
     }
+
+    await env.DB.prepare(
+      `INSERT INTO portfolios (user_id, username, template, draft_json, published_json, published_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+       ON CONFLICT(user_id) DO UPDATE SET
+         username = excluded.username,
+         template = excluded.template,
+         draft_json = excluded.draft_json,
+         published_json = CASE WHEN ?8 = 1 THEN excluded.published_json ELSE portfolios.published_json END,
+         published_at = CASE WHEN ?8 = 1 THEN excluded.published_at ELSE portfolios.published_at END,
+         updated_at = excluded.updated_at`
+    )
+      .bind(
+        targetUserId,
+        clean,
+        updated.template || "haven",
+        jsonStr,
+        jsonStr,
+        now,
+        now,
+        isPublish ? 1 : 0
+      )
+      .run();
+  } catch (error) {
+    throw new Error(
+      `Cloudflare D1 persistence failed: ${error instanceof Error ? error.message : "Unknown database error"}`
+    );
   }
+
+  // Update isolate-local cache only after the durable D1 write succeeds.
+  edgeStore.portfolios[clean] = updated;
+  if (isPublish) edgeStore.unpublished.delete(clean);
   return updated;
 }
 
@@ -859,7 +864,7 @@ async function handleApiRequest(request, url, env) {
       return jsonResponse({ error: "You can only upload to your own portfolio" }, 403);
     }
     const dataUrl = String(body.dataUrl || "");
-    const match = dataUrl.match(/^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
+    const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
     if (!match) {
       return jsonResponse({ error: "Only valid JPG, PNG, and WebP images are allowed" }, 400);
     }

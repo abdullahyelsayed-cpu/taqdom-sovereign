@@ -35,6 +35,7 @@ const portfolioApiText = read("../app/api/portfolio/route.ts");
 const publishApiText = read("../app/api/portfolio/publish/route.ts");
 const uploadApiText = read("../app/api/upload/route.ts");
 const staticHeaders = read("../public/_headers");
+const wranglerText = read("../wrangler.jsonc");
 
 
 assert.match(layoutText, /defaultTheme="light"/, "The visual experience must start in light mode.");
@@ -61,6 +62,8 @@ assert.doesNotMatch(authText, /DEFAULT_SECRET|AUTH_SECRET\s*\|\|/, "Application 
 assert.match(authText, /secret\.length < 32/, "Application auth must reject missing or weak signing secrets.");
 assert.match(workerText, /if \(!session\?\.username\) return unauthorized\(\)/, "Protected write endpoints must require a session.");
 assert.match(workerText, /ownsUsername\(body\.portfolio\.username\)/, "Portfolio writes must be scoped to the signed-in owner.");
+assert.match(workerText, /Cloudflare D1 is not configured/, "Persistent saves must reject when D1 is unavailable.");
+assert.match(workerText, /Cloudflare D1 persistence failed/, "D1 write errors must reach the request handler instead of being swallowed.");
 assert.match(logoText, /taqdom-step-mark/, "The logo must use the refreshed Taqdom monogram.");
 assert.match(logoText, /<strong>Taqdom<\/strong>/, "The brand wordmark must be Taqdom.");
 assert.match(proxyText, /export function proxy\(/, "Next.js 16 routing must use the proxy convention.");
@@ -73,6 +76,8 @@ assert.match(storeText, /set\(\{ saveStatus: "unsaved" \}\);\s+throw error;/, "F
 assert.match(uploadApiText, /ALLOWED_IMAGE_TYPES/, "Uploads must validate JPG, PNG, and WebP formats.");
 assert.match(workerText, /Cross-origin request rejected/, "Worker write APIs must reject cross-origin requests.");
 assert.match(staticHeaders, /31536000, immutable/, "Fingerprintable static assets must use immutable caching.");
+assert.match(wranglerText, /"run_worker_first":\s*\[[\s\S]*"\/api\/\*"[^\]]*"\/sitemap\.xml"/, "Only dynamic application routes should invoke the Worker before static assets.");
+assert.doesNotMatch(wranglerText, /"run_worker_first":\s*true/, "Static assets must not incur Worker-first execution on every request.");
 assert.match(staticHeaders, /X-Content-Type-Options: nosniff/, "Static responses must include a MIME sniffing protection header.");
 assert.match(studioText, /studio-explore-visibility/, "Explore listing must be an explicit opt-in.");
 assert.match(exploreText, /c\.discoverable !== true/, "Explore must filter out portfolios without opt-in.");

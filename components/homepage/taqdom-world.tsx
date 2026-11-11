@@ -143,8 +143,6 @@ export function TaqdomWorldExperience() {
           <div className="royal-hero-shade" />
           <div className="royal-hero-content royal-container">
             <div className="royal-hero-copy">
-              <div className="royal-badge"><Sparkles size={15} /><span>{t("بورتفوليو مجاني دائمًا • لكل شخص", "A free portfolio. Always. For everyone.")}</span></div>
-              <p className="royal-overline">{t("مساحتك الرقمية تبدأ من اسمك", "YOUR SPACE STARTS WITH YOUR NAME")}</p>
               <h1>{t("تقدّم..", "Taqdom.")}<span>{t("بورتفوليو يتجاوز التوقعات", "A portfolio beyond expectations.")}</span></h1>
               <p className="royal-hero-description">{t("أنشئ بورتفوليو شخصيًا كاملًا يعرض مشاريعك ومهاراتك وإنجازاتك، وشاركه برابط يحمل اسمك — مجانًا دائمًا، وفي أي وقت.", "Create a complete personal portfolio for your projects, skills, and achievements, then share it on a link with your name — free forever, whenever you are.")}</p>
               <div className="royal-hero-actions">
