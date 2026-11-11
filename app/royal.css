@@ -590,3 +590,20 @@ body { background: var(--background); color: var(--foreground); }
 .royal-portfolio-credit { padding: 13px 16px !important; font-size: 10px !important; opacity: .68 !important; }
 .royal-portfolio-credit .font-mono { color: #a77839 !important; font-size: 9px; }
 .dark .royal-portfolio-credit .font-mono { color: #e4b66f !important; }
+
+/* Studio mode toggle uses the same glass/champagne language. */
+[data-taqdom-studio] .studio-theme-toggle {
+  color: #8e622c !important;
+  border-color: rgba(188,137,66,.26) !important;
+  background: linear-gradient(145deg,rgba(255,255,255,.9),rgba(238,243,250,.84)) !important;
+  box-shadow: 0 5px 15px rgba(28,45,71,.07);
+}
+.dark [data-taqdom-studio] .studio-theme-toggle {
+  color: #f0c57d !important;
+  border-color: rgba(228,182,111,.27) !important;
+  background: linear-gradient(145deg,rgba(25,39,59,.92),rgba(12,23,39,.92)) !important;
+}
+[data-taqdom-studio] .studio-theme-toggle:focus-visible {
+  outline: 3px solid rgba(201,151,80,.52);
+  outline-offset: 3px;
+}
