@@ -101,7 +101,7 @@ export function GraduationCreditsSection() {
                 <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-[1.45rem] border border-[#C89D66]/55 bg-secondary shadow-[0_14px_38px_rgba(0,0,0,.22)] sm:h-36 sm:w-36">
                   <Image
                     src="/images/abdullah-yehia.webp"
-                    alt={t("عبدالله يحيى", "Abdullah Yehia")}
+                    alt={t("عبدالله يحى", "Abdullah Yehia")}
                     fill
                     priority={false}
                     sizes="(max-width: 640px) 112px, 144px"
@@ -110,7 +110,7 @@ export function GraduationCreditsSection() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="arabic-diacritics text-2xl font-bold text-foreground sm:text-3xl">
-                    {t("عبدالله يحيى", "Abdullah Yehia")}
+                    {t("عبدالله يحى", "Abdullah Yehia")}
                   </h3>
                   <p className="mt-2 text-sm leading-7 text-muted-foreground">
                     {t(
