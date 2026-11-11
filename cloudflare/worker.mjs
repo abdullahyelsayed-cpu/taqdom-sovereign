@@ -66,6 +66,18 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
   });
 }
 
+function applySecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 async function hashPasswordEdge(password, saltHex) {
   const encoder = new TextEncoder();
   const saltBytes = saltHex
@@ -1046,15 +1058,15 @@ export default {
 
     // 1. Handle API endpoints
     if (pathname.startsWith("/api/")) {
-      return handleApiRequest(request, url, env);
+      return applySecurityHeaders(await handleApiRequest(request, url, env));
     }
 
     // 2. Dynamic /robots.txt and /sitemap.xml
     if (pathname === "/robots.txt") {
-      return new Response(
+      return applySecurityHeaders(new Response(
         `User-agent: *\nAllow: /\nAllow: /templates\nAllow: /explore\nAllow: /auth\nDisallow: /api/\nDisallow: /dashboard/settings\nHost: https://taqdom.me\nSitemap: https://taqdom.me/sitemap.xml\n`,
         { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } }
-      );
+      ));
     }
 
     if (pathname === "/sitemap.xml") {
@@ -1073,10 +1085,10 @@ export default {
       const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${uniqueUrls
         .map((u) => `  <url><loc>${u}</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>`)
         .join("\n")}\n</urlset>`;
-      return new Response(xml, {
+      return applySecurityHeaders(new Response(xml, {
         status: 200,
         headers: { "Content-Type": "application/xml; charset=utf-8" },
-      });
+      }));
     }
 
     // 3. Pass static assets directly to ASSETS binding
@@ -1085,12 +1097,12 @@ export default {
       pathname.startsWith("/images/") ||
       /\.[a-zA-Z0-9]{2,5}$/.test(pathname)
     ) {
-      return env.ASSETS.fetch(request);
+      return applySecurityHeaders(await env.ASSETS.fetch(request));
     }
 
     // 4. www -> apex 308 redirect
     if (root && sub === "www") {
-      return Response.redirect(`https://${root}${pathname}${url.search}`, 308);
+      return applySecurityHeaders(Response.redirect(`https://${root}${pathname}${url.search}`, 308));
     }
 
     // 5. Direct /portfolio/x, /@x, or /x on root -> 308 redirect to https://x.taqdom.me/
@@ -1099,7 +1111,7 @@ export default {
       if (explicitMatch) {
         const candidate = explicitMatch[1].toLowerCase();
         if (!APP_ROUTES.has(candidate) && !candidate.startsWith("-") && !candidate.endsWith("-")) {
-          return Response.redirect(`https://${candidate}.${root}/`, 308);
+          return applySecurityHeaders(Response.redirect(`https://${candidate}.${root}/`, 308));
         }
       }
 
@@ -1128,13 +1140,13 @@ export default {
         const rawHtml = await assetRes.text();
         const customData = await getPublishedPortfolioFromD1(env, targetUser);
         const enrichedHtml = rewriteSubdomainHtml(rawHtml, targetUser, customData);
-        return new Response(enrichedHtml, {
+        return applySecurityHeaders(new Response(enrichedHtml, {
           status: 200,
           headers: {
             "Content-Type": "text/html; charset=utf-8",
             "X-Taqdom-Subdomain": targetUser,
           },
-        });
+        }));
       }
     }
 
