@@ -1,9 +1,10 @@
 import { SignJWT, jwtVerify } from "jose";
 
-const DEFAULT_SECRET = "taqdom-sovereign-royal-secret-key-2026-egypt";
-
 function getSecretKey(): Uint8Array {
-  const secret = process.env.AUTH_SECRET || DEFAULT_SECRET;
+  const secret = process.env.AUTH_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error("AUTH_SECRET must be configured with at least 32 characters.");
+  }
   return new TextEncoder().encode(secret);
 }
 
