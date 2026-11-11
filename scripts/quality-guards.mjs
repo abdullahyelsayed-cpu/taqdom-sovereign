@@ -20,6 +20,8 @@ const testimonialsText = read("../components/sections/testimonials-section.tsx")
 const logoText = read("../components/brand/taqdom-logo.tsx");
 const seedText = read("../lib/seed-data.ts");
 const studioText = read("../app/studio/page.tsx");
+const storeText = read("../lib/store.ts");
+const headerText = read("../components/header.tsx");
 const exploreText = read("../app/explore/page.tsx");
 const dbText = read("../lib/db.ts");
 const dashboardText = read("../app/dashboard/page.tsx");
@@ -42,6 +44,10 @@ assert.match(worldText, /عبدالله يحى/, "Founder name must use the requ
 assert.doesNotMatch(worldText, /عبدالله يحيى/, "The incorrect Arabic founder spelling must not be present.");
 assert.match(worldText, /بورتفوليو مجاني دائمًا/, "Taqdom must clearly state that portfolios are always free.");
 assert.match(worldText, /7 قوالب احترافية جاهزة/, "Homepage must showcase all seven portfolio styles.");
+assert.match(worldText, /royal-template-carousel/, "The homepage template gallery must be a navigable visual rail.");
+assert.match(worldText, /بورتفوليو يتجاوز التوقعات/, "The homepage headline must match the approved portfolio-first creative direction.");
+assert.match(headerText, /الأسعار/, "Navigation must link to the always-free pricing explanation.");
+assert.match(headerText, /المطورون/, "Navigation must expose the creator and founder section.");
 assert.match(worldText, /royal-studio-section/, "Homepage must include the Studio showcase.");
 assert.doesNotMatch(worldText, /دعم فني|الذكاء الاصطناعي/, "Homepage must not describe an AI website builder or technical support.");
 assert.match(royalCss, /--royal-sky-top/, "Day and night architecture tokens must exist.");
@@ -62,6 +68,8 @@ assert.match(apiSessionText, /verifySessionToken/, "Local API routes must verify
 assert.match(apiSessionText, /sessionOwnsUsername/, "Local API routes must enforce username ownership.");
 assert.match(portfolioApiText, /sessionOwnsUsername/, "Portfolio draft writes must be owner-scoped.");
 assert.match(publishApiText, /sessionOwnsUsername/, "Publishing and unpublishing must be owner-scoped.");
+assert.match(storeText, /!response\.ok \|\| !result\?\.ok \|\| !result\?\.portfolio/, "A portfolio must not be reported as published until the server confirms it.");
+assert.match(storeText, /set\(\{ saveStatus: "unsaved" \}\);\s+throw error;/, "Failed publication must remain visibly unsaved and propagate an error.");
 assert.match(uploadApiText, /ALLOWED_IMAGE_TYPES/, "Uploads must validate JPG, PNG, and WebP formats.");
 assert.match(workerText, /Cross-origin request rejected/, "Worker write APIs must reject cross-origin requests.");
 assert.match(staticHeaders, /31536000, immutable/, "Fingerprintable static assets must use immutable caching.");
@@ -90,7 +98,6 @@ assert.match(reimaginedCss, /portfolio-mode-light \[class\*="bg-\[#0A0A09\]"\]/,
 assert.match(seedText, /mode: "light",\s+accent: "#C99750"/, "New portfolios must use the light champagne visual system.");
 assert.match(rendererText, /"#315BFF"/, "Portfolio templates must support the new cobalt accent mapping.");
 assert.match(dashboardText, /taqdom-avatar-placeholder\.svg/, "Dashboard must not fall back to a demo portrait.");
-const headerText = read("../components/header.tsx");
 assert.match(headerText, /neo-header-theme/, "The redesigned navigation must retain the theme toggle.");
 assert.match(headerText, /data-testid="theme-toggle"/, "The theme control must be browser-testable.");
 assert.match(headerText, /القوالب/, "Navigation must expose the template gallery.");

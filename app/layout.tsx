@@ -52,17 +52,17 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://taqdom.me"),
   title: {
-    default: "تقدّم | بورتفوليوك الشخصي المجاني دائمًا",
+    default: "تقدّم | بورتفوليو شخصي مجاني دائمًا",
     template: "%s | تَقَدُّم • Taqdom",
   },
   description:
-    "تَقَدُّم مساحة عربية لصناعة معرض شخصي يعرض المشاريع والأفكار والمهارات بتصميم تختاره ورابط تستطيع مشاركته.",
+    "أنشئ بورتفوليو شخصيًا متكاملًا يعرض مشاريعك ومهاراتك وإنجازاتك، وشاركه برابط يحمل اسمك — مجاني دائمًا، وفي أي وقت.",
   keywords: [
     "تقدم",
     "تَقَدُّم",
     "Taqdom",
-    "Portfolio Builder",
-    "انشاء بورتفوليو",
+    "Personal Portfolio",
+    "بورتفوليو شخصي مجاني",
     "معرض أعمال",
     "Free Portfolio",
     "Egypt Creators",
@@ -77,13 +77,13 @@ export const metadata: Metadata = {
     siteName: "تَقَدُّم | Taqdom",
     title: "تقدّم | بورتفوليو شخصي مجاني دائمًا",
     description:
-      "أنشئ بورتفوليو شخصي مجاني دائمًا، اعرض مشاريعك ومهاراتك، وشاركه برابط يحمل اسمك.",
+      "اعرض مشاريعك ومهاراتك في بورتفوليو شخصي متكامل، مجاني دائمًا، وعلى رابط يحمل اسمك.",
     images: [
       {
         url: "/images/ultra/haven-hero.webp",
         width: 1200,
         height: 630,
-        alt: "تَقَدُّم | Taqdom Digital Portfolio Platform",
+        alt: "تَقَدُّم | Taqdom Personal Portfolio",
       },
     ],
   },
@@ -120,6 +120,7 @@ const rootJsonLd = {
       name: "تَقَدُّم | Taqdom",
       url: "https://taqdom.me",
       logo: "https://taqdom.me/icon.svg",
+      founder: { "@type": "Person", name: "عبدالله يحى", alternateName: "Abdullah Yehia" },
       sameAs: ["https://github.com/abdullahyelsayed-cpu/taqdom-sovereign"],
     },
     {
