@@ -52,7 +52,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://taqdom.me"),
   title: {
-    default: "تَقَدُّم | Taqdom — مساحة لكل ما تصنعه",
+    default: "تقدّم | بورتفوليوك الشخصي المجاني دائمًا",
     template: "%s | تَقَدُّم • Taqdom",
   },
   description:
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     "Portfolio Builder",
     "انشاء بورتفوليو",
     "معرض أعمال",
-    "Digital Identity",
+    "Free Portfolio",
     "Egypt Creators",
     "Professional Portfolio",
   ],
@@ -75,9 +75,9 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://taqdom.me",
     siteName: "تَقَدُّم | Taqdom",
-    title: "تَقَدُّم | Taqdom — مساحة لكل ما تصنعه",
+    title: "تقدّم | بورتفوليو شخصي مجاني دائمًا",
     description:
-      "اعرض مشاريعك وأفكارك ومهاراتك في مساحة شخصية، واختر بنفسك إن كنت تريد الظهور في دليل Explore.",
+      "أنشئ بورتفوليو شخصي مجاني دائمًا، اعرض مشاريعك ومهاراتك، وشاركه برابط يحمل اسمك.",
     images: [
       {
         url: "/images/ultra/haven-hero.webp",
@@ -89,9 +89,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "تَقَدُّم | Taqdom — Digital Identity & Portfolios",
+    title: "Taqdom — Free Personal Portfolio",
     description:
-      "Build a space for what you make. Choose your style, shape your story, and share your link.",
+      "Create and publish a complete personal portfolio, free forever, on a link with your name.",
     images: ["/images/ultra/haven-hero.webp"],
   },
   icons: {
@@ -111,7 +111,7 @@ const rootJsonLd = {
       url: "https://taqdom.me",
       name: "تَقَدُّم | Taqdom",
       description:
-        "مساحة شخصية لعرض المشاريع والأفكار والمهارات.",
+        "بورتفوليو شخصي متكامل لعرض المشاريع والمهارات والإنجازات، مجاني دائمًا للجميع.",
       inLanguage: ["ar", "en"],
     },
     {
@@ -124,7 +124,7 @@ const rootJsonLd = {
     },
     {
       "@type": "SoftwareApplication",
-      name: "Taqdom Studio",
+      name: "Taqdom Portfolio Studio",
       applicationCategory: "DesignApplication",
       operatingSystem: "Web",
       url: "https://taqdom.me/studio",
