@@ -2475,7 +2475,7 @@ export function PortfolioRenderer({
           <div className="flex items-center gap-2">
             <TaqdomLogo size={24} showWordmark={false} />
             <span className="arabic-diacritics font-bold">
-              {t("مدعوم بواسطة منصة تَقَدُّم السيادية", "Powered by Taqdom Sovereign Identity")}
+              {t("مدعوم بواسطة تقدّم", "Powered by Taqdom")}
             </span>
           </div>
           <span dir="ltr" className="font-mono text-[#9A7B4F] dark:text-[#C89D66]">
