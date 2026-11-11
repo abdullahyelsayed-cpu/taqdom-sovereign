@@ -142,13 +142,14 @@ body { background: var(--background); color: var(--foreground); }
 .royal-hero {
   position: relative;
   isolation: isolate;
-  min-height: 780px;
-  padding: 138px 0 42px;
+  min-height: 492px;
+  padding: 88px 0 18px;
   overflow: hidden;
   background: linear-gradient(140deg, var(--royal-sky-top), var(--royal-sky-mid) 62%, var(--royal-sky-bottom));
 }
 .royal-scene { position: absolute; z-index: -3; inset: 0; overflow: hidden; }
-.royal-city-svg { display: block; width: 100%; height: 100%; min-height: 780px; }
+.royal-city-photo { object-fit: cover; object-position: center 53%; }
+.dark .royal-city-photo { filter: brightness(.43) saturate(.88) contrast(1.12); }
 .royal-hero-shade {
   position: absolute; z-index: -2; inset: 0;
   background:
@@ -166,14 +167,14 @@ body { background: var(--background); color: var(--foreground); }
 .dark .royal-sky-details { opacity: .08; }
 .royal-hero-content {
   position: relative; z-index: 2;
-  min-height: 505px;
+  min-height: 300px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(370px, .92fr);
   align-items: center;
   gap: clamp(32px, 5vw, 90px);
   direction: rtl;
 }
-.royal-hero-copy { max-width: 690px; padding: 20px 0 34px; text-align: right; }
+.royal-hero-copy { max-width: 690px; padding: 0 0 16px; text-align: right; }
 .royal-badge {
   display: inline-flex; align-items: center; gap: 9px;
   padding: 9px 15px;
@@ -233,7 +234,7 @@ body { background: var(--background); color: var(--foreground); }
 .dark .royal-promise svg { color: #e4b66f; }
 
 /* Product visual */
-.royal-hero-product { position: relative; min-width: 0; padding: 26px 4px; perspective: 1200px; }
+.royal-hero-product { position: relative; min-width: 0; padding: 14px 4px; perspective: 1200px; }
 .royal-product-glow {
   position: absolute; inset: 14% -9% 0; border-radius: 50%;
   background: radial-gradient(ellipse, rgba(255,255,255,.92), transparent 68%);
@@ -262,7 +263,7 @@ body { background: var(--background); color: var(--foreground); }
 .royal-window-dots i:nth-child(3) { background: #7bb394; }
 .royal-address { flex: 1; text-align: center; color: #748096; font: 700 10px/1 var(--font-jakarta), sans-serif; }
 .royal-lock { color: #a97839; }
-.royal-browser-image { position: relative; height: clamp(230px, 25vw, 365px); overflow: hidden; }
+.royal-browser-image { position: relative; height: clamp(165px, 13vw, 200px); overflow: hidden; }
 .royal-browser-image img { object-fit: cover; object-position: center; }
 .royal-browser-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; gap: 9px; padding: 9%; text-align: right; color: #fff; background: linear-gradient(90deg, transparent 20%, rgba(3,10,20,.58) 100%); }
 .royal-browser-overlay span { font: 800 9px/1.4 var(--font-jakarta), sans-serif; letter-spacing: .15em; }
@@ -288,10 +289,10 @@ body { background: var(--background); color: var(--foreground); }
 .dark .royal-hero-floor { background: linear-gradient(0deg, rgba(2,7,14,.66), transparent); }
 
 /* Main benefit glass rail */
-.royal-feature-strip {
-  position: relative; z-index: 4; margin-top: 13px;
+ .royal-feature-strip {
+  position: relative; z-index: 4; margin-top: 8px;
   display: grid; grid-template-columns: repeat(5, 1fr); align-items: stretch;
-  min-height: 98px; padding: 12px 9px;
+  min-height: 78px; padding: 8px 8px;
   border: 1px solid rgba(255,255,255,.8); border-radius: 24px;
   background: rgba(247,250,255,.68);
   box-shadow: 0 18px 48px rgba(28,49,78,.12), inset 0 1px rgba(255,255,255,.9);
@@ -310,7 +311,7 @@ body { background: var(--background); color: var(--foreground); }
 .dark .royal-feature-copy small { color: #aab6c8; }
 
 /* Templates */
-.royal-templates-section { padding: 94px 0 102px; background: #f5f7fb; }
+.royal-templates-section { padding: 38px 0 86px; background: #f5f7fb; }
 .dark .royal-templates-section { background: #0b1423; }
 .royal-section-head { display: flex; justify-content: space-between; align-items: end; gap: 28px; margin-bottom: 35px; }
 .royal-section-kicker { display: inline-block; color: #a87738; font: 850 10px/1.4 var(--font-jakarta), sans-serif; letter-spacing: .12em; }
