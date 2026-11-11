@@ -14,6 +14,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import "./polish.css";
 import "./reimagined.css";
+import "./royal.css";
 
 const readex = Readex_Pro({
   subsets: ["arabic", "latin"],
