@@ -843,6 +843,9 @@ async function handleApiRequest(request, url, env) {
   if (pathname === "/api/upload" && request.method === "POST") {
     if (!session?.username) return unauthorized();
     const body = await request.json().catch(() => ({}));
+    if (body.username && normalizeUsername(body.username) !== normalizeUsername(session.username)) {
+      return jsonResponse({ error: "You can only upload to your own portfolio" }, 403);
+    }
     const dataUrl = String(body.dataUrl || "");
     const match = dataUrl.match(/^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
     if (!match) {
