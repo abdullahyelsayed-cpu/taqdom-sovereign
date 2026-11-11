@@ -115,25 +115,34 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
         current.updatedAt = Date.now();
 
         try {
-          await fetch("/api/portfolio/publish", {
+          const response = await fetch("/api/portfolio/publish", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ portfolio: current }),
           });
-        } catch {
-          // Fallback to client persistence if offline
+          const result = await response.json().catch(() => null);
+          if (!response.ok || !result?.ok || !result?.portfolio) {
+            throw new Error(
+              typeof result?.error === "string"
+                ? result.error
+                : "The server could not confirm this publication."
+            );
+          }
+
+          const published = result.portfolio as PortfolioData;
+          set((state) => ({
+            draft: published,
+            publishedPortfolios: {
+              ...state.publishedPortfolios,
+              [published.username]: published,
+            },
+            saveStatus: "saved",
+          }));
+          return published;
+        } catch (error) {
+          set({ saveStatus: "unsaved" });
+          throw error;
         }
-
-        set((state) => ({
-          draft: current,
-          publishedPortfolios: {
-            ...state.publishedPortfolios,
-            [current.username]: current,
-          },
-          saveStatus: "saved",
-        }));
-
-        return current;
       },
 
       loginFlagshipShowcase: async () => {
