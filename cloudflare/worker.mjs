@@ -864,7 +864,7 @@ async function handleApiRequest(request, url, env) {
       return jsonResponse({ error: "You can only upload to your own portfolio" }, 403);
     }
     const dataUrl = String(body.dataUrl || "");
-    const match = dataUrl.match(/^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
+    const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
     if (!match) {
       return jsonResponse({ error: "Only valid JPG, PNG, and WebP images are allowed" }, 400);
     }
