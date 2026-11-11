@@ -71,7 +71,7 @@ assert.match(studioText, /studio-preview-frame/, "Studio must expose a dedicated
 assert.match(reimaginedCss, /studio-workspace-grid/, "Studio workspace layout styles must be defined.");
 assert.match(reimaginedCss, /studio-tab\.is-active/, "Active Studio tabs must be visually distinct.");
 assert.match(reimaginedCss, /portfolio-mode-light \[class\*="bg-\[#0A0A09\]"\]/, "Light portfolio theme must map legacy dark panels to the new navy surface.");
-assert.match(seedText, /mode: "light",\s+accent: "#315BFF"/, "New portfolios must use the light-first cobalt visual system.");
+assert.match(seedText, /mode: "light",\s+accent: "#C99750"/, "New portfolios must use the light-first cobalt visual system.");
 assert.match(rendererText, /"#315BFF"/, "Portfolio templates must support the new cobalt accent mapping.");
 assert.match(dashboardText, /taqdom-avatar-placeholder\.svg/, "Dashboard must not fall back to a demo portrait.");
 const headerText = read("../components/header.tsx");
