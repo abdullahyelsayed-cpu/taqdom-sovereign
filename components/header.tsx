@@ -58,7 +58,8 @@ export function Header() {
       <div className="neo-header-actions">
         <button
           type="button"
-          className="neo-header-theme"\n          data-testid="theme-toggle"
+          className="neo-header-theme"
+          data-testid="theme-toggle"
           onClick={() => setTheme(isDark ? "light" : "dark")}
           aria-label={t("تبديل الوضع اللوني", "Toggle colour theme")}
           title={t("تبديل الوضع اللوني", "Toggle colour theme")}
