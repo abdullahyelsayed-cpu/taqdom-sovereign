@@ -32,9 +32,12 @@ import {
   Move,
   ImagePlus,
   RotateCcw,
+  Sun,
+  Moon,
   X,
 } from "lucide-react";
 import { TaqdomLogo } from "@/components/brand/taqdom-logo";
+import { useTheme } from "next-themes";
 import { useLanguage } from "@/lib/i18n";
 import { useTaqdomStore } from "@/lib/store";
 
@@ -79,10 +82,10 @@ const PRESET_PROJECT_IMAGES = [
 ];
 
 const ACCENT_PRESETS = [
-  { name: "Electric Violet", hex: "#A78BFA" },
-  { name: "Coral Pulse", hex: "#FF8396" },
-  { name: "Mint Signal", hex: "#7EE7C4" },
-  { name: "Skyline Blue", hex: "#87A8FF" },
+  { name: "Champagne Gold", hex: "#C99750" },
+  { name: "Midnight Navy", hex: "#172A43" },
+  { name: "Frost Silver", hex: "#DCE6F2" },
+  { name: "Warm Copper", hex: "#B87A59" },
 ];
 
 const CANVAS_SECTIONS: { id: CanvasSectionId; labelAr: string; labelEn: string }[] = [
@@ -119,6 +122,10 @@ type StudioTab = "identity" | "template" | "projects" | "canvas" | "look3d" | "s
 
 function StudioContent() {
   const { lang, toggleLang, t } = useLanguage();
+  const { resolvedTheme, setTheme } = useTheme();
+  const [themeMounted, setThemeMounted] = useState(false);
+  useEffect(() => setThemeMounted(true), []);
+  const isDarkTheme = themeMounted && resolvedTheme === "dark";
   const searchParams = useSearchParams();
 
   const draft = useTaqdomStore((s) => s.draft);
@@ -632,6 +639,16 @@ function StudioContent() {
 
           {/* Right: Language + Publish CTA */}
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="studio-theme-toggle inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-secondary/70 transition hover:-translate-y-0.5"
+              onClick={() => setTheme(isDarkTheme ? "light" : "dark")}
+              aria-label={t("تبديل الوضع النهاري والليلي", "Toggle day and night mode")}
+              title={t("تبديل الوضع النهاري والليلي", "Toggle day and night mode")}
+              data-testid="studio-theme-toggle"
+            >
+              {themeMounted ? (isDarkTheme ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />) : <span className="h-4 w-4" />}
+            </button>
             <button
               type="button"
               onClick={toggleLang}
