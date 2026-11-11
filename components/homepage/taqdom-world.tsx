@@ -22,13 +22,13 @@ import {
 import { useLanguage } from "@/lib/i18n";
 
 const templateCards = [
-  { id: "madar", ar: "مَدَار", en: "Orbit", useAr: "التقنية والمنتجات الرقمية", useEn: "Technology & digital products", image: "/images/ultra/madar-hero.webp" },
-  { id: "athar", ar: "أَثَر", en: "Frame", useAr: "التصميم وصناعة المحتوى", useEn: "Design & creative work", image: "/images/ultra/athar-hero.webp" },
-  { id: "haven", ar: "مَلاذ", en: "Forma", useAr: "العمارة والتصميم الداخلي", useEn: "Architecture & interiors", image: "/images/ultra/haven-hero.webp" },
-  { id: "siyada", ar: "سِيَادَة", en: "Index", useAr: "الأعمال والقيادة", useEn: "Business & leadership", image: "/images/ultra/siyada-hero.webp" },
-  { id: "wameed", ar: "وَمِيض", en: "Pulse", useAr: "التسويق والمبيعات", useEn: "Marketing & sales", image: "/images/ultra/wameed-hero.webp" },
-  { id: "salam", ar: "سَلَام", en: "Flux", useAr: "الاستراتيجية والتقنية", useEn: "Strategy & technology", image: "/images/ultra/salam-hero.webp" },
-  { id: "meshwar", ar: "مِشْوَار", en: "Kin", useAr: "الموارد البشرية والاستشارات", useEn: "People & consulting", image: "/images/ultra/meshwar-hero.webp" },
+  { id: "madar", ar: "مَدَار", en: "Orbit", useAr: "التقنية والمنتجات الرقمية", useEn: "Technology & digital products", image: "/images/ultra/madar-1.webp" },
+  { id: "athar", ar: "أَثَر", en: "Frame", useAr: "التصميم وصناعة المحتوى", useEn: "Design & creative work", image: "/images/ultra/athar-2.webp" },
+  { id: "haven", ar: "مَلاذ", en: "Forma", useAr: "العمارة والتصميم الداخلي", useEn: "Architecture & interiors", image: "/images/ultra/haven-2.webp" },
+  { id: "siyada", ar: "سِيَادَة", en: "Index", useAr: "الأعمال والقيادة", useEn: "Business & leadership", image: "/images/ultra/siyada-1.webp" },
+  { id: "wameed", ar: "وَمِيض", en: "Pulse", useAr: "التسويق والمبيعات", useEn: "Marketing & sales", image: "/images/ultra/wameed-2.webp" },
+  { id: "salam", ar: "سَلَام", en: "Flux", useAr: "الاستراتيجية والتقنية", useEn: "Strategy & technology", image: "/images/ultra/salam-2.webp" },
+  { id: "meshwar", ar: "مِشْوَار", en: "Kin", useAr: "الموارد البشرية والاستشارات", useEn: "People & consulting", image: "/images/ultra/meshwar-2.webp" },
 ];
 
 function RoyalCityScene() {
