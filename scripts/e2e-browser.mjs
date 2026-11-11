@@ -37,7 +37,7 @@ async function main() {
     } catch {}
   });
 
-  // 1. Open Homepage (/) in Day Mode (Warm Alabaster #F7F5F0)
+  // 1. Open Homepage in the approved pearl-blue daylight mode.
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(800);
 
@@ -47,20 +47,11 @@ async function main() {
   assert.notEqual(
     bodyBgLight,
     "rgb(255, 255, 255)",
-    `Day Mode body background must NOT be pure white rgb(255, 255, 255), got ${bodyBgLight}`
+    `Day Mode body background must not be pure white, got ${bodyBgLight}`
   );
-  console.log(`[PASS] Browser E2E 1: Day Mode computed body background is Warm Alabaster (${bodyBgLight})`);
-
-  // Type 'ahmed' in Hero username input and check live subdomain preview
-  const heroInput = page.getByTestId("hero-username-input");
-  await heroInput.fill("ahmed");
-  const previewText = await page.getByTestId("hero-subdomain-preview").textContent();
-  assert.equal(
-    previewText?.trim(),
-    "https://ahmed.taqdom.me",
-    `Expected https://ahmed.taqdom.me, got ${previewText}`
-  );
-  console.log("[PASS] Browser E2E 2: Typing 'ahmed' updates Hero preview to https://ahmed.taqdom.me");
+  assert.equal(await page.getByText("بورتفوليو مجاني دائمًا").first().isVisible(), true);
+  assert.equal(await page.getByRole("heading", { name: /بورتفوليو يليق بطموحك/ }).isVisible(), true);
+  console.log(`[PASS] Browser E2E 1: Approved free-portfolio homepage is visible in daylight mode (${bodyBgLight})`);
 
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01-home-day-ar.png") });
 
@@ -111,6 +102,13 @@ async function main() {
   // 6. Visit /studio?u=layla, test Appearance tab (theme mode & accent), edit bio, and click Publish
   await page.goto(`${BASE}/studio?u=layla`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
+  const studioThemeBefore = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+  await page.getByTestId("studio-theme-toggle").click();
+  const studioThemeAfter = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+  assert.notEqual(studioThemeAfter, studioThemeBefore, "Studio must toggle between the shared day and night themes");
+  await page.getByTestId("studio-theme-toggle").click();
+  const studioThemeRestored = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+  assert.equal(studioThemeRestored, studioThemeBefore, "Studio theme toggle must restore the original mode");
   const e2eBio = "نبذة معمارية تم تحديثها ونشرها حياً عبر الاستوديو — Layla Studio E2E 2026";
   await page.getByTestId("studio-bio-ar-input").fill(e2eBio);
   await page.getByTestId("studio-publish-btn").click();

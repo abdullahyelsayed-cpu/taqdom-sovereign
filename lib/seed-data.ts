@@ -1112,7 +1112,7 @@ export function createStarterPortfolio(
     timeline: [],
     theme: {
       mode: "light",
-      accent: "#315BFF",
+      accent: "#C99750",
       scene3d: { enabled: false, intensity: 1, speed: 1, lightAngle: 45 },
     },
     canvas: {

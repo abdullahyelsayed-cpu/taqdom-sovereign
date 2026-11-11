@@ -1,11 +1,11 @@
 import { Header } from "@/components/header";
-import { TaqdomReimagined } from "@/components/homepage/taqdom-reimagined";
+import { TaqdomWorldExperience } from "@/components/homepage/taqdom-world";
 
 export default function Home() {
   return (
-    <main className="home-experience min-h-screen bg-background text-foreground">
+    <div className="home-experience min-h-screen bg-background text-foreground">
       <Header />
-      <TaqdomReimagined />
-    </main>
+      <TaqdomWorldExperience />
+    </div>
   );
 }

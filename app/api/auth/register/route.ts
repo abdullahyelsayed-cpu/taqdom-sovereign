@@ -7,9 +7,13 @@ import {
   registerUserInDb,
 } from "@/lib/db";
 import { hashPasswordPBKDF2, signSessionToken } from "@/lib/auth";
+import { sameOriginWriteAllowed } from "@/lib/api-session";
 
 export async function POST(req: NextRequest) {
   try {
+    if (!sameOriginWriteAllowed(req)) {
+      return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
+    }
     const body = await req.json();
     const email = String(body.email || "").trim().toLowerCase();
     const rawUsername = String(body.username || "");
@@ -93,6 +97,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
+      secure: process.env.NODE_ENV === "production",
     });
 
     return res;

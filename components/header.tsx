@@ -22,10 +22,11 @@ export function Header() {
 
   const navItems = [
     { href: "/", labelAr: "الرئيسية", labelEn: "Home" },
-    { href: "/#intro", labelAr: "الفكرة", labelEn: "The idea" },
-    { href: "/#showcase", labelAr: "أمثلة الأعمال", labelEn: "Showcase" },
-    { href: "/templates", labelAr: "الستايلات", labelEn: "Styles" },
+    { href: "/templates", labelAr: "القوالب", labelEn: "Templates" },
+    { href: "/#studio-preview", labelAr: "الاستوديو", labelEn: "Studio" },
     { href: "/explore", labelAr: "استكشف", labelEn: "Explore" },
+    { href: "/#about", labelAr: "عن تقدّم", labelEn: "About Taqdom" },
+    { href: "/#faq", labelAr: "الأسئلة الشائعة", labelEn: "FAQ" },
   ];
 
   const brand = (
@@ -58,6 +59,7 @@ export function Header() {
         <button
           type="button"
           className="neo-header-theme"
+          data-testid="theme-toggle"
           onClick={() => setTheme(isDark ? "light" : "dark")}
           aria-label={t("تبديل الوضع اللوني", "Toggle colour theme")}
           title={t("تبديل الوضع اللوني", "Toggle colour theme")}

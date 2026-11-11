@@ -1,65 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveMediaInDb } from "@/lib/db";
+import { getRequestSession, sameOriginWriteAllowed } from "@/lib/api-session";
+
+const MAX_IMAGE_BYTES = 1_600_000;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export async function POST(req: NextRequest) {
   try {
+    if (!sameOriginWriteAllowed(req)) {
+      return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
+    }
+    const session = await getRequestSession(req);
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
     const contentType = req.headers.get("content-type") || "";
     let dataUrl = "";
-    let mime = "image/webp";
+    let mime = "";
     let size = 0;
-    let userId = "anonymous";
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
-      const file = formData.get("file") as File | null;
-      if (!file) {
+      const requestedUsername = String(formData.get("username") || "");
+      if (requestedUsername && requestedUsername.toLowerCase() !== session.username.toLowerCase()) {
+        return NextResponse.json({ error: "You can only upload to your own portfolio" }, { status: 403 });
+      }
+      const file = formData.get("file");
+      if (!(file instanceof File)) {
         return NextResponse.json({ error: "Missing file" }, { status: 400 });
       }
-      if (file.size > 1_600_000) {
+      if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
         return NextResponse.json(
-          { error: "حجم الصورة يتجاوز الحد الأقصى (1.5 ميجا) / Max file size is 1.5MB" },
+          { error: "حجم الصورة يجب أن يكون بين 1 بايت و1.5 ميجا / Max file size is 1.5MB" },
           { status: 413 }
         );
       }
-      mime = file.type || "image/webp";
+      mime = file.type.toLowerCase();
+      if (!ALLOWED_IMAGE_TYPES.has(mime)) {
+        return NextResponse.json({ error: "Only JPG, PNG, and WebP images are allowed" }, { status: 415 });
+      }
       size = file.size;
-      const buf = Buffer.from(await file.arrayBuffer());
-      dataUrl = `data:${mime};base64,${buf.toString("base64")}`;
-      userId = String(formData.get("username") || "anonymous");
+      const bytes = Buffer.from(await file.arrayBuffer());
+      dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
     } else {
       const body = await req.json();
-      dataUrl = String(body.dataUrl || "");
-      if (!dataUrl.startsWith("data:image/")) {
-        return NextResponse.json({ error: "Invalid image dataUrl" }, { status: 400 });
+      if (body.username && String(body.username).toLowerCase() !== session.username.toLowerCase()) {
+        return NextResponse.json({ error: "You can only upload to your own portfolio" }, { status: 403 });
       }
-      const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
-      mime = match ? match[1] : String(body.mime || "image/webp");
-      size = Math.round((dataUrl.length * 3) / 4);
-      if (size > 1_600_000) {
+      dataUrl = String(body.dataUrl || "");
+      const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
+      if (!match) {
+        return NextResponse.json({ error: "Only valid JPG, PNG, and WebP data URLs are allowed" }, { status: 400 });
+      }
+      mime = match[1].toLowerCase();
+      size = Math.floor((match[2].length * 3) / 4);
+      if (size <= 0 || size > MAX_IMAGE_BYTES) {
         return NextResponse.json(
-          { error: "حجم الصورة يتجاوز الحد الأقصى (1.5 ميجا) / Max file size is 1.5MB" },
+          { error: "حجم الصورة يجب ألا يتجاوز 1.5 ميجا / Max file size is 1.5MB" },
           { status: 413 }
         );
       }
-      userId = String(body.username || "anonymous");
     }
 
-    const ext = mime.includes("png") ? "png" : mime.includes("jpeg") || mime.includes("jpg") ? "jpg" : "webp";
-    const key = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.${ext}`;
+    const ext = mime === "image/png" ? "png" : mime === "image/jpeg" ? "jpg" : "webp";
+    const key = `${Date.now()}-${crypto.randomUUID()}` + `.${ext}`;
     await saveMediaInDb({
-      userId,
+      userId: session.username,
       key,
       mime,
       size,
       dataUrl,
     });
 
-    return NextResponse.json({
-      ok: true,
-      key,
-      url: `/api/media/${key}`,
-      dataUrl,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        key,
+        url: `/api/media/${key}`,
+        dataUrl,
+      },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Upload failed" },

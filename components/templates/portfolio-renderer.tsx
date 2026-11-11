@@ -2470,12 +2470,12 @@ export function PortfolioRenderer({
       )}
 
       {/* Sovereign Subdomain Footer Stamp */}
-      <footer className="py-8 px-6 border-t border-current/10 text-center text-xs opacity-75">
+      <footer className="royal-portfolio-credit py-5 px-6 border-t border-current/10 text-center text-[10px] opacity-70">
         <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <TaqdomLogo size={24} showWordmark={false} />
             <span className="arabic-diacritics font-bold">
-              {t("مدعوم بواسطة منصة تَقَدُّم السيادية", "Powered by Taqdom Sovereign Identity")}
+              {t("مدعوم بواسطة تقدّم", "Powered by Taqdom")}
             </span>
           </div>
           <span dir="ltr" className="font-mono text-[#9A7B4F] dark:text-[#C89D66]">
