@@ -7,6 +7,7 @@ import fs from "node:fs";
 
 const read = (p) => fs.readFileSync(new URL(p, import.meta.url), "utf8");
 const workerText = read("../cloudflare/worker.mjs");
+const authText = read("../lib/auth.ts");
 const proxyText = read("../proxy.ts");
 const layoutText = read("../app/layout.tsx");
 const homeText = read("../app/page.tsx");
@@ -39,6 +40,8 @@ assert.equal(fs.existsSync(new URL("../public/images/abdullah-yehia.webp", impor
 assert.match(creditsText, /الدفعة الثانية عشرة/, "Batch 12 context must remain documented.");
 assert.match(testimonialsText, /illustrative demo content/i, "Example testimonials must be disclosed as illustrative demo content.");
 assert.doesNotMatch(workerText, /taqdom-sovereign-royal-secret-key-2026-egypt/, "No hard-coded session signing secret.");
+assert.doesNotMatch(authText, /DEFAULT_SECRET|AUTH_SECRET\s*\|\|/, "Application auth must never fall back to a hard-coded signing secret.");
+assert.match(authText, /secret\.length < 32/, "Application auth must reject missing or weak signing secrets.");
 assert.match(workerText, /if \(!session\?\.username\) return unauthorized\(\)/, "Protected write endpoints must require a session.");
 assert.match(workerText, /ownsUsername\(body\.portfolio\.username\)/, "Portfolio writes must be scoped to the signed-in owner.");
 assert.match(logoText, /taqdom-step-mark/, "The logo must use the new ascending-step identity.");
