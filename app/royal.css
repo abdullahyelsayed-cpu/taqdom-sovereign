@@ -751,3 +751,31 @@ main.min-h-screen.bg-background .glass-panel,
   color: #251a0d !important;
   background: linear-gradient(135deg,#f5dfb3,#d4a35f 52%,#f0cf91) !important;
 }
+
+
+/* Individual template preview chrome follows the shared day/night system. */
+.template-preview-experience { background: var(--background); color: var(--foreground); }
+.template-preview-topbar {
+  position: sticky; top: 0; z-index: 60;
+  min-height: 58px;
+  color: #1d2a3d;
+  background: rgba(247,250,255,.9);
+  border-bottom: 1px solid rgba(188,137,66,.2);
+  box-shadow: 0 8px 25px rgba(24,42,68,.07);
+  backdrop-filter: blur(18px);
+}
+.dark .template-preview-topbar {
+  color: #f3e9d8;
+  background: rgba(8,16,29,.92);
+  border-color: rgba(228,182,111,.2);
+}
+.template-preview-back { color: #9a6b31; }
+.dark .template-preview-back { color: #edc17a; }
+.template-preview-use {
+  color: #24190c;
+  background: linear-gradient(135deg,#f5dfb3,#c79049 52%,#efd19a);
+  border: 1px solid rgba(255,255,255,.68);
+  box-shadow: 0 7px 18px rgba(162,113,49,.18);
+}
+.template-preview-use:hover { transform: translateY(-1px); }
+.template-preview-use:focus-visible { outline: 3px solid rgba(201,151,80,.65); outline-offset: 3px; }
