@@ -62,6 +62,8 @@ assert.doesNotMatch(authText, /DEFAULT_SECRET|AUTH_SECRET\s*\|\|/, "Application 
 assert.match(authText, /secret\.length < 32/, "Application auth must reject missing or weak signing secrets.");
 assert.match(workerText, /if \(!session\?\.username\) return unauthorized\(\)/, "Protected write endpoints must require a session.");
 assert.match(workerText, /ownsUsername\(body\.portfolio\.username\)/, "Portfolio writes must be scoped to the signed-in owner.");
+assert.match(workerText, /Cloudflare D1 is not configured/, "Persistent saves must reject when D1 is unavailable.");
+assert.match(workerText, /Cloudflare D1 persistence failed/, "D1 write errors must reach the request handler instead of being swallowed.");
 assert.match(logoText, /taqdom-step-mark/, "The logo must use the refreshed Taqdom monogram.");
 assert.match(logoText, /<strong>Taqdom<\/strong>/, "The brand wordmark must be Taqdom.");
 assert.match(proxyText, /export function proxy\(/, "Next.js 16 routing must use the proxy convention.");
