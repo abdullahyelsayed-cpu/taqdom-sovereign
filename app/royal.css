@@ -203,7 +203,7 @@ body { background: var(--background); color: var(--foreground); }
   display: block;
   margin-top: 5px;
   color: #a87231;
-  font-size: clamp(34px, 4.3vw, 65px);
+  font-size: clamp(32px, 3.8vw, 56px);
 }
 .dark .royal-hero-copy h1 > span { color: #edc37d; }
 .royal-hero-description { max-width: 590px; margin: 23px 0 0; color: #35445a; font-size: clamp(15px, 1.23vw, 18px); font-weight: 650; line-height: 2; }
@@ -311,9 +311,9 @@ body { background: var(--background); color: var(--foreground); }
 .dark .royal-feature-copy small { color: #aab6c8; }
 
 /* Templates */
-.royal-templates-section { padding: 38px 0 86px; background: #f5f7fb; }
+.royal-templates-section { padding: 34px 0 78px; background: #f5f7fb; }
 .dark .royal-templates-section { background: #0b1423; }
-.royal-section-head { display: flex; justify-content: space-between; align-items: end; gap: 28px; margin-bottom: 35px; }
+.royal-section-head { display: flex; justify-content: space-between; align-items: end; gap: 28px; margin-bottom: 24px; }
 .royal-section-kicker { display: inline-block; color: #a87738; font: 850 10px/1.4 var(--font-jakarta), sans-serif; letter-spacing: .12em; }
 .dark .royal-section-kicker { color: #e7bd7a; }
 .royal-section-head h2, .royal-studio-copy h2, .royal-publish-card h2, .royal-founder-inner h2, .royal-final-cta h2 {
@@ -331,7 +331,7 @@ body { background: var(--background); color: var(--foreground); }
 .royal-template-grid { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 56px) / 5); grid-template-columns: none; gap: 14px; min-width: 0; overflow-x: auto; padding: 7px 4px 18px; direction: ltr; scroll-snap-type: x mandatory; overscroll-behavior-inline: contain; scrollbar-width: thin; scrollbar-color: rgba(190,143,72,.42) transparent; }
 .royal-template-card { direction: rtl; scroll-snap-align: start; }
 .royal-template-card { min-width: 0; text-decoration: none; color: inherit; }
-.royal-template-art { position: relative; height: 210px; overflow: hidden; border: 4px solid rgba(255,255,255,.92); border-radius: 17px; background: #dde6f2; box-shadow: 0 12px 27px rgba(33,48,74,.11); transition: transform .3s ease, box-shadow .3s ease; }
+.royal-template-art { position: relative; height: clamp(132px, 10.5vw, 172px); overflow: hidden; border: 4px solid rgba(255,255,255,.92); border-radius: 17px; background: #dde6f2; box-shadow: 0 12px 27px rgba(33,48,74,.11); transition: transform .3s ease, box-shadow .3s ease; }
 .dark .royal-template-art { border-color: rgba(228,182,111,.22); background: #111d30; box-shadow: 0 14px 34px rgba(0,0,0,.34); }
 .royal-template-art img { object-fit: cover; transition: transform .65s cubic-bezier(.2,.8,.2,1); }
 .royal-template-card:hover .royal-template-art { transform: translateY(-7px); box-shadow: 0 20px 38px rgba(33,48,74,.19); }
@@ -346,7 +346,7 @@ body { background: var(--background); color: var(--foreground); }
 .dark .royal-template-meta > i { color: #d9b779; }
 
 /* Studio product preview */
-.royal-studio-section { padding: 94px 0 105px; background: linear-gradient(135deg,#edf3fc,#f8f9fc 54%,#e8eef7); }
+.royal-studio-section { padding: 76px 0 84px; background: linear-gradient(135deg,#edf3fc,#f8f9fc 54%,#e8eef7); }
 .dark .royal-studio-section { background: linear-gradient(135deg,#0b1423,#111d31 58%,#0a111e); }
 .royal-studio-layout { display: grid; grid-template-columns: minmax(270px,.76fr) minmax(0,1.24fr); gap: clamp(35px,6vw,90px); align-items: center; }
 .royal-studio-copy h2 { max-width: 470px; }
