@@ -336,6 +336,10 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
 async function handleApiRequest(request, url, env) {
   const { pathname, searchParams } = url;
   const isSecure = url.protocol === "https:";
+  const origin = request.headers.get("origin");
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method) && origin && origin !== url.origin) {
+    return jsonResponse({ error: "Cross-origin request rejected" }, 403);
+  }
   const session = await parseSessionFromRequest(request, env);
   const ownsUsername = (username) =>
     Boolean(session?.username) && session.username === normalizeUsername(username);
@@ -840,15 +844,20 @@ async function handleApiRequest(request, url, env) {
     if (!session?.username) return unauthorized();
     const body = await request.json().catch(() => ({}));
     const dataUrl = String(body.dataUrl || "");
-    if (!dataUrl.startsWith("data:image/")) {
-      return jsonResponse({ error: "Invalid image dataUrl" }, 400);
+    const match = dataUrl.match(/^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
+    if (!match) {
+      return jsonResponse({ error: "Only valid JPG, PNG, and WebP images are allowed" }, 400);
     }
-    const size = Math.round((dataUrl.length * 3) / 4);
-    if (size > 1_600_000) {
+    const mime = match[1].toLowerCase();
+    if (body.mime && String(body.mime).toLowerCase() !== mime) {
+      return jsonResponse({ error: "Image type mismatch" }, 400);
+    }
+    const size = Math.floor((match[2].length * 3) / 4);
+    if (size <= 0 || size > 1_600_000) {
       return jsonResponse({ error: "Max file size is 1.5MB" }, 413);
     }
-    const mime = String(body.mime || "image/webp");
-    const key = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}.webp`;
+    const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : "webp";
+    const key = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
     edgeStore.media[key] = { key, mime, size, dataUrl };
     if (env.DB) {
       try {
