@@ -245,29 +245,61 @@ function StudioContent() {
         undo();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        fetch("/api/portfolio", {
+        const snapshot = structuredClone(useTaqdomStore.getState().draft);
+        useTaqdomStore.setState({ saveStatus: "saving" });
+        void fetch("/api/portfolio", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ portfolio: useTaqdomStore.getState().draft }),
-        }).catch(() => {});
-        toast.success(t("تم حفظ المسودة! (Ctrl+S)", "Draft saved! (Ctrl+S)"));
+          body: JSON.stringify({ portfolio: snapshot }),
+        })
+          .then(async (response) => {
+            const result = await response.json().catch(() => null);
+            if (!response.ok || !result?.ok) {
+              throw new Error(result?.error || "Could not save this draft.");
+            }
+            if (useTaqdomStore.getState().draft.updatedAt === snapshot.updatedAt) {
+              useTaqdomStore.setState({ saveStatus: "saved" });
+            }
+            toast.success(t("تم حفظ المسودة بنجاح.", "Draft saved successfully."));
+          })
+          .catch((error: unknown) => {
+            if (useTaqdomStore.getState().draft.updatedAt === snapshot.updatedAt) {
+              useTaqdomStore.setState({ saveStatus: "unsaved" });
+            }
+            toast.error(error instanceof Error ? error.message : t("تعذر حفظ المسودة.", "Could not save the draft."));
+          });
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [undo, t]);
 
-  // Debounced autosave to /api/portfolio only after user edits
+  // Debounced autosave is acknowledged by the server before the draft is marked saved.
   useEffect(() => {
     if (!hasInteracted && pastDrafts.length === 0) return;
-    const timer = setTimeout(() => {
-      fetch("/api/portfolio", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ portfolio: draft }),
-      }).catch(() => {});
+    const snapshot = structuredClone(draft);
+    const timer = window.setTimeout(async () => {
+      useTaqdomStore.setState({ saveStatus: "saving" });
+      try {
+        const response = await fetch("/api/portfolio", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ portfolio: snapshot }),
+        });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.ok) {
+          throw new Error(result?.error || "Could not save this draft.");
+        }
+        if (useTaqdomStore.getState().draft.updatedAt === snapshot.updatedAt) {
+          useTaqdomStore.setState({ saveStatus: "saved" });
+        }
+      } catch {
+        if (useTaqdomStore.getState().draft.updatedAt === snapshot.updatedAt) {
+          useTaqdomStore.setState({ saveStatus: "unsaved" });
+        }
+      }
     }, 800);
-    return () => clearTimeout(timer);
+    return () => window.clearTimeout(timer);
   }, [draft, hasInteracted, pastDrafts.length]);
 
   const handlePublish = async () => {
@@ -292,6 +324,12 @@ function StudioContent() {
           `Portfolio published live at https://${published.username}.taqdom.me!`
         )
       );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("تعذر تأكيد نشر البورتفوليو. حاول مرة أخرى.", "The server could not confirm publication. Please try again.")
+      );
     } finally {
       setPublishing(false);
     }
@@ -302,17 +340,21 @@ function StudioContent() {
       const res = await fetch(`/api/portfolio/publish?u=${encodeURIComponent(draft.username)}`, {
         method: "DELETE",
       });
-      if (res.ok) {
-        setPublishedSuccessUrl(null);
-        toast.success(
-          t(
-            `تم إيقاف النشر المؤقت للنطاق ${draft.username}.taqdom.me`,
-            `Unpublished ${draft.username}.taqdom.me`
-          )
-        );
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.ok) {
+        throw new Error(result?.error || t("تعذر إيقاف النشر", "Failed to unpublish"));
       }
-    } catch {
-      toast.error(t("تعذر إيقاف النشر", "Failed to unpublish"));
+      setPublishedSuccessUrl(null);
+      toast.success(
+        t(
+          `تم إيقاف النشر المؤقت للنطاق ${draft.username}.taqdom.me`,
+          `Unpublished ${draft.username}.taqdom.me`
+        )
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t("تعذر إيقاف النشر", "Failed to unpublish")
+      );
     }
   };
 
