@@ -4,13 +4,24 @@ import { deleteUserInDb, updateUserSettingsInDb, checkUsernameAvailability } fro
 import { hashPasswordPBKDF2, signSessionToken } from "@/lib/auth";
 import { normalizeUsername, validateUsername } from "@/lib/types";
 import { SEED_PORTFOLIOS } from "@/lib/seed-data";
+import { getRequestSession, sameOriginWriteAllowed, sessionOwnsUsername } from "@/lib/api-session";
 
 export async function POST(req: NextRequest) {
   try {
+    if (!sameOriginWriteAllowed(req)) {
+      return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
+    }
+    const session = await getRequestSession(req);
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
     const body = await req.json();
     const currentUsername = normalizeUsername(String(body.currentUsername || ""));
     if (!currentUsername) {
       return NextResponse.json({ error: "Missing currentUsername" }, { status: 400 });
+    }
+    if (!sessionOwnsUsername(session, currentUsername)) {
+      return NextResponse.json({ error: "You cannot modify this account" }, { status: 403 });
     }
 
     let newUsername: string | undefined;
@@ -89,6 +100,7 @@ export async function POST(req: NextRequest) {
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
+      secure: process.env.NODE_ENV === "production",
     });
 
     return res;
@@ -102,11 +114,21 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    if (!sameOriginWriteAllowed(req)) {
+      return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
+    }
+    const session = await getRequestSession(req);
+    if (!session) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
     const uParam = req.nextUrl.searchParams.get("u");
     const body = await req.json().catch(() => ({}));
     const username = normalizeUsername(String(uParam || body.username || ""));
     if (!username) {
       return NextResponse.json({ error: "Missing username" }, { status: 400 });
+    }
+    if (!sessionOwnsUsername(session, username)) {
+      return NextResponse.json({ error: "You cannot delete this account" }, { status: 403 });
     }
     if (SEED_PORTFOLIOS[username]) {
       return NextResponse.json(
