@@ -607,3 +607,106 @@ body { background: var(--background); color: var(--foreground); }
   outline: 3px solid rgba(201,151,80,.52);
   outline-offset: 3px;
 }
+
+
+/* Shared internal surfaces: auth, dashboard, discovery, settings, and legal pages. */
+.auth-experience,
+.dashboard-experience,
+.explore-experience,
+main.min-h-screen.bg-background {
+  background:
+    radial-gradient(ellipse at 8% 0%, rgba(201,151,80,.075), transparent 35%),
+    var(--background) !important;
+  color: var(--foreground) !important;
+}
+.dark .auth-experience,
+.dark .dashboard-experience,
+.dark .explore-experience,
+.dark main.min-h-screen.bg-background {
+  background:
+    radial-gradient(ellipse at 88% 0%, rgba(201,151,80,.10), transparent 38%),
+    var(--background) !important;
+}
+.auth-experience .glass-panel,
+.dashboard-experience .glass-panel,
+.explore-experience .glass-panel,
+.templates-experience .glass-panel,
+main.min-h-screen.bg-background .glass-panel,
+[data-taqdom-studio] .glass-panel {
+  border-color: rgba(188,137,66,.22) !important;
+  background: color-mix(in srgb, var(--card) 88%, transparent) !important;
+  box-shadow: 0 18px 48px rgba(20,36,61,.075), inset 0 1px rgba(255,255,255,.48) !important;
+  backdrop-filter: blur(15px) saturate(1.12);
+}
+.dark .auth-experience .glass-panel,
+.dark .dashboard-experience .glass-panel,
+.dark .explore-experience .glass-panel,
+.dark .templates-experience .glass-panel,
+.dark main.min-h-screen.bg-background .glass-panel,
+.dark [data-taqdom-studio] .glass-panel {
+  border-color: rgba(228,182,111,.20) !important;
+  background: color-mix(in srgb, var(--card) 93%, transparent) !important;
+  box-shadow: 0 20px 55px rgba(0,0,0,.25), inset 0 1px rgba(255,255,255,.055) !important;
+}
+.auth-experience h1,
+.dashboard-experience h1,
+.explore-experience h1,
+.templates-experience h1 { color: var(--foreground); }
+.auth-experience button[class*="bg-[#9A7B4F]"],
+.auth-experience button[class*="bg-[#C89D66]"],
+.dashboard-experience button[class*="bg-[#9A7B4F]"],
+.dashboard-experience button[class*="bg-[#C89D66]"],
+.explore-experience button[class*="bg-[#9A7B4F]"],
+.explore-experience button[class*="bg-[#C89D66]"],
+.templates-experience button[class*="bg-[#9A7B4F]"],
+.templates-experience button[class*="bg-[#C89D66]"] {
+  color: #24190c !important;
+  background: linear-gradient(135deg,#f5dfb3,#c79049 52%,#efd19a) !important;
+  border: 1px solid rgba(255,255,255,.65) !important;
+  box-shadow: 0 8px 22px rgba(162,113,49,.20) !important;
+}
+.dark .auth-experience button[class*="bg-[#9A7B4F]"],
+.dark .auth-experience button[class*="bg-[#C89D66]"],
+.dark .dashboard-experience button[class*="bg-[#9A7B4F]"],
+.dark .dashboard-experience button[class*="bg-[#C89D66]"],
+.dark .explore-experience button[class*="bg-[#9A7B4F]"],
+.dark .explore-experience button[class*="bg-[#C89D66]"],
+.dark .templates-experience button[class*="bg-[#9A7B4F]"],
+.dark .templates-experience button[class*="bg-[#C89D66]"] {
+  color: #251a0d !important;
+  background: linear-gradient(135deg,#f5dfb3,#d4a35f 52%,#f0cf91) !important;
+}
+.auth-experience input,
+.auth-experience textarea,
+.dashboard-experience input,
+.dashboard-experience textarea,
+.explore-experience input,
+[data-taqdom-studio] input,
+[data-taqdom-studio] textarea,
+[data-taqdom-studio] select {
+  border-color: rgba(150,128,96,.26);
+  accent-color: #c99750;
+}
+.auth-experience input:focus,
+.auth-experience textarea:focus,
+.dashboard-experience input:focus,
+.dashboard-experience textarea:focus,
+[data-taqdom-studio] input:focus,
+[data-taqdom-studio] textarea:focus,
+[data-taqdom-studio] select:focus {
+  outline-color: #c99750;
+  border-color: #c99750;
+  box-shadow: 0 0 0 3px rgba(201,151,80,.13);
+}
+.auth-experience a:focus-visible,
+.dashboard-experience a:focus-visible,
+.explore-experience a:focus-visible,
+.templates-experience a:focus-visible,
+.royal-site a:focus-visible,
+.royal-site button:focus-visible {
+  outline: 3px solid rgba(201,151,80,.66);
+  outline-offset: 3px;
+}
+.dark .auth-experience .text-[#9A7B4F],
+.dark .dashboard-experience .text-[#9A7B4F],
+.dark .explore-experience .text-[#9A7B4F] { color: #edc17a !important; }
