@@ -6,6 +6,6 @@ export default function Home() {
     <div className="home-experience min-h-screen bg-background text-foreground">
       <Header />
       <TaqdomWorldExperience />
-    </main>
+    </div>
   );
 }
