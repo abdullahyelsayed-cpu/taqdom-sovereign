@@ -1,7 +1,12 @@
-<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="40" height="40" rx="12" fill="#315BFF"/>
-  <path d="M5 31V20h7v11H5Z" fill="#FFFFFF"/>
-  <path d="M16 31V12h7v19h-7Z" fill="#FFFFFF"/>
-  <path d="M27 31V5h7v26h-7Z" fill="#FFFFFF"/>
-  <path d="m7.5 14 10-7 7 2 8-5" stroke="#D8FF52" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="champagne" x1="9" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6E2B8"/>
+      <stop offset=".5" stop-color="#D3A15C"/>
+      <stop offset="1" stop-color="#A86F30"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="#0A1424"/>
+  <path d="M8 12H57L46 24H38V54H24V24H8V12Z" fill="url(#champagne)"/>
+  <path d="M9 12H57" stroke="#FFF5E2" stroke-opacity=".78" stroke-width="2" stroke-linecap="round"/>
 </svg>
