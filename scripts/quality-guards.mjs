@@ -35,6 +35,7 @@ const portfolioApiText = read("../app/api/portfolio/route.ts");
 const publishApiText = read("../app/api/portfolio/publish/route.ts");
 const uploadApiText = read("../app/api/upload/route.ts");
 const staticHeaders = read("../public/_headers");
+const wranglerText = read("../wrangler.jsonc");
 
 
 assert.match(layoutText, /defaultTheme="light"/, "The visual experience must start in light mode.");
@@ -73,6 +74,8 @@ assert.match(storeText, /set\(\{ saveStatus: "unsaved" \}\);\s+throw error;/, "F
 assert.match(uploadApiText, /ALLOWED_IMAGE_TYPES/, "Uploads must validate JPG, PNG, and WebP formats.");
 assert.match(workerText, /Cross-origin request rejected/, "Worker write APIs must reject cross-origin requests.");
 assert.match(staticHeaders, /31536000, immutable/, "Fingerprintable static assets must use immutable caching.");
+assert.match(wranglerText, /"run_worker_first":\s*\[[\s\S]*"\/api\/\*"[^\]]*"\/sitemap\.xml"/, "Only dynamic application routes should invoke the Worker before static assets.");
+assert.doesNotMatch(wranglerText, /"run_worker_first":\s*true/, "Static assets must not incur Worker-first execution on every request.");
 assert.match(staticHeaders, /X-Content-Type-Options: nosniff/, "Static responses must include a MIME sniffing protection header.");
 assert.match(studioText, /studio-explore-visibility/, "Explore listing must be an explicit opt-in.");
 assert.match(exploreText, /c\.discoverable !== true/, "Explore must filter out portfolios without opt-in.");
