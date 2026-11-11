@@ -10,7 +10,7 @@ Taqdom is an Arabic-first creative portfolio space for students, makers, graduat
 - Personal subdomains on `*.taqdom.me`.
 - Explore directory is opt-in for personal portfolios. Publishing a direct URL does not automatically list it in Explore.
 - New accounts start with a blank profile; demo creators are clearly labelled as samples.
-- Dark-first visual system with a user-controlled light mode, unified violet/coral/mint tokens, and contrast-conscious text colours.
+- Light-first visual system with user-controlled dark mode, cobalt/lime/coral/navy brand colours, and contrast-conscious text colours.
 - Studio Canvas: personal background colour or image, overlay tuning, section dragging, resizing, scaling, visibility toggles, and keyboard/touch alternatives through numeric sliders.
 - Home scroll reveals and a reading-progress indicator; Lenis is loaded only for the homepage, with native mobile scrolling and reduced-motion fallbacks.
 - The large portfolio renderer is lazy-loaded in Studio to reduce initial route JavaScript.
