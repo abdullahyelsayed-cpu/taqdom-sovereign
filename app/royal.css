@@ -707,9 +707,9 @@ main.min-h-screen.bg-background .glass-panel,
   outline: 3px solid rgba(201,151,80,.66);
   outline-offset: 3px;
 }
-.dark .auth-experience .text-[#9A7B4F],
-.dark .dashboard-experience .text-[#9A7B4F],
-.dark .explore-experience .text-[#9A7B4F] { color: #edc17a !important; }
+.dark .auth-experience [class*="text-[#9A7B4F]"],
+.dark .dashboard-experience [class*="text-[#9A7B4F]"],
+.dark .explore-experience [class*="text-[#9A7B4F]"] { color: #edc17a !important; }
 
 
 /* Higher-specificity Studio overrides replace the previous cobalt/lime controls. */
