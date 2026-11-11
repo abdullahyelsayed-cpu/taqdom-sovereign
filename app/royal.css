@@ -710,3 +710,44 @@ main.min-h-screen.bg-background .glass-panel,
 .dark .auth-experience .text-[#9A7B4F],
 .dark .dashboard-experience .text-[#9A7B4F],
 .dark .explore-experience .text-[#9A7B4F] { color: #edc17a !important; }
+
+
+/* Higher-specificity Studio overrides replace the previous cobalt/lime controls. */
+[data-taqdom-studio] .studio-tab.is-active {
+  color: #81551f !important;
+  background: linear-gradient(135deg,#f8e8ca,#e5c58f) !important;
+  border-color: rgba(178,127,61,.42) !important;
+  box-shadow: 0 8px 19px rgba(163,119,62,.17) !important;
+}
+.dark [data-taqdom-studio] .studio-tab.is-active {
+  color: #f4d294 !important;
+  background: linear-gradient(135deg,rgba(228,182,111,.22),rgba(122,82,39,.18)) !important;
+  border-color: rgba(228,182,111,.42) !important;
+  box-shadow: 0 8px 22px rgba(0,0,0,.22) !important;
+}
+[data-taqdom-studio] .studio-tab:hover {
+  border-color: rgba(201,151,80,.44) !important;
+  color: #93652d !important;
+}
+.dark [data-taqdom-studio] .studio-tab:hover { color: #edc17a !important; }
+[data-taqdom-studio] input[type="range"],
+[data-taqdom-studio] input[type="checkbox"] { accent-color: #c99750 !important; }
+[data-taqdom-studio] .studio-preview-toolbar {
+  border-color: rgba(188,137,66,.22) !important;
+  background: rgba(250,252,255,.94) !important;
+  box-shadow: 0 11px 27px rgba(24,42,68,.08) !important;
+}
+.dark [data-taqdom-studio] .studio-preview-toolbar {
+  border-color: rgba(228,182,111,.2) !important;
+  background: rgba(9,18,32,.94) !important;
+}
+[data-taqdom-studio] .studio-topbar [data-testid="studio-publish-btn"] {
+  color: #24190c !important;
+  background: linear-gradient(135deg,#f5dfb3,#c79049 52%,#efd19a) !important;
+  border: 1px solid rgba(255,255,255,.66) !important;
+  box-shadow: 0 8px 22px rgba(162,113,49,.2) !important;
+}
+.dark [data-taqdom-studio] .studio-topbar [data-testid="studio-publish-btn"] {
+  color: #251a0d !important;
+  background: linear-gradient(135deg,#f5dfb3,#d4a35f 52%,#f0cf91) !important;
+}
