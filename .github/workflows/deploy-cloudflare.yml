@@ -58,9 +58,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Type-check and run quality guards
+      - name: Type-check Worker syntax and run quality guards
         run: |
           pnpm typecheck
+          node --check cloudflare/worker.mjs
           node scripts/quality-guards.mjs
 
       - name: Build production app
