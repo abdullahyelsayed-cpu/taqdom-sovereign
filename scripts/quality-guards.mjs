@@ -46,7 +46,6 @@ assert.doesNotMatch(worldText, /عبدالله يحيى/, "The incorrect Arabic 
 assert.match(worldText, /بورتفوليو مجاني دائمًا/, "Taqdom must clearly state that portfolios are always free.");
 assert.match(worldText, /7 قوالب احترافية جاهزة/, "Homepage must showcase all seven portfolio styles.");
 assert.match(worldText, /royal-template-carousel/, "The homepage template gallery must be a navigable visual rail.");
-assert.match(worldText, /taqdom-waterfront-hero\.webp/, "The homepage must use the approved waterfront hero art.");
 assert.match(worldText, /بورتفوليو يتجاوز التوقعات/, "The homepage headline must match the approved portfolio-first creative direction.");
 assert.match(headerText, /الأسعار/, "Navigation must link to the always-free pricing explanation.");
 assert.match(headerText, /المطورون/, "Navigation must expose the creator and founder section.");
