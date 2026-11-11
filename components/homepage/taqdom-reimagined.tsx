@@ -28,7 +28,7 @@ const HeroOrbitScene = dynamic(() => import("./hero-orbit-scene"), {
 });
 
 const creator = {
-  nameAr: "عبدالله يحيى",
+  nameAr: "عبدالله يحى",
   nameEn: "Abdullah Yehia",
   roleAr: "مؤسس ومطوّر تَقَدُّم",
   roleEn: "Creator & Developer of Taqdom",
