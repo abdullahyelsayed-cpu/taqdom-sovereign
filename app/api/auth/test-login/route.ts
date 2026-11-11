@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { resetShowcaseAccountInDb } from "@/lib/db";
 import { signSessionToken } from "@/lib/auth";
+import { sameOriginWriteAllowed } from "@/lib/api-session";
 
-export async function POST() {
+export async function POST(req: import("next/server").NextRequest) {
+  if (!sameOriginWriteAllowed(req)) {
+    return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
+  }
   const portfolio = await resetShowcaseAccountInDb();
   const user = {
     id: "user-layla",
@@ -29,6 +33,7 @@ export async function POST() {
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
+    secure: process.env.NODE_ENV === "production",
   });
 
   return res;
