@@ -1,10 +1,13 @@
 "use client";
 
+import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowUpLeft,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   BookmarkCheck,
   Check,
   Cloud,
@@ -104,11 +107,11 @@ function RoyalCityScene() {
 
 function FeatureStrip({ t }: { t: (ar: string, en: string) => string }) {
   const features = [
-    { icon: Crown, ar: "قوالب احترافية", en: "Premium templates", subAr: "سبعة تصاميم جاهزة", subEn: "Seven ready-made styles" },
-    { icon: BookmarkCheck, ar: "مجاني دائمًا", en: "Always free", subAr: "من غير اشتراكات", subEn: "No subscriptions" },
-    { icon: Globe2, ar: "رابط باسمك", en: "Your own link", subAr: "مساحتك بعنوانك", subEn: "A personal address" },
-    { icon: Layers3, ar: "تخصيص مرن", en: "Flexible editing", subAr: "رتّب مشروعك بطريقتك", subEn: "Shape it your way" },
-    { icon: MonitorSmartphone, ar: "كل الشاشات", en: "Every screen", subAr: "موبايل وكمبيوتر", subEn: "Mobile and desktop" },
+    { icon: Cloud, ar: "استضافة سحابية", en: "Cloud hosting", subAr: "رابطك متاح دائمًا", subEn: "Your link, always available" },
+    { icon: MousePointer2, ar: "تعديل سهل", en: "Effortless editing", subAr: "تحكم في كل التفاصيل", subEn: "Shape every detail" },
+    { icon: Sparkles, ar: "تصميم احترافي", en: "Premium design", subAr: "قوالب تناسبك", subEn: "Styles made to fit you" },
+    { icon: LockKeyhole, ar: "خصوصية وأمان", en: "Privacy & security", subAr: "تحكم في ظهورك", subEn: "You control visibility" },
+    { icon: Zap, ar: "أداء سريع", en: "Fast experience", subAr: "مصمم لكل الشاشات", subEn: "Made for every screen" },
   ];
   return (
     <div className="royal-feature-strip" aria-label={t("مميزات تقدّم", "Taqdom benefits")}>
@@ -125,6 +128,12 @@ function FeatureStrip({ t }: { t: (ar: string, en: string) => string }) {
 export function TaqdomWorldExperience() {
   const { lang, t } = useLanguage();
   const Arrow = lang === "ar" ? ArrowUpLeft : ArrowUpRight;
+  const templateRailRef = useRef<HTMLDivElement | null>(null);
+  const scrollTemplateRail = (direction: -1 | 1) => {
+    const rail = templateRailRef.current;
+    if (!rail) return;
+    rail.scrollBy({ left: direction * Math.max(280, rail.clientWidth * 0.78), behavior: "smooth" });
+  };
 
   return (
     <div className="royal-site">
@@ -136,8 +145,8 @@ export function TaqdomWorldExperience() {
             <div className="royal-hero-copy">
               <div className="royal-badge"><Sparkles size={15} /><span>{t("بورتفوليو مجاني دائمًا • لكل شخص", "A free portfolio. Always. For everyone.")}</span></div>
               <p className="royal-overline">{t("مساحتك الرقمية تبدأ من اسمك", "YOUR SPACE STARTS WITH YOUR NAME")}</p>
-              <h1>{t("تقدّم..", "Taqdom.")}<span>{t("بورتفوليو يليق بطموحك", "A portfolio built around you.")}</span></h1>
-              <p className="royal-hero-description">{t("أنشئ بورتفوليو يعرض مشاريعك ومهاراتك وإنجازاتك في موقع متكامل يحمل اسمك. مجاني دائمًا، وتقدر تبدأ في أي وقت.", "Create a complete personal portfolio for your projects, skills, and achievements — on a link with your name. Free forever, ready whenever you are.")}</p>
+              <h1>{t("تقدّم..", "Taqdom.")}<span>{t("بورتفوليو يتجاوز التوقعات", "A portfolio beyond expectations.")}</span></h1>
+              <p className="royal-hero-description">{t("أنشئ بورتفوليو شخصيًا كاملًا يعرض مشاريعك ومهاراتك وإنجازاتك، وشاركه برابط يحمل اسمك — مجانًا دائمًا، وفي أي وقت.", "Create a complete personal portfolio for your projects, skills, and achievements, then share it on a link with your name — free forever, whenever you are.")}</p>
               <div className="royal-hero-actions">
                 <Link href="/auth" className="royal-button royal-button-gold">{t("ابدأ بورتفوليوك مجانًا", "Create your free portfolio")}<Arrow size={17} /></Link>
                 <Link href="/templates" className="royal-button royal-button-glass">{t("استكشف القوالب", "Explore templates")}<LayoutTemplate size={17} /></Link>
@@ -168,17 +177,25 @@ export function TaqdomWorldExperience() {
               <div><span className="royal-section-kicker">{t("اختر العالم اللي يشبهك", "FIND YOUR STYLE")}</span><h2>{t("7 قوالب احترافية جاهزة", "Seven polished portfolio styles")}</h2><p>{t("ابدأ من تصميم متكامل، وبعدها خصّصه بمحتواك وألوانك وصورك.", "Start with a complete design, then make it yours with your content, colours, and images.")}</p></div>
               <Link href="/templates" className="royal-inline-link">{t("استعرض القوالب كلها", "View all templates")}<Arrow size={17} /></Link>
             </div>
-            <div className="royal-template-grid">
-              {templateCards.map((item, index) => (
-                <Link href={`/templates/${item.id}`} className="royal-template-card" key={item.id}>
-                  <div className="royal-template-art">
-                    <Image src={item.image} alt={t(item.ar, item.en)} fill sizes="(max-width: 680px) 74vw, (max-width: 1080px) 32vw, 19vw" loading="lazy" />
-                    <span className="royal-template-index">0{index + 1}</span>
-                    <span className="royal-template-open"><Arrow size={17} /></span>
-                  </div>
-                  <div className="royal-template-meta"><div><strong>{t(item.ar, item.en)}</strong><span>{t(item.useAr, item.useEn)}</span></div><i>{item.en.toUpperCase()}</i></div>
-                </Link>
-              ))}
+            <div className="royal-template-carousel" aria-label={t("معرض القوالب", "Template gallery")}>
+              <button type="button" className="royal-template-arrow" onClick={() => scrollTemplateRail(1)} aria-label={t("القوالب التالية", "Next templates")}>
+                <ChevronRight size={19} />
+              </button>
+              <div className="royal-template-grid" ref={templateRailRef}>
+                {templateCards.map((item, index) => (
+                  <Link href={`/templates/${item.id}`} className="royal-template-card" key={item.id}>
+                    <div className="royal-template-art">
+                      <Image src={item.image} alt={t(item.ar, item.en)} fill sizes="(max-width: 680px) 74vw, (max-width: 1080px) 32vw, 19vw" loading="lazy" />
+                      <span className="royal-template-index">0{index + 1}</span>
+                      <span className="royal-template-open"><Arrow size={17} /></span>
+                    </div>
+                    <div className="royal-template-meta"><div><strong>{t(item.ar, item.en)}</strong><span>{t(item.useAr, item.useEn)}</span></div><i>{item.en.toUpperCase()}</i></div>
+                  </Link>
+                ))}
+              </div>
+              <button type="button" className="royal-template-arrow" onClick={() => scrollTemplateRail(-1)} aria-label={t("القوالب السابقة", "Previous templates")}>
+                <ChevronLeft size={19} />
+              </button>
             </div>
           </div>
         </section>
@@ -212,7 +229,7 @@ export function TaqdomWorldExperience() {
           </div>
         </section>
 
-        <section className="royal-publish-section">
+        <section className="royal-publish-section" id="pricing">
           <div className="royal-container royal-publish-card">
             <div><span className="royal-section-kicker">{t("من الاستوديو إلى العالم", "FROM STUDIO TO THE WORLD")}</span><h2>{t("انشر موقعك باسمك.. وشارك شغلك بكل فخر", "Publish under your name. Share your work with pride.")}</h2><p>{t("كل بورتفوليو منشور يظهر كموقع كامل مستقل على رابطك الشخصي، مع عبارة صغيرة: مدعوم بواسطة تقدّم.", "Every published portfolio is a complete standalone website on its own personal link, with a discreet “Powered by Taqdom” credit.")}</p></div>
             <div className="royal-publish-domain"><Globe2 size={21} /><strong dir="ltr">yourname.taqdom.me</strong><span><Check size={14} />{t("موقعك جاهز للمشاركة", "Ready to share")}</span><Link href="/auth">{t("ابدأ مجانًا", "Start for free")}<Arrow size={16} /></Link></div>
