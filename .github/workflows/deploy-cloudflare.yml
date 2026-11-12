@@ -63,7 +63,9 @@ jobs:
           pnpm audit --audit-level=high
           pnpm typecheck
           node --check cloudflare/worker.mjs
+          node --check cloudflare/mcp.mjs
           node scripts/quality-guards.mjs
+          node scripts/verify-mcp.mjs
           node --check scripts/verify-taqdom.mjs
           node --check scripts/e2e-browser.mjs
 
