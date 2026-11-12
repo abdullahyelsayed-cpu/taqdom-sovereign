@@ -103,7 +103,8 @@ export function GraduationCreditsSection() {
                     src="/images/abdullah-yehia.webp"
                     alt={t("عبدالله يحى", "Abdullah Yehia")}
                     fill
-                    priority={false}
+                    priority
+                    unoptimized
                     sizes="(max-width: 640px) 112px, 144px"
                     className="object-cover"
                   />
