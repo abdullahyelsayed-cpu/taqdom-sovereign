@@ -271,8 +271,8 @@ function safePortfolioHref(value) {
   if (/^#[a-z0-9_-]+$/i.test(raw)) return raw;
   if (/^(mailto:|tel:)/i.test(raw)) return raw;
   let candidate = raw;
-  if (!/^https?:\\/\\//i.test(candidate)) {
-    if (/^(?:www\\.)?[a-z0-9-]+(?:\\.[a-z0-9-]+)+(?:[:/].*)?$/i.test(candidate)) candidate = "https://" + candidate;
+  if (!/^https?:\/\//i.test(candidate)) {
+    if (/^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[:/].*)?$/i.test(candidate)) candidate = "https://" + candidate;
     else return "#";
   }
   try {
