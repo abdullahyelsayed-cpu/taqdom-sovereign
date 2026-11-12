@@ -19,11 +19,12 @@ export async function POST(req: import("next/server").NextRequest) {
     userId: user.id,
     email: user.email,
     username: user.username,
-    isTestAccount: false,
+    isTestAccount: true,
   });
 
   const res = NextResponse.json({
     ok: true,
+    readOnly: true,
     user,
     portfolio,
   });
