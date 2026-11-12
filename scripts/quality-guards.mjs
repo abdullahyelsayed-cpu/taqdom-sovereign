@@ -111,7 +111,7 @@ assert.match(creditsText, /عبدالله يحى/, "Founder credit must use the 
 assert.match(creditsText, /abdullah-yehia\.svg/, "The founder portrait must use the repaired public asset.");
 assert.match(creditsText, /rounded-full/, "The graduation founder portrait must render as a circle.");
 assert.match(worldText, /abdullah-yehia\.svg/, "The homepage founder avatar must use the repaired public asset.");
-assert.match(worldText, /neo-owner-photo rounded-full/, "The homepage founder avatar must render as a circle.");
+assert.match(reimaginedText, /neo-owner-photo rounded-full/, "The homepage founder avatar must render as a circle.");
 assert.doesNotMatch(creditsText, /زملاء الدفعة|Fellow participants|الداعمون|supporters/i, "The solo graduation project must not imply classmates or project supporters.");
 assert.match(creditsText, /unoptimized/, "The founder portrait must bypass image optimization for reliable static asset delivery.");
 assert.match(creditsText, /linkedin.com\/in\/abdullah-yehia/, "The founder LinkedIn link must be present.");
