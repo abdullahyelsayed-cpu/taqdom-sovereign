@@ -6,6 +6,22 @@ import path from "node:path";
 
 const PORT = process.env.PORT || "3040";
 const BASE = process.env.BASE_URL || `http://localhost:${PORT}`;
+const BASE_PARSED = new URL(BASE);
+if (BASE_PARSED.protocol !== "http:" || !["localhost", "127.0.0.1", "::1"].includes(BASE_PARSED.hostname)) {
+  throw new Error("Safety stop: verify-taqdom.mjs is local-only; it creates and deletes disposable accounts.");
+}
+const TEST_USERNAME = "qa-" + Date.now().toString(36).slice(-8);
+const RENAMED_USERNAME = TEST_USERNAME + "-r";
+const DUPLICATE_USERNAME = TEST_USERNAME + "-x";
+const TEST_EMAIL = TEST_USERNAME + "@example.test";
+let sessionCookie = "";
+function updateSessionCookie(response) {
+  const raw = response.headers.get("set-cookie") || "";
+  if (raw) sessionCookie = raw.split(";")[0];
+}
+function sessionHeaders(extra = {}) {
+  return { ...extra, ...(sessionCookie ? { Cookie: sessionCookie } : {}) };
+}
 
 function requestWithHost(urlPath, hostHeader) {
   return new Promise((resolve, reject) => {
