@@ -63,7 +63,7 @@ async function main() {
     return img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0;
   });
   assert.equal(await graduationSection.locator('a[href="https://www.linkedin.com/in/abdullah-yehia/"]').isVisible(), true);
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01-home-day-ar.png") });
 
   // 2. Toggle Language AR -> EN without reload
@@ -120,7 +120,7 @@ async function main() {
   await page.getByTestId("studio-theme-toggle").click();
   const studioThemeRestored = await page.evaluate(() => document.documentElement.classList.contains("dark"));
   assert.equal(studioThemeRestored, studioThemeBefore, "Studio must restore the original theme");
-  assert.equal(await page.getByText(/حساب المعاينة للعرض فقط/).isVisible(), true, "The showcase must show a read-only notice");
+  assert.equal(await page.getByText(/وضع المعاينة فقط/).isVisible(), true, "The showcase must show a read-only notice");
   await page.getByTestId("studio-publish-btn").click();
   await page.waitForTimeout(300);
   assert.equal(await page.getByTestId("studio-publish-banner").count(), 0, "A demo account must not publish changes");
