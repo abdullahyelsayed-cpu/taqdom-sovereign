@@ -189,5 +189,10 @@ assert.match(wranglerText, /"\/mcp\/\*"/, "Cloudflare Worker must receive MCP re
 assert.match(dashboardText, /dashboard\/mcp/, "Dashboard must link to MCP connection settings.");
 assert.match(dashboardTextMcp, /قراءة والكتابة/, "MCP dashboard must explain read and write access.");
 assert.match(dashboardTextMcp, /publish_portfolio/, "MCP dashboard must explain explicit publishing.");
+assert.match(testimonialsText, /MCP read and write access/, "FAQ must explain MCP read and write integration.");
+assert.match(testimonialsText, /publish_portfolio/, "FAQ must explain explicit MCP publishing.");
+assert.match(testimonialsText, /MCP Connections page/, "FAQ must explain where to configure MCP.");
+assert.match(testimonialsText, /OAuth 2\.1/, "FAQ must accurately disclose the current MCP authentication model.");
+
 
 console.log("Taqdom quality guards: PASS");
