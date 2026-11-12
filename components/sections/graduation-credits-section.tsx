@@ -171,6 +171,15 @@ export function GraduationCreditsSection() {
               <a href="https://www.nti.sci.eg/" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#C89D66] underline-offset-4 hover:underline">{t("الموقع الرسمي", "Official website")}</a>
             </div>
             <div>
+              <p className="mb-2 text-sm font-bold text-foreground">{t("الجهاز القومي لتنظيم الاتصالات (NTRA)", "National Telecom Regulatory Authority (NTRA)")}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{t("خالص التقدير للجهاز القومي لتنظيم الاتصالات على دوره في تطوير قطاع الاتصالات ودعم البيئة الرقمية في مصر، بما يفتح آفاقًا أوسع للتعلّم والابتكار.", "With appreciation to NTRA for its role in developing Egypt’s telecommunications sector and digital environment, helping create wider opportunities for learning and innovation.")}</p>
+              <a href="https://www.tra.gov.eg/" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#C89D66] underline-offset-4 hover:underline">{t("الموقع الرسمي", "Official website")}</a>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-bold text-foreground">{t("تقدير للجهود الوطنية", "National efforts")}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{t("كل التقدير لفخامة الرئيس عبد الفتاح السيسي على الاهتمام بتمكين الشباب، وبناء القدرات الرقمية، ودعم مسارات التحول الرقمي والذكاء الاصطناعي في مصر.", "With appreciation to President Abdel Fattah El-Sisi for the national focus on youth empowerment, digital skills, and Egypt’s digital transformation and artificial intelligence priorities.")}</p>
+            </div>
+            <div>
               <p className="mb-2 text-sm font-bold text-foreground">{t("مؤسسة مهندسون من أجل مصر المستدامة", "Engineers for a Sustainable Egypt Foundation")}</p>
               <p className="text-sm leading-7 text-muted-foreground">{t("الشكر والتقدير لمشاركتها في دعم المبادرة ونشر الوعي بالذكاء الاصطناعي وإتاحة فرص التعلّم والتأهيل.", "With thanks for its partnership in supporting the initiative and expanding access to AI awareness and learning.")}</p>
             </div>
