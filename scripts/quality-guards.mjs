@@ -163,6 +163,7 @@ const mcpServerText = read("../cloudflare/mcp.mjs");
 const dashboardTextMcp = read("../app/dashboard/mcp/page.tsx");
 assert.match(workerText, /handleMcpRequest/, "Worker must route account MCP requests.");
 assert.match(workerText, /handleMcpTokenApi/, "Worker must expose authenticated MCP token management.");
+assert.match(workerText, /MCP connections are unavailable for showcase accounts/, "Showcase accounts must not mint production MCP credentials.");
 assert.match(mcpServerText, /tqd_mcp_/, "MCP access tokens must use a dedicated high-entropy prefix.");
 assert.match(mcpServerText, /SHA-256/, "MCP tokens must be stored as SHA-256 digests, never plaintext.");
 assert.match(mcpServerText, /tokenRow\.username !== username/, "MCP tokens must be isolated to their owning portfolio.");
