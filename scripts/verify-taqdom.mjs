@@ -166,34 +166,13 @@ async function runTests() {
   assert.equal(redirectWww.headers.location, "https://taqdom.me/");
   console.log("[PASS] 4. Canonical 308 redirects (/layla, /portfolio/layla, /@youssef, www.taqdom.me) verified");
 
-  // 5. Subdomain rewrite for all 7 flagship creators + unclaimed subdomain check
-  const flagshipCreators = ["layla", "youssef", "farida", "karim", "tariq", "salma", "nora"];
-  for (const sub of flagshipCreators) {
-    const subRes = await requestWithHost("/", `${sub}.localhost:${PORT}`);
-    assert.equal(subRes.status, 200, `Expected 200 on subdomain ${sub}.localhost:${PORT}`);
-    assert.equal(
-      subRes.body.includes(`https://${sub}.taqdom.me`),
-      true,
-      `Expected canonical https://${sub}.taqdom.me in ${sub} HTML`
-    );
-    assert.equal(
-      subRes.body.includes('"@type":"ProfilePage"'),
-      true,
-      `Expected ProfilePage JSON-LD in ${sub} HTML`
-    );
-
-    const prodSubRes = await requestWithHost("/", `${sub}.taqdom.me`);
-    assert.equal(prodSubRes.status, 200, `Expected 200 on ${sub}.taqdom.me`);
-  }
-
-  const unclaimedRes = await requestWithHost("/", `unclaimed-xyz-999.localhost:${PORT}`);
-  assert.equal(unclaimedRes.status, 200);
-  assert.equal(
-    unclaimedRes.body.includes("unclaimed-xyz-999.taqdom.me — هذا النطاق متاح للحجز"),
-    true,
-    "Unclaimed subdomain should render available subdomain title"
-  );
-  console.log("[PASS] 5. Host-based subdomain rewrites for all 7 flagship creators, ProfilePage JSON-LD, and unclaimed subdomain verified");
+  // 5. Verify the public profile data route locally.
+  // Wildcard host routing is verified against the deployed Cloudflare Worker after release.
+  const seedProfileRes = await fetch(BASE + "/api/portfolio?u=layla");
+  assert.equal(seedProfileRes.status, 200, "Seed profile API must return 200");
+  const seedProfileData = await seedProfileRes.json();
+  assert.equal(seedProfileData.portfolio?.username, "layla", "Seed profile API must return the requested creator");
+  console.log("[PASS] 5. Public creator profile API verified; wildcard host routing is covered by the post-deploy smoke test");
 
   // 6. Auth Security: /api/auth/me unauthenticated check + Custom Account Register/Login/Password check + Upload
   const meUnauth = await fetch(`${BASE}/api/auth/me`);
@@ -312,10 +291,11 @@ async function runTests() {
   });
   assert.equal(publishRes.status, 200, "Owner should be able to publish their own portfolio");
 
-  const testSubRes = await requestWithHost("/", TEST_USERNAME + ".localhost:" + PORT);
-  assert.equal(testSubRes.status, 200);
-  assert.equal(testSubRes.body.includes("javascript:alert(1)"), false, "Unsafe links must never appear in live HTML");
-  assert.equal(testSubRes.body.includes("عمر المعماري"), true, "Expected test creator profile on personal subdomain");
+  const sanitizedPublishedRes = await fetch(BASE + "/api/portfolio?u=" + TEST_USERNAME);
+  assert.equal(sanitizedPublishedRes.status, 200);
+  const sanitizedPublishedData = await sanitizedPublishedRes.json();
+  assert.equal(sanitizedPublishedData.portfolio?.name?.ar, "عمر المعماري", "Published creator profile must be returned");
+  assert.equal(sanitizedPublishedData.portfolio?.links?.[0]?.url, "#", "Unsafe javascript: URLs must be neutralized before public delivery");
 
   const unpublishRes = await fetch(BASE + "/api/portfolio/publish?u=" + TEST_USERNAME, {
     method: "DELETE",
