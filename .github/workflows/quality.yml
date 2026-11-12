@@ -51,6 +51,10 @@ jobs:
         run: |
           node --check scripts/verify-taqdom.mjs
           node --check scripts/e2e-browser.mjs
+          node --check scripts/verify-mcp.mjs
+
+      - name: Run MCP protocol and account-isolation tests
+        run: node scripts/verify-mcp.mjs
 
       - name: Build production app
         run: pnpm build
