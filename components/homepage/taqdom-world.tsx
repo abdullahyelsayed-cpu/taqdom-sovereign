@@ -253,6 +253,16 @@ export function TaqdomWorldExperience() {
               <article><h3>{t("هل أقدر أعدّل موقعي بعد النشر؟", "Can I edit my site after publishing?")}</h3><p>{t("تقدر ترجع للاستوديو وتعدّل بياناتك ومشاريعك ومظهر موقعك، ثم تنشر التحديثات.", "Return to Studio to update your details, projects, and design, then publish your changes.")}</p></article>
               <article><h3>{t("هل الموقع بيظهر باسمي؟", "Will the site use my name?")}</h3><p>{t("كل بورتفوليو منشور له رابط شخصي على نطاق تقدّم الفرعي، ويظهر كموقع مستقل كامل.", "Every published portfolio gets its own personal Taqdom subdomain and appears as a complete standalone website.")}</p></article>
               <article><h3>{t("هل أقدر أختار شكل الموقع؟", "Can I choose how it looks?")}</h3><p>{t("اختار من القوالب السبعة، وخصّص المحتوى والأقسام والخلفيات من داخل الاستوديو.", "Choose from seven styles and customize your content, sections, and backgrounds in Studio.")}</p></article>
+              <article className="royal-faq-card royal-faq-card-mcp">
+                <span className="royal-faq-tag">MCP / AI TOOLS</span>
+                <h3>{t("هل يدعم تَقَدُّم الاتصال عبر MCP للقراءة والكتابة باستخدام أدوات الذكاء الاصطناعي؟", "Does Taqdom support MCP read and write access for AI tools?")}</h3>
+                <p>{t("نعم. من لوحة التحكم افتح اتصالات MCP واربط معرضك بتطبيق متوافق. يتيح الاتصال قراءة بيانات المعرض والملف الشخصي والمشاريع، وتعديل الملف الشخصي وإنشاء المشاريع وتحديثها وحذفها. تُحفظ التغييرات في مسودة خاصة، ولا تظهر للزوار إلا بعد استدعاء أداة publish_portfolio صراحةً.", "Yes. Open MCP Connections in your dashboard and connect an MCP-compatible app. It can read your portfolio, profile, and projects, and update your profile or create, edit, and delete projects. Changes stay in a private draft until publish_portfolio is explicitly called.")}</p>
+              </article>
+              <article className="royal-faq-card royal-faq-card-mcp">
+                <span className="royal-faq-tag">SECURITY / ACCESS</span>
+                <h3>{t("أين أجد رابط MCP ومفتاح الاتصال؟ وهل أستطيع إلغاءه؟", "Where do I find my MCP endpoint and token, and can I revoke access?")}</h3>
+                <p>{t("من لوحة التحكم ← اتصالات MCP، أنشئ اتصالًا لعرض رابط الخدمة ومفتاح Bearer مرة واحدة. احفظ المفتاح في مكان آمن؛ لا يمكن عرضه مجددًا. يمكنك إلغاء أي اتصال نشط في أي وقت. يستخدم الاتصال الحالي مفاتيح شخصية عبر HTTPS ولا يدعم OAuth 2.1 حتى الآن.", "Go to Dashboard → MCP Connections and create a connection to reveal its endpoint and one-time Bearer token. Store the token securely; it cannot be shown again. You can revoke any active connection at any time. The current integration uses personal HTTPS bearer tokens and does not yet support OAuth 2.1.")}</p>
+              </article>
             </div>
           </div>
         </section>
