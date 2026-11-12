@@ -80,7 +80,7 @@ jobs:
           BASE_URL: "http://localhost:3040"
         shell: bash
         run: |
-          pnpm start -- --hostname 127.0.0.1 --port 3040 > /tmp/taqdom-next.log 2>&1 &
+          pnpm exec next start --hostname 127.0.0.1 --port 3040 > /tmp/taqdom-next.log 2>&1 &
           SERVER_PID=$!
           trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
@@ -89,7 +89,10 @@ jobs:
             fi
             sleep 2
           done
-          curl --fail --silent http://127.0.0.1:3040/api/auth/me >/dev/null
+          if ! curl --fail --silent http://127.0.0.1:3040/api/auth/me >/dev/null; then
+            cat /tmp/taqdom-next.log
+            exit 1
+          fi
           node scripts/verify-taqdom.mjs
 
       - name: Verify session signing secret is already configured
