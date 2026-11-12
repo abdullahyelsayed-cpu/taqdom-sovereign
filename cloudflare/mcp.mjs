@@ -112,7 +112,7 @@ export async function handleMcpRequest(request, env, username) {
   if (body.method === "notifications/initialized" || body.method.startsWith("notifications/")) return new Response(null, { status: 202 });
   if (body.method === "initialize") {
     return respond({
-      protocolVersion: body.params?.protocolVersion || "2025-03-26",
+      protocolVersion: "2025-03-26",
       capabilities: { tools: { listChanged: false } },
       serverInfo: { name: "taqdom-account-mcp", version: "1.0.0" },
       instructions: "Read-only access to the authenticated Taqdom portfolio. Each token is restricted to its owner's account.",
