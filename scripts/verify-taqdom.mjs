@@ -205,14 +205,12 @@ async function runTests() {
   const meUnauthData = await meUnauth.json();
   assert.equal(meUnauthData.authenticated, false, "Unauthenticated /api/auth/me must return authenticated: false");
 
-  await fetch(`${BASE}/api/auth/settings?u=omar-arch`, { method: "DELETE" });
-
-  const regRes = await fetch(`${BASE}/api/auth/register`, {
+  const regRes = await fetch(BASE + "/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      username: "omar-arch",
-      email: "omar.custom.2026@example.com",
+      username: TEST_USERNAME,
+      email: TEST_EMAIL,
       password: "StrongPassword123",
       displayName: "عمر المعماري",
       template: "haven",
@@ -220,162 +218,140 @@ async function runTests() {
   });
   assert.equal(regRes.status, 200, "Expected 200 on custom registration");
 
-  const dupRes = await fetch(`${BASE}/api/auth/register`, {
+  const dupRes = await fetch(BASE + "/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: "omar-arch",
-      email: "other@example.com",
-      password: "StrongPassword123",
-    }),
+    body: JSON.stringify({ username: TEST_USERNAME, email: "other@example.com", password: "StrongPassword123" }),
   });
   assert.equal(dupRes.status, 409, "Duplicate username registration must return 409");
 
-  const dupEmailRes = await fetch(`${BASE}/api/auth/register`, {
+  const dupEmailRes = await fetch(BASE + "/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: "omar-arch-second",
-      email: "omar.custom.2026@example.com",
-      password: "StrongPassword123",
-    }),
+    body: JSON.stringify({ username: DUPLICATE_USERNAME, email: TEST_EMAIL, password: "StrongPassword123" }),
   });
   assert.equal(dupEmailRes.status, 409, "Duplicate email registration must return 409");
 
-  const wrongLogin = await fetch(`${BASE}/api/auth/login`, {
+  const weakPasswordRes = await fetch(BASE + "/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      identifier: "omar.custom.2026@example.com",
-      password: "WrongPassword999",
-    }),
+    body: JSON.stringify({ username: DUPLICATE_USERNAME, email: "weak@example.test", password: "Weak123" }),
+  });
+  assert.equal(weakPasswordRes.status, 400, "Weak passphrases must be rejected");
+
+  const wrongLogin = await fetch(BASE + "/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier: TEST_EMAIL, password: "WrongPassword999" }),
   });
   assert.equal(wrongLogin.status, 401, "Wrong password must return 401");
 
-  const rightLogin = await fetch(`${BASE}/api/auth/login`, {
+  const rightLogin = await fetch(BASE + "/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      identifier: "omar.custom.2026@example.com",
-      password: "StrongPassword123",
-    }),
+    body: JSON.stringify({ identifier: TEST_EMAIL, password: "StrongPassword123" }),
   });
   assert.equal(rightLogin.status, 200, "Correct email + password must return 200");
+  updateSessionCookie(rightLogin);
   const rightLoginData = await rightLogin.json();
-  assert.equal(rightLoginData.user.username, "omar-arch");
+  assert.equal(rightLoginData.user.username, TEST_USERNAME);
 
-  // Multi-step Subdomain Handle Rename Test (omar-arch -> omar-renamed -> omar-arch)
-  const rename1Res = await fetch(`${BASE}/api/auth/settings`, {
+  const rename1Res = await fetch(BASE + "/api/auth/settings", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      currentUsername: "omar-arch",
-      newUsername: "omar-renamed",
-    }),
+    headers: sessionHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ currentUsername: TEST_USERNAME, newUsername: RENAMED_USERNAME }),
   });
-  assert.equal(rename1Res.status, 200, "Subdomain rename omar-arch -> omar-renamed must return 200");
+  assert.equal(rename1Res.status, 200, "Subdomain rename must return 200");
+  updateSessionCookie(rename1Res);
   const rename1Data = await rename1Res.json();
-  assert.equal(rename1Data.user.username, "omar-renamed");
+  assert.equal(rename1Data.user.username, RENAMED_USERNAME);
 
-  // Verify old handle omar-arch is now available again and password hash is preserved
-  const oldAvailRes = await fetch(`${BASE}/api/username/check?u=omar-arch`);
+  const oldAvailRes = await fetch(BASE + "/api/username/check?u=" + TEST_USERNAME);
   const oldAvailData = await oldAvailRes.json();
-  assert.equal(oldAvailData.available, true, "Old handle omar-arch must be freed after rename");
+  assert.equal(oldAvailData.available, true, "Old handle must be freed after rename");
 
-  const wrongAfterRename = await fetch(`${BASE}/api/auth/login`, {
+  const wrongAfterRename = await fetch(BASE + "/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      identifier: "omar-renamed",
-      password: "WrongPassword999",
-    }),
+    body: JSON.stringify({ identifier: RENAMED_USERNAME, password: "WrongPassword999" }),
   });
-  assert.equal(wrongAfterRename.status, 401, "Wrong password after handle rename must still return 401");
+  assert.equal(wrongAfterRename.status, 401, "Wrong password after rename must still return 401");
 
-  // Rename back omar-renamed -> omar-arch
-  const renameBackRes = await fetch(`${BASE}/api/auth/settings`, {
+  const renameBackRes = await fetch(BASE + "/api/auth/settings", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      currentUsername: "omar-renamed",
-      newUsername: "omar-arch",
-    }),
+    headers: sessionHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ currentUsername: RENAMED_USERNAME, newUsername: TEST_USERNAME }),
   });
-  assert.equal(renameBackRes.status, 200, "Renaming back omar-renamed -> omar-arch must return 200");
+  assert.equal(renameBackRes.status, 200, "Renaming back must return 200");
+  updateSessionCookie(renameBackRes);
 
-  const tinyPngDataUrl =
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-  const uploadRes = await fetch(`${BASE}/api/upload`, {
+  const tinyPngDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const uploadRes = await fetch(BASE + "/api/upload", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      dataUrl: tinyPngDataUrl,
-      mime: "image/png",
-      username: "omar-arch",
-    }),
+    headers: sessionHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ dataUrl: tinyPngDataUrl, mime: "image/png", username: TEST_USERNAME }),
   });
   assert.equal(uploadRes.status, 200, "Expected 200 from /api/upload");
   const uploadData = await uploadRes.json();
   assert.equal(uploadData.ok, true);
-  const mediaRes = await fetch(`${BASE}${uploadData.url}`);
+  const mediaRes = await fetch(BASE + uploadData.url);
   assert.equal(mediaRes.status, 200, "Expected 200 from /api/media/[key]");
 
-  const allPortfoliosRes = await fetch(`${BASE}/api/portfolio?all=1`);
+  const allPortfoliosRes = await fetch(BASE + "/api/portfolio?all=1");
   const allPortfoliosData = await allPortfoliosRes.json();
-  assert.equal(
-    allPortfoliosData.portfolios.some((p) => p.username === "omar-arch"),
-    true,
-    "Expected omar-arch in /api/portfolio?all=1"
-  );
+  assert.equal(allPortfoliosData.portfolios.some((p) => p.username === TEST_USERNAME), true);
+  assert.equal(allPortfoliosData.portfolios.find((p) => p.username === TEST_USERNAME)?.email, undefined, "Public directory must not expose account email");
 
-  const omarSubRes = await requestWithHost("/", `omar-arch.localhost:${PORT}`);
-  assert.equal(omarSubRes.status, 200);
-  assert.equal(
-    omarSubRes.body.includes("عمر المعماري"),
-    true,
-    "Expected عمر المعماري on omar-arch subdomain"
-  );
+  const publicPortfolioRes = await fetch(BASE + "/api/portfolio?u=" + TEST_USERNAME);
+  const publicPortfolioData = await publicPortfolioRes.json();
+  assert.equal(publicPortfolioData.portfolio?.email, undefined, "Public portfolio API must not expose account email");
 
-  await fetch(`${BASE}/api/auth/settings?u=omar-arch`, { method: "DELETE" });
-  console.log("[PASS] 6. Custom registration, duplicate email rejection, multi-step subdomain rename, PBKDF2 login verification, media upload, and custom subdomain SSR verified");
-
-  // 7. 1-Click Verified Flagship Creator Login (layla) + Studio Edit & Publish Flow + Subdomain Verification
-  const flagshipLoginRes = await fetch(`${BASE}/api/auth/test-login`, {
+  const safeLinkPortfolio = {
+    ...publicPortfolioData.portfolio,
+    links: [{ name: "Unsafe test", url: "javascript:alert(1)" }],
+  };
+  const publishRes = await fetch(BASE + "/api/portfolio/publish", {
     method: "POST",
+    headers: sessionHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ portfolio: safeLinkPortfolio }),
   });
+  assert.equal(publishRes.status, 200, "Owner should be able to publish their own portfolio");
+
+  const testSubRes = await requestWithHost("/", TEST_USERNAME + ".localhost:" + PORT);
+  assert.equal(testSubRes.status, 200);
+  assert.equal(testSubRes.body.includes("javascript:alert(1)"), false, "Unsafe links must never appear in live HTML");
+  assert.equal(testSubRes.body.includes("عمر المعماري"), true, "Expected test creator profile on personal subdomain");
+
+  const unpublishRes = await fetch(BASE + "/api/portfolio/publish?u=" + TEST_USERNAME, {
+    method: "DELETE",
+    headers: sessionHeaders(),
+  });
+  assert.equal(unpublishRes.status, 200, "Owner should be able to unpublish their own portfolio");
+
+  const deleteTestUser = await fetch(BASE + "/api/auth/settings?u=" + TEST_USERNAME, {
+    method: "DELETE",
+    headers: sessionHeaders(),
+  });
+  assert.equal(deleteTestUser.status, 200, "Disposable verification account must be deleted cleanly");
+  console.log("[PASS] 6. Temporary account registration, passphrase policy, duplicate protection, rename, upload, public-data privacy, safe links, publish, unpublish, and cleanup");
+
+  const flagshipLoginRes = await fetch(BASE + "/api/auth/test-login", { method: "POST" });
   assert.equal(flagshipLoginRes.status, 200);
   const flagshipLoginData = await flagshipLoginRes.json();
   assert.equal(flagshipLoginData.ok, true);
   assert.equal(flagshipLoginData.user.username, "layla");
-  const setCookie = flagshipLoginRes.headers.get("set-cookie") || "";
-  assert.equal(setCookie.includes("taqdom_session="), true, "Expected taqdom_session cookie");
+  assert.equal(flagshipLoginData.readOnly, true);
+  updateSessionCookie(flagshipLoginRes);
 
-  const customBio = "نبذة معمارية محدثة للمهندسة ليلى منصور — Sovereign Verified Bio 2026";
-  const updatedPortfolio = {
-    ...flagshipLoginData.portfolio,
-    bio: {
-      ...flagshipLoginData.portfolio.bio,
-      ar: customBio,
-    },
-  };
-  const pubRes = await fetch(`${BASE}/api/portfolio/publish`, {
+  const blockedPublish = await fetch(BASE + "/api/portfolio/publish", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ portfolio: updatedPortfolio }),
+    headers: sessionHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ portfolio: flagshipLoginData.portfolio }),
   });
-  assert.equal(pubRes.status, 200);
-
-  const verifySubRes = await requestWithHost("/", `layla.localhost:${PORT}`);
-  assert.equal(
-    verifySubRes.body.includes(customBio),
-    true,
-    `Updated bio must appear on layla.localhost:${PORT} after publish`
-  );
-
-  // Restore layla back to clean flagship state
-  await fetch(`${BASE}/api/auth/test-login`, { method: "POST" });
-  console.log("[PASS] 7. 1-Click Verified Creator (layla.taqdom.me) login, Studio publish, and live subdomain update verified");
-
+  assert.equal(blockedPublish.status, 403, "Demo showcase must reject publishing");
+  const blockedDelete = await fetch(BASE + "/api/auth/settings?u=layla", { method: "DELETE", headers: sessionHeaders() });
+  assert.equal(blockedDelete.status, 403, "Demo showcase must reject deletion");
+  console.log("[PASS] 7. Demo account is read-only and cannot publish or delete showcase data");
   console.log("=== ALL TAQDOM v2 VERIFICATION CHECKS PASSED 100% ===");
 }
 
