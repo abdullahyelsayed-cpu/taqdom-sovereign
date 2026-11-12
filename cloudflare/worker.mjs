@@ -60,7 +60,7 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store",
       ...extraHeaders,
     },
   });
@@ -70,12 +70,227 @@ function applySecurityHeaders(response) {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("X-Permitted-Cross-Domain-Policies", "none");
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  headers.set("Cross-Origin-Resource-Policy", "same-site");
+  headers.set(
+    "Content-Security-Policy-Report-Only",
+    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; upgrade-insecure-requests"
+  );
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers,
   });
+}
+
+let rateLimitSchemaPromise = null;
+let rateLimitSigningKeyPromise = null;
+let lastRateLimitCleanup = 0;
+
+async function parseJsonBody(request, maxBytes = 65536) {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength) {
+    const declared = Number(contentLength);
+    if (!Number.isSafeInteger(declared) || declared < 0 || declared > maxBytes) {
+      return { ok: false, status: 413 };
+    }
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) return { ok: true, value: {} };
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return { ok: false, status: 413 };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, status: 400 };
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    const value = JSON.parse(new TextDecoder().decode(bytes));
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return { ok: false, status: 400 };
+    }
+    return { ok: true, value };
+  } catch {
+    return { ok: false, status: 400 };
+  }
+}
+
+async function enforceRateLimit(request, env, scope, limit, windowMs, subject = "", includeIp = true) {
+  if (!env?.DB || typeof env?.AUTH_SECRET !== "string" || env.AUTH_SECRET.length < 32) {
+    return jsonResponse(
+      { error: "الحماية المؤقتة غير متاحة الآن. حاول بعد قليل / Security service temporarily unavailable." },
+      503,
+      { "Retry-After": "30" }
+    );
+  }
+
+  try {
+    if (!rateLimitSchemaPromise) {
+      rateLimitSchemaPromise = env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS edge_rate_limits (
+          key_hash TEXT NOT NULL,
+          window_start INTEGER NOT NULL,
+          hits INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (key_hash, window_start)
+        )`
+      )
+        .run()
+        .then(() => true)
+        .catch((error) => {
+          rateLimitSchemaPromise = null;
+          throw error;
+        });
+    }
+    await rateLimitSchemaPromise;
+
+    if (!rateLimitSigningKeyPromise) {
+      rateLimitSigningKeyPromise = crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(env.AUTH_SECRET),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+    }
+    const signingKey = await rateLimitSigningKeyPromise;
+    const ip = includeIp
+      ? request.headers.get("CF-Connecting-IP") || request.headers.get("x-real-ip") || "unknown"
+      : "";
+    const keyMaterial = `taqdom-rate-v1\\0${scope}\\0${ip}\\0${String(subject).toLowerCase().slice(0, 256)}`;
+    const digest = new Uint8Array(await crypto.subtle.sign("HMAC", signingKey, new TextEncoder().encode(keyMaterial)));
+    const keyHash = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const now = Date.now();
+    const windowStart = Math.floor(now / windowMs) * windowMs;
+    const row = await env.DB.prepare(
+      `INSERT INTO edge_rate_limits (key_hash, window_start, hits)
+       VALUES (?1, ?2, 1)
+       ON CONFLICT(key_hash, window_start) DO UPDATE SET hits = hits + 1
+       RETURNING hits`
+    )
+      .bind(keyHash, windowStart)
+      .first();
+    const hits = Number(row?.hits);
+    if (!Number.isFinite(hits)) throw new Error("Rate limit counter was not returned.");
+
+    if (now - lastRateLimitCleanup > 6 * 60 * 60 * 1000) {
+      lastRateLimitCleanup = now;
+      env.DB.prepare("DELETE FROM edge_rate_limits WHERE window_start < ?1")
+        .bind(now - 24 * 60 * 60 * 1000)
+        .run()
+        .catch(() => {});
+    }
+
+    if (hits > limit) {
+      const retryAfter = Math.max(1, Math.ceil((windowStart + windowMs - now) / 1000));
+      return jsonResponse(
+        { error: "طلبات كثيرة في وقت قصير. حاول مرة أخرى بعد قليل / Too many requests. Try again shortly." },
+        429,
+        { "Retry-After": String(retryAfter) }
+      );
+    }
+    return null;
+  } catch {
+    return jsonResponse(
+      { error: "تعذر التحقق من حدّ الطلبات. حاول لاحقًا / Rate limit check failed." },
+      503,
+      { "Retry-After": "30" }
+    );
+  }
+}
+
+function rateLimitBodyError(result) {
+  return jsonResponse(
+    { error: result.status === 413 ? "حجم الطلب أكبر من المسموح / Request body is too large." : "بيانات الطلب غير صالحة / Invalid JSON body." },
+    result.status
+  );
+}
+
+const PBKDF2_CURRENT_ITERATIONS = 600000;
+const PBKDF2_LEGACY_ITERATIONS = 100000;
+const PBKDF2_SALT_PREFIX = "pbkdf2-sha256$";
+
+function parsePasswordSalt(storedSalt) {
+  const value = String(storedSalt || "");
+  if (value.startsWith(PBKDF2_SALT_PREFIX)) {
+    const parts = value.split("$");
+    const iterations = Number(parts[1]);
+    const hex = parts[2] || "";
+    if (![PBKDF2_LEGACY_ITERATIONS, PBKDF2_CURRENT_ITERATIONS].includes(iterations) || !/^[a-f0-9]{32}$/i.test(hex)) {
+      throw new Error("Invalid stored password salt.");
+    }
+    return {
+      saltBytes: new Uint8Array(hex.match(/.{2}/g).map((byte) => parseInt(byte, 16))),
+      iterations,
+    };
+  }
+  if (!/^[a-f0-9]{32}$/i.test(value)) {
+    throw new Error("Invalid legacy password salt.");
+  }
+  return {
+    saltBytes: new Uint8Array(value.match(/.{2}/g).map((byte) => parseInt(byte, 16))),
+    iterations: PBKDF2_LEGACY_ITERATIONS,
+  };
+}
+
+function constantTimeStringEqual(left, right) {
+  const encoder = new TextEncoder();
+  const a = encoder.encode(String(left || ""));
+  const b = encoder.encode(String(right || ""));
+  let difference = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i++) {
+    difference |= (a[i] || 0) ^ (b[i] || 0);
+  }
+  return difference === 0;
+}
+
+function toPublicPortfolio(portfolio) {
+  if (!portfolio || typeof portfolio !== "object") return null;
+  const { email: privateAccountEmail, ...publicPortfolio } = portfolio;
+  void privateAccountEmail;
+  return publicPortfolio;
+}
+
+function validRasterImageData(mime, base64) {
+  try {
+    const head = atob(base64.slice(0, 24));
+    if (mime === "image/jpeg") {
+      return head.length >= 3 && head.charCodeAt(0) === 0xff && head.charCodeAt(1) === 0xd8 && head.charCodeAt(2) === 0xff;
+    }
+    if (mime === "image/png") {
+      const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+      return head.length >= 8 && signature.every((byte, index) => head.charCodeAt(index) === byte);
+    }
+    if (mime === "image/webp") {
+      return head.length >= 12 &&
+        head.slice(0, 4) === "RIFF" &&
+        head.slice(8, 12) === "WEBP";
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 async function hashPasswordEdge(password, saltHex) {
