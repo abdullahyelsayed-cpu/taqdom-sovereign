@@ -273,7 +273,7 @@ async function runTests() {
 
   const allPortfoliosRes = await fetch(BASE + "/api/portfolio?all=1");
   const allPortfoliosData = await allPortfoliosRes.json();
-  assert.equal(allPortfoliosData.portfolios.some((p) => p.username === TEST_USERNAME), true);
+  assert.equal(allPortfoliosData.portfolios.some((p) => p.username === TEST_USERNAME), false, "Unpublished drafts must not appear in the public directory");
   assert.equal(allPortfoliosData.portfolios.find((p) => p.username === TEST_USERNAME)?.email, undefined, "Public directory must not expose account email");
 
   const publicPortfolioRes = await fetch(BASE + "/api/portfolio?u=" + TEST_USERNAME);
@@ -290,6 +290,12 @@ async function runTests() {
     body: JSON.stringify({ portfolio: safeLinkPortfolio }),
   });
   assert.equal(publishRes.status, 200, "Owner should be able to publish their own portfolio");
+
+  const publishedDirectoryRes = await fetch(BASE + "/api/portfolio?all=1");
+  const publishedDirectoryData = await publishedDirectoryRes.json();
+  const publishedDirectoryEntry = publishedDirectoryData.portfolios.find((p) => p.username === TEST_USERNAME);
+  assert.ok(publishedDirectoryEntry, "Published creator must appear in the public directory");
+  assert.equal(publishedDirectoryEntry.email, undefined, "Public directory must not expose account email");
 
   const sanitizedPublishedRes = await fetch(BASE + "/api/portfolio?u=" + TEST_USERNAME);
   assert.equal(sanitizedPublishedRes.status, 200);
