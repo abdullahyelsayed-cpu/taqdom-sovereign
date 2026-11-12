@@ -665,7 +665,12 @@ async function handleApiRequest(request, url, env) {
 
   const session = await parseSessionFromRequest(request, env);
   const sessionName = normalizeUsername(String(session?.username || ""));
-  if (pathname === "/api/mcp/tokens") return handleMcpTokenApi(request, url, env, session);
+  if (pathname === "/api/mcp/tokens") {
+    if (session?.isTestAccount || SEED_PORTFOLIOS[sessionName]) {
+      return jsonResponse({ error: "MCP connections are unavailable for showcase accounts." }, 403);
+    }
+    return handleMcpTokenApi(request, url, env, session);
+  }
   const readOnlySession = Boolean(session?.isTestAccount || SEED_PORTFOLIOS[sessionName]);
   const ownsUsername = (username) =>
     Boolean(session?.username) &&
