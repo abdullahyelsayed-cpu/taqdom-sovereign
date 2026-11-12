@@ -293,11 +293,18 @@ function validRasterImageData(mime, base64) {
   }
 }
 
-async function hashPasswordEdge(password, saltHex) {
+async function hashPasswordEdge(password, storedSalt) {
   const encoder = new TextEncoder();
-  const saltBytes = saltHex
-    ? new Uint8Array(saltHex.match(/.{1,2}/g).map((b) => parseInt(b, 16)))
-    : crypto.getRandomValues(new Uint8Array(16));
+  let saltBytes;
+  let iterations;
+  if (storedSalt) {
+    const parsed = parsePasswordSalt(storedSalt);
+    saltBytes = parsed.saltBytes;
+    iterations = parsed.iterations;
+  } else {
+    saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    iterations = PBKDF2_CURRENT_ITERATIONS;
+  }
 
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -311,19 +318,23 @@ async function hashPasswordEdge(password, saltHex) {
     {
       name: "PBKDF2",
       salt: saltBytes,
-      iterations: 100000,
+      iterations,
       hash: "SHA-256",
     },
     keyMaterial,
     256
   );
 
-  const hashArray = Array.from(new Uint8Array(derivedBits));
-  const saltArray = Array.from(saltBytes);
+  const hash = Array.from(new Uint8Array(derivedBits))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  const saltHex = Array.from(saltBytes)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 
   return {
-    hash: hashArray.map((b) => b.toString(16).padStart(2, "0")).join(""),
-    salt: saltArray.map((b) => b.toString(16).padStart(2, "0")).join(""),
+    hash,
+    salt: `${PBKDF2_SALT_PREFIX}${iterations}${saltHex}`,
   };
 }
 
@@ -404,8 +415,7 @@ function makeSessionCookie(token, isSecure = true) {
 
 async function getPublishedPortfolioFromD1(env, username) {
   const clean = normalizeUsername(username);
-  if (!clean) return null;
-  if (edgeStore.unpublished.has(clean)) return null;
+  if (!clean || edgeStore.unpublished.has(clean)) return null;
 
   if (env.DB) {
     try {
@@ -416,13 +426,23 @@ async function getPublishedPortfolioFromD1(env, username) {
         .first();
       if (row) {
         if (!row.published_json) return null;
-        return JSON.parse(row.published_json);
+        return toPublicPortfolio(JSON.parse(row.published_json));
       }
+      return SEED_PORTFOLIOS[clean] ? toPublicPortfolio(SEED_PORTFOLIOS[clean]) : null;
     } catch {
-      // Fallback to edgeStore
+      const cached = edgeStore.portfolios[clean];
+      if (cached?.publishedAt || cached?.isFlagshipShowcase === true) {
+        return toPublicPortfolio(cached);
+      }
+      return SEED_PORTFOLIOS[clean] ? toPublicPortfolio(SEED_PORTFOLIOS[clean]) : null;
     }
   }
-  return edgeStore.portfolios[clean] || SEED_PORTFOLIOS[clean] || null;
+
+  const cached = edgeStore.portfolios[clean];
+  if (cached?.publishedAt || cached?.isFlagshipShowcase === true) {
+    return toPublicPortfolio(cached);
+  }
+  return SEED_PORTFOLIOS[clean] ? toPublicPortfolio(SEED_PORTFOLIOS[clean]) : null;
 }
 
 async function getDraftPortfolioFromD1(env, username) {
@@ -447,38 +467,45 @@ async function getDraftPortfolioFromD1(env, username) {
 }
 
 async function getAllPublishedPortfoliosFromD1(env) {
-  const map = { ...SEED_PORTFOLIOS, ...edgeStore.portfolios };
-  for (const unpub of edgeStore.unpublished) {
-    delete map[unpub];
-  }
+  const collect = (entries) =>
+    entries
+      .filter((portfolio) =>
+        portfolio?.isFlagshipShowcase === true ||
+        (portfolio?.discoverable === true && Boolean(portfolio?.publishedAt))
+      )
+      .map(toPublicPortfolio)
+      .filter(Boolean);
+
   if (env.DB) {
     try {
       const { results } = await env.DB.prepare(
-        "SELECT username, published_json FROM portfolios"
+        "SELECT username, published_json FROM portfolios WHERE published_json IS NOT NULL"
       ).all();
+      const map = { ...SEED_PORTFOLIOS };
       if (Array.isArray(results)) {
         for (const row of results) {
-          if (row.username) {
-            if (row.published_json) {
-              try {
-                map[row.username] = JSON.parse(row.published_json);
-              } catch {}
-            } else {
-              delete map[row.username];
-            }
+          if (!row.username || !row.published_json) continue;
+          try {
+            map[row.username] = JSON.parse(row.published_json);
+          } catch {
+            // Ignore a single malformed portfolio rather than failing the entire directory.
           }
         }
       }
+      for (const username of edgeStore.unpublished) delete map[username];
+      return collect(Object.values(map));
     } catch {
-      // Ignore D1 error
+      const map = { ...SEED_PORTFOLIOS, ...edgeStore.portfolios };
+      for (const username of edgeStore.unpublished) delete map[username];
+      return collect(Object.values(map));
     }
   }
-  return Object.values(map).filter(
-    (portfolio) =>
-      portfolio?.isFlagshipShowcase === true ||
-      portfolio?.discoverable === true
-  );
+
+  const map = { ...SEED_PORTFOLIOS, ...edgeStore.portfolios };
+  for (const username of edgeStore.unpublished) delete map[username];
+  return collect(Object.values(map));
 }
+
 
 async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, userAuth = null) {
   const clean = normalizeUsername(portfolio.username);
@@ -493,7 +520,7 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
     ...portfolio,
     username: clean,
     updatedAt: now,
-    publishedAt: isPublish ? now : portfolio.publishedAt || now,
+    publishedAt: isPublish ? now : (portfolio.publishedAt || null),
   };
 
   try {
