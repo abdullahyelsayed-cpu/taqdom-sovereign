@@ -94,10 +94,11 @@ async function rpc(body, token = created.token, username = "mcp-owner") {
   );
 }
 
-let response = await rpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26" } });
+let response = await rpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2099-01-01" } });
 assert.equal(response.status, 200);
 let payload = await response.json();
 assert.equal(payload.result.serverInfo.name, "taqdom-account-mcp");
+assert.equal(payload.result.protocolVersion, "2025-03-26", "Server must negotiate a protocol version it actually supports");
 
 response = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" });
 payload = await response.json();
