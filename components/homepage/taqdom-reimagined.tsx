@@ -323,7 +323,7 @@ export function TaqdomReimagined() {
                 height={72}
                 priority
                 sizes="72px"
-                className="neo-owner-photo"
+                className="neo-owner-photo rounded-full object-cover ring-2 ring-white/80 shadow-lg"
               />
               <div className="neo-owner-meta">
                 <span className="neo-owner-label">{t("صناعة مصرية • مشروع مستقل", "Made in Egypt • Independent project")}</span>
