@@ -119,6 +119,12 @@ jobs:
           printf '%s' "$HOME_HTML" | grep -q 'عبدالله يحى'
           printf '%s' "$HOME_HTML" | grep -q 'linkedin.com/in/abdullah-yehia/'
           printf '%s' "$HOME_HTML" | grep -q 'مبادرة سفراء الذكاء الاصطناعي'
-          curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" -o /dev/null https://taqdom.me/images/abdullah-yehia.webp
+          PORTRAIT_FILE="$(mktemp)"
+          PORTRAIT_HEADERS="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" -D - -o "$PORTRAIT_FILE" https://taqdom.me/images/abdullah-yehia.svg)"
+          printf '%s' "$PORTRAIT_HEADERS" | grep -qi '^content-type: image/svg+xml'
+          grep -q '<svg' "$PORTRAIT_FILE"
+          grep -q 'data:image/webp;base64,' "$PORTRAIT_FILE"
+          grep -q 'abdullah-yehia.svg' "$HOME_HTML"
+          rm -f "$PORTRAIT_FILE"
           PROFILE_HTML="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" https://layla.taqdom.me/)"
           printf '%s' "$PROFILE_HTML" | grep -q 'ProfilePage'
