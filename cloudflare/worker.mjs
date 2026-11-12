@@ -265,10 +265,42 @@ function constantTimeStringEqual(left, right) {
   return difference === 0;
 }
 
+function safePortfolioHref(value) {
+  const raw = String(value || "").trim().slice(0, 2048);
+  if (!raw || raw.includes("\n") || raw.includes("\r")) return "#";
+  if (/^#[a-z0-9_-]+$/i.test(raw)) return raw;
+  if (/^(mailto:|tel:)/i.test(raw)) return raw;
+  let candidate = raw;
+  if (!/^https?:\\/\\//i.test(candidate)) {
+    if (/^(?:www\\.)?[a-z0-9-]+(?:\\.[a-z0-9-]+)+(?:[:/].*)?$/i.test(candidate)) candidate = "https://" + candidate;
+    else return "#";
+  }
+  try {
+    const parsed = new URL(candidate);
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) return "#";
+    return parsed.toString();
+  } catch {
+    return "#";
+  }
+}
+
+function safeJsonForHtmlScript(value) {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
 function toPublicPortfolio(portfolio) {
   if (!portfolio || typeof portfolio !== "object") return null;
   const { email: privateAccountEmail, ...publicPortfolio } = portfolio;
   void privateAccountEmail;
+  if (Array.isArray(publicPortfolio.links)) {
+    publicPortfolio.links = publicPortfolio.links
+      .filter((link) => link && typeof link === "object")
+      .map((link) => ({ ...link, url: safePortfolioHref(link.url) }));
+  }
   return publicPortfolio;
 }
 
@@ -520,7 +552,7 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
     ...portfolio,
     username: clean,
     updatedAt: now,
-    publishedAt: isPublish ? now : (portfolio.publishedAt || null),
+    publishedAt: isPublish ? now : (edgeStore.unpublished.has(clean) ? null : (portfolio.publishedAt || null)),
   };
 
   try {
@@ -1178,6 +1210,9 @@ async function handleApiRequest(request, url, env) {
         .bind(clean)
         .run();
       edgeStore.unpublished.add(clean);
+      if (edgeStore.portfolios[clean]) {
+        edgeStore.portfolios[clean] = { ...edgeStore.portfolios[clean], publishedAt: null };
+      }
       return jsonResponse({ ok: true, username: clean });
     }
   }
@@ -1527,11 +1562,11 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       /<script type="application\/ld\+json">[\s\S]*?<\/script>/gi,
       (match) =>
         match.includes('"@type":"ProfilePage"')
-          ? `<script type="application/ld+json">${JSON.stringify(personJsonLd)}</script>`
+          ? `<script type="application/ld+json">${safeJsonForHtmlScript(personJsonLd)}</script>`
           : match
     );
 
-  const safeJson = JSON.stringify(customData).replace(/</g, "\\u003c");
+  const safeJson = safeJsonForHtmlScript(customData);
   const bootstrapScript = `<meta name="x-taqdom-bio" content="${escapeHtml(
     customData.bio?.ar || ""
   )}"/><script>window.__TAQDOM_SUBDOMAIN__=${JSON.stringify(
@@ -1550,7 +1585,13 @@ export default {
 
     // 1. Handle API endpoints
     if (pathname.startsWith("/api/")) {
-      return applySecurityHeaders(await handleApiRequest(request, url, env));
+      try {
+        return applySecurityHeaders(await handleApiRequest(request, url, env));
+      } catch {
+        return applySecurityHeaders(
+          jsonResponse({ error: "حدث خطأ داخلي. حاول مرة أخرى / An internal error occurred." }, 500)
+        );
+      }
     }
 
     // 2. Dynamic /robots.txt and /sitemap.xml
