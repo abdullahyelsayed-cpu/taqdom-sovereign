@@ -109,6 +109,8 @@ assert.match(storeText, /isFlagshipAccount/, "The local store must treat showcas
 assert.match(creditsText, /GraduationCreditsSection|مبادرة سفراء الذكاء الاصطناعي/, "The graduation initiative context must be displayed.");
 assert.match(creditsText, /عبدالله يحى/, "Founder credit must use the requested Arabic spelling.");
 assert.match(creditsText, /abdullah-yehia\.webp/, "The founder portrait must be wired to the public assets.");
+assert.doesNotMatch(creditsText, /زملاء الدفعة|Fellow participants|الداعمون|supporters/i, "The solo graduation project must not imply classmates or project supporters.");
+assert.match(creditsText, /unoptimized/, "The founder portrait must bypass image optimization for reliable static asset delivery.");
 assert.match(creditsText, /linkedin.com\/in\/abdullah-yehia/, "The founder LinkedIn link must be present.");
 assert.match(worldText, /GraduationCreditsSection/, "The homepage must render the founder and graduation acknowledgement section.");
 assert.match(uploadApiText, /matchesRasterSignature/, "The Next.js upload fallback must verify image signatures.");
