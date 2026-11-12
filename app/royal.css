@@ -823,7 +823,7 @@ main.min-h-screen.bg-background .glass-panel,
 @media (max-width: 900px) {
   .neo-header-nav { display: none !important; }
   .neo-mobile-toggle { display: inline-grid !important; place-items: center; }
-  .neo-header-mobile-menu { z-index: 60; }
+  .neo-header-mobile-menu { position: absolute; top: calc(100% + 9px); inset-inline: 0; z-index: 60; display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid var(--neo-line); border-radius: 18px; background: var(--card); box-shadow: var(--neo-shadow); }
   .royal-container { width: min(calc(100% - 36px), 1450px); }
   .royal-section-head { align-items: flex-start; flex-wrap: wrap; }
   .royal-template-carousel { min-width: 0; }
