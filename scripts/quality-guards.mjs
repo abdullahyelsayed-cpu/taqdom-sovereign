@@ -169,6 +169,13 @@ assert.match(mcpServerText, /SHA-256/, "MCP tokens must be stored as SHA-256 dig
 assert.match(mcpServerText, /tokenRow\.username !== username/, "MCP tokens must be isolated to their owning portfolio.");
 assert.match(mcpServerText, /revoked_at IS NULL/, "Revoked MCP tokens must be rejected.");
 assert.match(mcpServerText, /get_portfolio/, "MCP must expose portfolio reading.");
+assert.match(mcpServerText, /update_profile/, "MCP must expose scoped profile editing.");
+assert.match(mcpServerText, /create_project/, "MCP must expose project creation.");
+assert.match(mcpServerText, /update_project/, "MCP must expose project editing.");
+assert.match(mcpServerText, /delete_project/, "MCP must expose project deletion.");
+assert.match(mcpServerText, /publish_portfolio/, "MCP must expose explicit portfolio publishing.");
+assert.match(mcpServerText, /WHERE username = \?1 AND user_id = \?2/, "MCP reads must enforce both username and account ID.");
+assert.match(mcpServerText, /UPDATE portfolios SET draft_json/, "MCP writes must persist to the account draft.");
 assert.match(mcpServerText, /list_projects/, "MCP must expose project reading.");
 assert.match(mcpServerText, /bilingual\(portfolio\.name\)/, "MCP profile fields must match the bilingual portfolio schema.");
 assert.match(mcpServerText, /safeProjects/, "MCP project data must be explicitly allow-listed.");
@@ -177,6 +184,7 @@ assert.match(workerText, /mcp-token-create/, "MCP token creation must be rate-li
 assert.match(dashboardTextMcp, /api\/mcp\/tokens/, "Account dashboard must manage MCP connections.");
 assert.match(wranglerText, /"\/mcp\/\*"/, "Cloudflare Worker must receive MCP requests before static asset handling.");
 assert.match(dashboardText, /dashboard\/mcp/, "Dashboard must link to MCP connection settings.");
-assert.match(dashboardTextMcp, /قراءة فقط/, "MCP dashboard must explain its read-only security scope.");
+assert.match(dashboardTextMcp, /قراءة والكتابة/, "MCP dashboard must explain read and write access.");
+assert.match(dashboardTextMcp, /publish_portfolio/, "MCP dashboard must explain explicit publishing.");
 
 console.log("Taqdom quality guards: PASS");
