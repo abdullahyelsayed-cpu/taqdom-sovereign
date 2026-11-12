@@ -148,12 +148,16 @@ export default function DashboardSettingsPage() {
               <input
                 type="password"
                 dir="ltr"
-                minLength={6}
+                minLength={15}
+                maxLength={128}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="•••••••••••••••"
                 className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm"
               />
+              <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
+                {t("استخدم عبارة مرور من 15 إلى 128 حرفًا.", "Use a passphrase between 15 and 128 characters.")}
+              </p>
             </div>
 
             <button
