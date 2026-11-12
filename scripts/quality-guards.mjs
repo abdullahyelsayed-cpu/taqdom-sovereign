@@ -96,6 +96,7 @@ assert.match(workerText, /Content-Security-Policy-Report-Only/, "Worker response
 assert.match(workerText, /safeJsonForHtmlScript/, "User-controlled JSON embedded in HTML scripts must be escaped.");
 assert.match(workerText, /safePortfolioHref/, "Worker-rendered portfolio links must reject scriptable URL schemes.");
 assert.match(dbText, /stripPrivateAccountEmail/, "Next.js public portfolio readers must not expose account email.");
+assert.match(dbText, /safePortfolioUrl\(link\.url\)/, "Public portfolio API data must neutralize unsafe link schemes.");
 assert.match(rendererText, /safePortfolioUrl/, "React portfolio links must reject scriptable URL schemes.");
 assert.match(studioText, /isDemoReadOnly/, "The flagship preview must not save or publish changes.");
 assert.match(storeText, /isFlagshipAccount/, "The local store must treat showcase accounts as read-only.");
