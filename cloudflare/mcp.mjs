@@ -130,23 +130,57 @@ export async function handleMcpRequest(request, env, username) {
     if (!raw) return fail(-32004, "Portfolio not found for this account");
     let portfolio;
     try { portfolio = JSON.parse(raw); } catch { return fail(-32603, "Portfolio data is invalid"); }
+    const bilingual = (value) => {
+      if (value && typeof value === "object" && !Array.isArray(value)) {
+        return { ar: String(value.ar || ""), en: String(value.en || "") };
+      }
+      return { ar: String(value || ""), en: String(value || "") };
+    };
+    const safeProjects = Array.isArray(portfolio.projects) ? portfolio.projects.map((project) => ({
+      id: String(project?.id || ""),
+      title: bilingual(project?.title),
+      description: bilingual(project?.desc),
+      year: String(project?.year || ""),
+      tags: Array.isArray(project?.tags) ? project.tags.filter((tag) => typeof tag === "string").slice(0, 30) : [],
+      url: typeof project?.url === "string" ? project.url : null,
+      client: project?.client ? bilingual(project.client) : null,
+      metrics: typeof project?.metrics === "string" ? project.metrics : null,
+      images: Array.isArray(project?.images) ? project.images.filter((image) => typeof image === "string").slice(0, 12) : [],
+    })) : [];
     const safe = {
-      username: portfolio.username,
-      name: portfolio.name,
-      headline: portfolio.headline,
-      bio: portfolio.bio,
-      location: portfolio.location,
-      template: portfolio.template,
-      skills: portfolio.skills,
-      links: Array.isArray(portfolio.links) ? portfolio.links.map(({ label, url, platform }) => ({ label, url, platform })) : [],
-      projects: Array.isArray(portfolio.projects) ? portfolio.projects : [],
-      experience: Array.isArray(portfolio.experience) ? portfolio.experience : [],
-      education: Array.isArray(portfolio.education) ? portfolio.education : [],
+      username: String(portfolio.username || username),
+      name: bilingual(portfolio.name),
+      title: bilingual(portfolio.title),
+      bio: bilingual(portfolio.bio),
+      city: bilingual(portfolio.city),
+      template: String(portfolio.template || ""),
+      avatar: typeof portfolio.avatar === "string" ? portfolio.avatar : null,
+      cover: typeof portfolio.cover === "string" ? portfolio.cover : null,
+      skills: Array.isArray(portfolio.skills) ? portfolio.skills.filter((skill) => typeof skill === "string").slice(0, 100) : [],
+      links: Array.isArray(portfolio.links) ? portfolio.links.map((link) => ({
+        label: String(link?.label || "").slice(0, 100),
+        url: typeof link?.url === "string" ? link.url : "",
+      })).slice(0, 50) : [],
+      projects: safeProjects,
+      metrics: Array.isArray(portfolio.metrics) ? portfolio.metrics.slice(0, 30).map((metric) => ({
+        label: bilingual(metric?.label),
+        value: String(metric?.value || ""),
+      })) : [],
+      timeline: Array.isArray(portfolio.timeline) ? portfolio.timeline.slice(0, 50).map((item) => ({
+        year: String(item?.year || ""),
+        role: bilingual(item?.role),
+        organization: bilingual(item?.org),
+        summary: bilingual(item?.summary),
+      })) : [],
+      theme: portfolio.theme && typeof portfolio.theme === "object" ? {
+        mode: ["light", "dark", "auto"].includes(portfolio.theme.mode) ? portfolio.theme.mode : "auto",
+        accent: String(portfolio.theme.accent || ""),
+      } : null,
       publishedAt: portfolio.publishedAt || null,
       updatedAt: portfolio.updatedAt || null,
     };
     if (name === "get_profile") {
-      const { projects, experience, education, ...profile } = safe;
+      const { projects, metrics, timeline, ...profile } = safe;
       return respond(toolResult(profile));
     }
     if (name === "list_projects") return respond(toolResult(safe.projects));
