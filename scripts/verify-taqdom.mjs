@@ -33,6 +33,7 @@ function requestWithHost(urlPath, hostHeader) {
         method: "GET",
         headers: {
           Host: hostHeader,
+          "x-forwarded-host": hostHeader,
         },
       },
       (res) => {
