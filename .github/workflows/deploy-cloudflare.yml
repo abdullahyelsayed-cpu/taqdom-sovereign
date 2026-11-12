@@ -60,7 +60,7 @@ jobs:
 
       - name: Audit dependencies, type-check, and run quality guards
         run: |
-          pnpm audit --prod --audit-level=high
+          pnpm audit --audit-level=high
           pnpm typecheck
           node --check cloudflare/worker.mjs
           node scripts/quality-guards.mjs
