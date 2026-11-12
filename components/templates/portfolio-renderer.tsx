@@ -47,6 +47,25 @@ import {
 import { CanvasSectionId, PortfolioData, PortfolioProject, getSubdomainUrl } from "@/lib/types";
 import { TaqdomLogo } from "@/components/brand/taqdom-logo";
 
+function safePortfolioHref(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim().slice(0, 2048) : "";
+  if (!raw || raw.includes("\n") || raw.includes("\r")) return "#";
+  if (/^#[a-z0-9_-]+$/i.test(raw)) return raw;
+  if (/^(mailto:|tel:)/i.test(raw)) return raw;
+  let candidate = raw;
+  if (!/^https?:\/\//i.test(candidate)) {
+    if (/^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[:/].*)?$/i.test(candidate)) candidate = "https://" + candidate;
+    else return "#";
+  }
+  try {
+    const parsed = new URL(candidate);
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) return "#";
+    return parsed.toString();
+  } catch {
+    return "#";
+  }
+}
+
 interface PortfolioRendererProps {
   data: PortfolioData;
   previewLang?: "ar" | "en";
@@ -455,9 +474,9 @@ export function PortfolioRenderer({
                     {data.links.map((lk, idx) => (
                       <a
                         key={idx}
-                        href={lk.url}
+                        href={safePortfolioHref(lk.url)}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-xl border border-[#F4F1EA]/12 bg-[#181815] px-3.5 py-2 font-mono text-xs font-medium text-[#F4F1EA] hover:border-[#C89D66] hover:text-[#C89D66] transition"
                       >
                         <span>{lk.label}</span>
@@ -830,7 +849,7 @@ export function PortfolioRenderer({
                   {data.links.map((l, i) => (
                     <a
                       key={i}
-                      href={l.url}
+                      href={safePortfolioHref(l.url)}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-full border border-[#F4F1EA]/20 bg-black/60 px-4 py-1.5 text-xs font-semibold text-[#F4F1EA] hover:border-[#C89D66] transition"
