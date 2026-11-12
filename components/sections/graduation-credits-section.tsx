@@ -187,10 +187,6 @@ export function GraduationCreditsSection() {
               <p className="mb-2 text-sm font-bold text-foreground">{t("المدربون والمشرفون", "Instructors & mentors")}</p>
               <p className="text-sm leading-7 text-muted-foreground">{t("خالص الامتنان على الشرح الواضح، والتوجيه العملي، والملاحظات البنّاءة التي ساعدت على تطوير الفكرة وتحسين تنفيذها.", "Sincere thanks for the clear teaching, practical guidance, and constructive feedback that helped shape and improve the work.")}</p>
             </div>
-            <div>
-              <p className="mb-2 text-sm font-bold text-foreground">{t("زملاء الدفعة والداعمون", "Fellow participants & supporters")}</p>
-              <p className="text-sm leading-7 text-muted-foreground">{t("شكرًا لكل زميل شارك معرفة أو فكرة أو تشجيعًا، ولكل من ساندني خلال رحلة التعلّم والعمل على المشروع.", "Thank you to every fellow participant who shared knowledge, ideas, or encouragement, and to everyone who supported me throughout this journey.")}</p>
-            </div>
           </div>
           <p className="mt-7 border-t border-border/70 pt-5 text-xs leading-6 text-muted-foreground">
             {t(
