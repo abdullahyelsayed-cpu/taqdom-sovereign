@@ -158,4 +158,20 @@ assert.match(rendererText, /backgroundImage: canvasBackgroundImage/, "Portfolio 
 assert.match(rendererText, /مدعوم بواسطة تقدّم/, "Published portfolio pages must carry the discreet Taqdom credit.");
 assert.match(rendererText, /data-canvas-section="hero"/, "Portfolio sections must expose editable canvas regions.");
 
+
+const mcpServerText = read("../cloudflare/mcp.mjs");
+const dashboardTextMcp = read("../app/dashboard/mcp/page.tsx");
+assert.match(workerText, /handleMcpRequest/, "Worker must route account MCP requests.");
+assert.match(workerText, /handleMcpTokenApi/, "Worker must expose authenticated MCP token management.");
+assert.match(mcpServerText, /tqd_mcp_/, "MCP access tokens must use a dedicated high-entropy prefix.");
+assert.match(mcpServerText, /SHA-256/, "MCP tokens must be stored as SHA-256 digests, never plaintext.");
+assert.match(mcpServerText, /tokenRow\.username !== username/, "MCP tokens must be isolated to their owning portfolio.");
+assert.match(mcpServerText, /revoked_at IS NULL/, "Revoked MCP tokens must be rejected.");
+assert.match(mcpServerText, /get_portfolio/, "MCP must expose portfolio reading.");
+assert.match(mcpServerText, /list_projects/, "MCP must expose project reading.");
+assert.match(dashboardTextMcp, /api\/mcp\/tokens/, "Account dashboard must manage MCP connections.");
+assert.match(wranglerText, /"\/mcp\/\*"/, "Cloudflare Worker must receive MCP requests before static asset handling.");
+assert.match(dashboardText, /dashboard\/mcp/, "Dashboard must link to MCP connection settings.");
+assert.match(dashboardTextMcp, /قراءة فقط/, "MCP dashboard must explain its read-only security scope.");
+
 console.log("Taqdom quality guards: PASS");
