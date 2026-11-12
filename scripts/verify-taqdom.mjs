@@ -56,19 +56,13 @@ function requestWithHost(urlPath, hostHeader) {
 async function runTests() {
   console.log("=== TAQDOM SOVEREIGN v2 VERIFICATION SUITE ===");
 
-  // 1. Static CSS check: zero #FFFFFF and zero #00F5D4 in globals.css
-  const globalsCss = fs.readFileSync(path.join(process.cwd(), "app/globals.css"), "utf-8");
-  assert.equal(
-    /#ffffff/i.test(globalsCss),
-    false,
-    "app/globals.css must NOT contain pure white #FFFFFF"
-  );
-  assert.equal(
-    /#00f5d4/i.test(globalsCss),
-    false,
-    "app/globals.css must NOT contain neon cyan #00F5D4"
-  );
-  console.log("[PASS] 1. Q4 2026 Warm Alabaster & Cinema Noir check (Zero #FFFFFF and Zero #00F5D4 in globals.css)");
+  // 1. Verify the active bright-premium and future-night design tokens.
+  const designCss = fs.readFileSync(path.join(process.cwd(), "app/reimagined.css"), "utf-8");
+  assert.match(designCss, /--neo-paper:\s*#F7F8F3/i, "The day theme must use the warm-paper background.");
+  assert.match(designCss, /--neo-cobalt:\s*#315BFF/i, "The day theme must include the approved cobalt accent.");
+  assert.match(designCss, /--neo-lime:\s*#D8FF52/i, "The day theme must include the approved lime accent.");
+  assert.match(designCss, /\.dark\s*\{/, "The design system must include the future-night theme.");
+  console.log("[PASS] 1. Bright premium day palette and future-night theme tokens verified.");
 
   // 1b. Verify Ultra-HD 4K WebP assets exist locally in public/images/ultra/
   const ultraDir = path.join(process.cwd(), "public/images/ultra");
