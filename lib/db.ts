@@ -124,6 +124,12 @@ async function writeDiskAndMemoryDb(snapshot: DbSnapshot): Promise<void> {
   }
 }
 
+function stripPrivateAccountEmail(portfolio: PortfolioData): PortfolioData {
+  const { email: privateAccountEmail, ...publicPortfolio } = portfolio;
+  void privateAccountEmail;
+  return publicPortfolio as PortfolioData;
+}
+
 export async function getPublishedPortfolio(username: string): Promise<PortfolioData | null> {
   const clean = normalizeUsername(username);
   if (!clean) return null;
@@ -132,12 +138,12 @@ export async function getPublishedPortfolio(username: string): Promise<Portfolio
   if (entry) {
     if (!entry.published) return null;
     return {
-      ...entry.published,
+      ...stripPrivateAccountEmail(entry.published),
       views: db.views[clean] ?? entry.published.views ?? 1,
     };
   }
   if (SEED_PORTFOLIOS[clean]) {
-    return structuredClone(SEED_PORTFOLIOS[clean]);
+    return stripPrivateAccountEmail(structuredClone(SEED_PORTFOLIOS[clean]));
   }
   return null;
 }
@@ -152,7 +158,7 @@ export async function getAllPublishedPortfolios(): Promise<PortfolioData[]> {
         entry.published.discoverable === true
       ) {
         list.push({
-          ...entry.published,
+          ...stripPrivateAccountEmail(entry.published),
           views: db.views[uname] ?? entry.published.views ?? 0,
         });
       }
