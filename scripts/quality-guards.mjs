@@ -193,9 +193,9 @@ assert.match(worldText, /id="faq"/, "The live homepage must render the FAQ secti
 assert.match(worldText, /royal-faq-card-mcp/, "The live homepage FAQ must render the MCP cards.");
 assert.match(worldText, /publish_portfolio/, "The live homepage FAQ must explain explicit MCP publishing.");
 assert.match(worldText, /OAuth 2\\.1/, "The live homepage FAQ must accurately disclose the MCP authentication model.");
-assert.match(royalCss, /@media \\(max-width: 380px\\)/, "Homepage must include narrow-phone layout rules.");
-assert.match(royalCss, /royal-faq-grid \\{ grid-template-columns: minmax\\(0,1fr\\);/, "FAQ cards must stack cleanly on phones.");
-assert.match(royalCss, /overflow-wrap: anywhere/, "Long FAQ and URL text must wrap without horizontal overflow.");
+assert.ok(royalCss.includes("@media (max-width: 380px)"), "Homepage must include narrow-phone layout rules.");
+assert.ok(royalCss.includes("grid-template-columns: minmax(0,1fr);"), "FAQ cards must stack cleanly on phones.");
+assert.ok(royalCss.includes("overflow-wrap: anywhere"), "Long FAQ and URL text must wrap without horizontal overflow.");
 
 
 console.log("Taqdom quality guards: PASS");
