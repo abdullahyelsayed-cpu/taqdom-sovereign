@@ -652,6 +652,9 @@ async function handleApiRequest(request, url, env) {
     "POST:/api/views": ["views", 180, 60_000],
     "POST:/api/portfolio/publish": ["publish", 20, 60 * 60 * 1000],
     "DELETE:/api/portfolio/publish": ["unpublish", 10, 60 * 60 * 1000],
+    "GET:/api/mcp/tokens": ["mcp-token-list", 60, 60_000],
+    "POST:/api/mcp/tokens": ["mcp-token-create", 10, 60 * 60 * 1000],
+    "DELETE:/api/mcp/tokens": ["mcp-token-revoke", 30, 60 * 60 * 1000],
   };
   const profile = rateProfiles[`${request.method}:${pathname}`];
   if (profile) {
