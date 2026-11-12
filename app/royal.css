@@ -786,3 +786,85 @@ main.min-h-screen.bg-background .glass-panel,
 }
 .template-preview-use:hover { transform: translateY(-1px); }
 .template-preview-use:focus-visible { outline: 3px solid rgba(201,151,80,.65); outline-offset: 3px; }
+
+
+/* Responsive hardening for real devices and narrow viewports. */
+.royal-site,
+.royal-site main,
+.royal-site section,
+.royal-container,
+.royal-faq-grid,
+.royal-faq-grid article {
+  min-width: 0;
+}
+.royal-site { overflow-x: clip; }
+.royal-site img,
+.royal-site svg { max-width: 100%; }
+.royal-faq-card { position: relative; overflow-wrap: anywhere; }
+.royal-faq-card h3 { font-size: clamp(14px, 1.1vw, 16px); line-height: 1.75; overflow-wrap: anywhere; }
+.royal-faq-card p { font-size: clamp(12px, .92vw, 13px); line-height: 2; overflow-wrap: anywhere; }
+.royal-faq-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 5px 9px;
+  border: 1px solid rgba(188,137,66,.25);
+  border-radius: 999px;
+  color: #94652c;
+  background: rgba(197,148,79,.09);
+  font: 850 8px/1.3 var(--font-jakarta), sans-serif;
+  letter-spacing: .08em;
+}
+.dark .royal-faq-tag { color: #edc37d; border-color: rgba(228,182,111,.22); background: rgba(228,182,111,.08); }
+.royal-faq-card-mcp { border-color: rgba(188,137,66,.38) !important; background: linear-gradient(145deg,rgba(255,255,255,.96),rgba(248,243,234,.9)) !important; }
+.dark .royal-faq-card-mcp { background: linear-gradient(145deg,rgba(20,32,50,.98),rgba(16,25,40,.98)) !important; }
+.royal-faq-card-mcp p { overflow-wrap: anywhere; }
+
+@media (max-width: 900px) {
+  .neo-header-nav { display: none !important; }
+  .neo-mobile-toggle { display: inline-grid !important; place-items: center; }
+  .neo-header-mobile-menu { z-index: 60; }
+  .royal-container { width: min(calc(100% - 36px), 1450px); }
+  .royal-section-head { align-items: flex-start; flex-wrap: wrap; }
+  .royal-template-carousel { min-width: 0; }
+  .royal-editor-workspace { grid-template-columns: 36px 120px minmax(0,1fr); }
+  .royal-editor-canvas { padding: 10px; }
+  .royal-footer-main { flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+  .royal-container { width: min(calc(100% - 30px), 1450px); }
+  .royal-faq-section { padding: 48px 0 56px; }
+  .royal-faq-heading { margin-bottom: 20px; }
+  .royal-faq-heading h2 { font-size: clamp(24px, 7vw, 31px); line-height: 1.35; }
+  .royal-faq-grid { grid-template-columns: minmax(0,1fr); gap: 11px; }
+  .royal-faq-grid article { padding: 17px 16px; border-radius: 15px; }
+  .royal-faq-card h3 { font-size: 14px; }
+  .royal-faq-card p { font-size: 12px; line-height: 1.9; }
+  .royal-hero-actions { width: 100%; }
+  .royal-hero-actions .royal-button { flex: 1 1 145px; min-width: 0; }
+  .royal-publish-domain strong { max-width: 100%; font-size: clamp(13px, 4vw, 16px); overflow-wrap: anywhere; }
+  .royal-editor-workspace { grid-template-columns: 30px 88px minmax(0,1fr); min-height: 235px; }
+  .royal-editor-canvas { padding: 6px; }
+  .royal-editor-top { gap: 5px; padding-inline: 8px; }
+  .royal-editor-status { font-size: 8px; }
+  .royal-editor-publish { padding: 6px 8px; font-size: 8px; }
+  .royal-editor-settings { padding: 8px 5px; }
+  .royal-editor-site-nav { gap: 4px; overflow: hidden; white-space: nowrap; }
+  .royal-editor-foot { flex-wrap: wrap; gap: 7px; }
+  .royal-footer-bottom { overflow-wrap: anywhere; }
+}
+@media (max-width: 380px) {
+  .royal-container { width: calc(100% - 24px); }
+  .neo-header { width: calc(100% - 20px) !important; }
+  .royal-hero-copy h1 { font-size: 37px; }
+  .royal-hero-copy h1 > span { font-size: 25px; }
+  .royal-hero-actions { flex-direction: column; align-items: stretch; }
+  .royal-hero-actions .royal-button { width: 100%; }
+  .royal-feature-strip { grid-template-columns: minmax(0,1fr); }
+  .royal-feature:nth-child(even) { border-inline-start: 0; }
+  .royal-feature:nth-child(n+2) { border-top: 1px solid rgba(100,116,139,.2); }
+  .royal-template-carousel { grid-template-columns: 26px minmax(0,1fr) 26px; gap: 3px; }
+  .royal-template-arrow { width: 26px; height: 26px; }
+  .royal-editor-workspace { grid-template-columns: 26px 74px minmax(0,1fr); }
+  .royal-editor-tools span { width: 22px; height: 22px; }
+}
