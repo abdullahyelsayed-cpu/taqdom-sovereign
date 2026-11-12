@@ -741,7 +741,7 @@ async function handleApiRequest(request, url, env) {
       ? requestedTemplate
       : "haven";
 
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/u.test(email) || email.length > 254) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/u.test(email) || email.length > 254) {
       return jsonResponse(
         { error: "يرجى إدخال بريد إلكتروني صحيح / Valid email required" },
         400
@@ -1268,7 +1268,7 @@ async function handleApiRequest(request, url, env) {
 
   if (pathname.startsWith("/api/media/") && request.method === "GET") {
     const key = pathname.slice("/api/media/".length);
-    if (!/^\\d{10,}-[0-9a-f-]{36}\\.(?:jpg|png|webp)$/i.test(key)) {
+    if (!/^\d{10,}-[0-9a-f-]{36}\.(?:jpg|png|webp)$/i.test(key)) {
       return new Response("Not found", { status: 404 });
     }
     let item = edgeStore.media[key];
