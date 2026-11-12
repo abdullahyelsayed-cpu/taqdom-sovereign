@@ -31,6 +31,7 @@ const reimaginedCss = read("../app/reimagined.css");
 const smoothScrollText = read("../components/smooth-scroll.tsx");
 const rendererText = read("../components/templates/portfolio-renderer.tsx");
 const apiSessionText = read("../lib/api-session.ts");
+const testLoginText = read("../app/api/auth/test-login/route.ts");
 const portfolioApiText = read("../app/api/portfolio/route.ts");
 const publishApiText = read("../app/api/portfolio/publish/route.ts");
 const uploadApiText = read("../app/api/upload/route.ts");
@@ -101,6 +102,9 @@ assert.equal((dbText.match(/sanitizePortfolioLinks\(\{\s*\.\.\.portfolio/g) || [
 assert.match(workerText, /url: safePortfolioHref\(link\.url\)/, "Cloudflare Worker writes must sanitize portfolio links before D1 persistence.");
 assert.match(rendererText, /safePortfolioUrl/, "React portfolio links must reject scriptable URL schemes.");
 assert.match(studioText, /isDemoReadOnly/, "The flagship preview must not save or publish changes.");
+assert.match(apiSessionText, /session\?\.isTestAccount !== true/, "Test/demo sessions must never pass the shared write-authorization helper.");
+assert.match(testLoginText, /isTestAccount: true/, "The Next.js showcase login must mint a read-only test session.");
+assert.match(testLoginText, /readOnly: true/, "The Next.js showcase login response must explicitly identify read-only mode.");
 assert.match(storeText, /isFlagshipAccount/, "The local store must treat showcase accounts as read-only.");
 assert.match(creditsText, /GraduationCreditsSection|مبادرة سفراء الذكاء الاصطناعي/, "The graduation initiative context must be displayed.");
 assert.match(creditsText, /عبدالله يحى/, "Founder credit must use the requested Arabic spelling.");
