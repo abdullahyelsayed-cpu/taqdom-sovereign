@@ -550,6 +550,9 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
   const now = Date.now();
   const updated = {
     ...portfolio,
+    links: Array.isArray(portfolio.links)
+      ? portfolio.links.map((link) => ({ ...link, url: safePortfolioHref(link.url) }))
+      : [],
     username: clean,
     updatedAt: now,
     publishedAt: isPublish ? now : (edgeStore.unpublished.has(clean) ? null : (portfolio.publishedAt || null)),
