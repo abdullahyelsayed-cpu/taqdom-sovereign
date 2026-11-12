@@ -169,6 +169,10 @@ assert.match(mcpServerText, /tokenRow\.username !== username/, "MCP tokens must 
 assert.match(mcpServerText, /revoked_at IS NULL/, "Revoked MCP tokens must be rejected.");
 assert.match(mcpServerText, /get_portfolio/, "MCP must expose portfolio reading.");
 assert.match(mcpServerText, /list_projects/, "MCP must expose project reading.");
+assert.match(mcpServerText, /bilingual\(portfolio\.name\)/, "MCP profile fields must match the bilingual portfolio schema.");
+assert.match(mcpServerText, /safeProjects/, "MCP project data must be explicitly allow-listed.");
+assert.doesNotMatch(mcpServerText, /email:\s*portfolio\.email/, "MCP must not expose account email by default.");
+assert.match(workerText, /mcp-token-create/, "MCP token creation must be rate-limited.");
 assert.match(dashboardTextMcp, /api\/mcp\/tokens/, "Account dashboard must manage MCP connections.");
 assert.match(wranglerText, /"\/mcp\/\*"/, "Cloudflare Worker must receive MCP requests before static asset handling.");
 assert.match(dashboardText, /dashboard\/mcp/, "Dashboard must link to MCP connection settings.");
