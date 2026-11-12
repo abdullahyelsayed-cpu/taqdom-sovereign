@@ -124,13 +124,17 @@ async function writeDiskAndMemoryDb(snapshot: DbSnapshot): Promise<void> {
   }
 }
 
+function sanitizePortfolioLinks(portfolio: PortfolioData): PortfolioData {
+  const links = Array.isArray(portfolio.links)
+    ? portfolio.links.map((link) => ({ ...link, url: safePortfolioUrl(link.url) }))
+    : [];
+  return { ...portfolio, links } as PortfolioData;
+}
+
 function stripPrivateAccountEmail(portfolio: PortfolioData): PortfolioData {
   const { email: privateAccountEmail, ...publicPortfolio } = portfolio;
   void privateAccountEmail;
-  const links = Array.isArray(publicPortfolio.links)
-    ? publicPortfolio.links.map((link) => ({ ...link, url: safePortfolioUrl(link.url) }))
-    : [];
-  return { ...publicPortfolio, links } as PortfolioData;
+  return sanitizePortfolioLinks(publicPortfolio as PortfolioData);
 }
 
 export async function getPublishedPortfolio(username: string): Promise<PortfolioData | null> {
@@ -174,18 +178,19 @@ export async function getDraftPortfolio(username: string): Promise<PortfolioData
   const clean = normalizeUsername(username);
   if (!clean) return null;
   const db = await readDiskOrMemoryDb();
-  return db.portfolios[clean]?.draft || SEED_PORTFOLIOS[clean] || null;
+  const draft = db.portfolios[clean]?.draft || SEED_PORTFOLIOS[clean] || null;
+  return draft ? sanitizePortfolioLinks(draft) : null;
 }
 
 export async function saveDraftPortfolio(portfolio: PortfolioData): Promise<PortfolioData> {
   const clean = normalizeUsername(portfolio.username);
   const db = await readDiskOrMemoryDb();
   const existing = db.portfolios[clean];
-  const updated: PortfolioData = {
+  const updated: PortfolioData = sanitizePortfolioLinks({
     ...portfolio,
     username: clean,
     updatedAt: Date.now(),
-  };
+  });
   db.portfolios[clean] = {
     draft: updated,
     published: existing ? existing.published : updated,
@@ -198,13 +203,13 @@ export async function publishPortfolioInDb(portfolio: PortfolioData): Promise<Po
   const clean = normalizeUsername(portfolio.username);
   const db = await readDiskOrMemoryDb();
   const now = Date.now();
-  const published: PortfolioData = {
+  const published: PortfolioData = sanitizePortfolioLinks({
     ...portfolio,
     username: clean,
     publishedAt: now,
     updatedAt: now,
     views: db.views[clean] ?? portfolio.views ?? 1,
-  };
+  });
   db.portfolios[clean] = {
     draft: structuredClone(published),
     published: structuredClone(published),
