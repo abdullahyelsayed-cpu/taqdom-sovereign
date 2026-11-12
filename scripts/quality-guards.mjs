@@ -107,7 +107,8 @@ assert.match(worldText, /GraduationCreditsSection/, "The homepage must render th
 assert.match(uploadApiText, /matchesRasterSignature/, "The Next.js upload fallback must verify image signatures.");
 assert.match(uploadApiText, /MAX_IMAGE_BYTES = 1_400_000/, "The Next.js upload fallback must use the D1-safe media cap.");
 assert.match(workerText, /readOnly: true/, "The demo login response must explicitly identify its read-only mode.");
-assert.match(verifyText, /localhost server/, "Destructive integration verification must be restricted to localhost.");
+assert.match(verifyText, /BASE_PARSED\.protocol !== "http:"/, "Destructive integration verification must reject non-HTTP local targets.");
+assert.match(verifyText, /\["localhost", "127\.0\.0\.1", "::1"\]\.includes\(BASE_PARSED\.hostname\)/, "Destructive integration verification must allow only loopback hostnames.");
 assert.match(e2eText, /read-only showcase protection/, "Browser E2E must verify the protected demo workflow.");
 assert.match(studioText, /studio-explore-visibility/, "Explore listing must be an explicit opt-in.");
 assert.match(exploreText, /c\.discoverable !== true/, "Explore must filter out portfolios without opt-in.");
