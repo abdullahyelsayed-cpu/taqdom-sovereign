@@ -192,7 +192,7 @@ assert.match(dashboardTextMcp, /publish_portfolio/, "MCP dashboard must explain 
 assert.match(worldText, /id="faq"/, "The live homepage must render the FAQ section.");
 assert.match(worldText, /royal-faq-card-mcp/, "The live homepage FAQ must render the MCP cards.");
 assert.match(worldText, /publish_portfolio/, "The live homepage FAQ must explain explicit MCP publishing.");
-assert.match(worldText, /OAuth 2\\.1/, "The live homepage FAQ must accurately disclose the MCP authentication model.");
+assert.ok(worldText.includes("OAuth 2.1"), "The live homepage FAQ must accurately disclose the MCP authentication model.");
 assert.ok(royalCss.includes("@media (max-width: 380px)"), "Homepage must include narrow-phone layout rules.");
 assert.ok(royalCss.includes("grid-template-columns: minmax(0,1fr);"), "FAQ cards must stack cleanly on phones.");
 assert.ok(royalCss.includes("overflow-wrap: anywhere"), "Long FAQ and URL text must wrap without horizontal overflow.");
