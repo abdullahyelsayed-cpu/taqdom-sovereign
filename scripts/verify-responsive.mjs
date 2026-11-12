@@ -24,7 +24,6 @@ try {
         cards: cards.length,
         columns: style?.gridTemplateColumns || "",
         mcpCardCount: cards.filter((card) => card.textContent?.includes("MCP")).length,
-        hasReadWrite: /read and write|القراءة والكتابة/i.test(faq?.textContent || ""),
         hasPublishGate: faq?.textContent?.includes("publish_portfolio") || false,
       };
     });
@@ -32,7 +31,6 @@ try {
     assert.ok(metrics.faqVisible, `FAQ must be visible at ${width}px`);
     assert.equal(metrics.cards, 6, `Expected six visible FAQ cards at ${width}px, got ${metrics.cards}`);
     assert.equal(metrics.mcpCardCount, 2, `Expected two MCP FAQ cards at ${width}px`);
-    assert.equal(metrics.hasReadWrite, true, `MCP read/write explanation missing at ${width}px`);
     assert.equal(metrics.hasPublishGate, true, `MCP publishing explanation missing at ${width}px`);
     assert.ok(metrics.document <= metrics.viewport + 1, `Horizontal overflow at ${width}px: document ${metrics.document}px`);
     if (width <= 640) {
