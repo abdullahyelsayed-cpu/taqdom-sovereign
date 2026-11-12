@@ -366,7 +366,7 @@ async function hashPasswordEdge(password, storedSalt) {
 
   return {
     hash,
-    salt: `${PBKDF2_SALT_PREFIX}${iterations}${saltHex}`,
+    salt: PBKDF2_SALT_PREFIX + iterations + "$" + saltHex,
   };
 }
 
