@@ -596,12 +596,41 @@ async function handleApiRequest(request, url, env) {
   const { pathname, searchParams } = url;
   const isSecure = url.protocol === "https:";
   const origin = request.headers.get("origin");
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method) && origin && origin !== url.origin) {
+  const isWriteMethod = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method);
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (
+    isWriteMethod &&
+    ((origin && origin !== url.origin) || (!origin && fetchSite === "cross-site"))
+  ) {
     return jsonResponse({ error: "Cross-origin request rejected" }, 403);
   }
+
+  const rateProfiles = {
+    "GET:/api/username/check": ["username-check", 80, 60_000],
+    "POST:/api/auth/register": ["register-ip", 5, 60 * 60 * 1000],
+    "POST:/api/auth/login": ["login-ip", 12, 15 * 60 * 1000],
+    "POST:/api/auth/test-login": ["demo-login", 12, 15 * 60 * 1000],
+    "POST:/api/auth/settings": ["account-settings", 12, 60 * 60 * 1000],
+    "DELETE:/api/auth/settings": ["account-delete", 3, 60 * 60 * 1000],
+    "POST:/api/upload": ["upload", 20, 60 * 60 * 1000],
+    "POST:/api/views": ["views", 180, 60_000],
+    "POST:/api/portfolio/publish": ["publish", 20, 60 * 60 * 1000],
+    "DELETE:/api/portfolio/publish": ["unpublish", 10, 60 * 60 * 1000],
+  };
+  const profile = rateProfiles[`${request.method}:${pathname}`];
+  if (profile) {
+    const [scope, limit, windowMs] = profile;
+    const rateResponse = await enforceRateLimit(request, env, scope, limit, windowMs);
+    if (rateResponse) return rateResponse;
+  }
+
   const session = await parseSessionFromRequest(request, env);
+  const sessionName = normalizeUsername(String(session?.username || ""));
+  const readOnlySession = Boolean(session?.isTestAccount || SEED_PORTFOLIOS[sessionName]);
   const ownsUsername = (username) =>
-    Boolean(session?.username) && session.username === normalizeUsername(username);
+    Boolean(session?.username) &&
+    !readOnlySession &&
+    session.username === normalizeUsername(username);
   const unauthorized = () =>
     jsonResponse({ error: "يجب تسجيل الدخول أولاً / Authentication required" }, 401);
   const forbidden = () =>
@@ -642,8 +671,10 @@ async function handleApiRequest(request, url, env) {
   }
 
   if (pathname === "/api/auth/test-login" && request.method === "POST") {
-    const fresh = structuredClone(SEED_PORTFOLIOS.layla);
-    await savePortfolioToD1AndMemory(env, fresh, true);
+    const fresh = await getPublishedPortfolioFromD1(env, "layla");
+    if (!fresh) {
+      return jsonResponse({ error: "Demo portfolio is temporarily unavailable." }, 503);
+    }
     const userPayload = {
       id: "user-layla",
       email: "layla@taqdom.me",
@@ -656,6 +687,7 @@ async function handleApiRequest(request, url, env) {
         ok: true,
         user: userPayload,
         portfolio: fresh,
+        readOnly: true,
       },
       200,
       {
