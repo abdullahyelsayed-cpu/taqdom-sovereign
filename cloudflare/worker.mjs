@@ -697,12 +697,19 @@ async function handleApiRequest(request, url, env) {
   }
 
   if (pathname === "/api/auth/register" && request.method === "POST") {
-    const body = await request.json().catch(() => ({}));
+    const parsed = await parseJsonBody(request, 32768);
+    if (!parsed.ok) return rateLimitBodyError(parsed);
+    const body = parsed.value;
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
     const val = validateUsername(String(body.username || ""));
+    const displayName = String(body.displayName || "").trim().slice(0, 80);
+    const requestedTemplate = String(body.template || "haven");
+    const template = TEMPLATES_CATALOG.some((item) => item.slug === requestedTemplate)
+      ? requestedTemplate
+      : "haven";
 
-    if (!email || !email.includes("@")) {
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/u.test(email) || email.length > 254) {
       return jsonResponse(
         { error: "يرجى إدخال بريد إلكتروني صحيح / Valid email required" },
         400
@@ -711,39 +718,39 @@ async function handleApiRequest(request, url, env) {
     if (!val.valid) {
       return jsonResponse({ error: val.reasonAr || val.reasonEn || "Invalid username" }, 400);
     }
-    if (password.length < 6) {
+    if (password.length < 15 || password.length > 128) {
       return jsonResponse(
-        { error: "كلمة المرور يجب أن تكون ٦ أحرف على الأقل / Password min 6 chars" },
+        { error: "استخدم عبارة مرور من 15 إلى 128 حرفًا / Passwords must be 15–128 characters." },
         400
       );
     }
-
     if (SEED_PORTFOLIOS[val.normalized]) {
       return jsonResponse(
         { error: "هذا النطاق مستخدم لحساب عرض رسمي / Reserved showcase username" },
         409
       );
     }
-    if (env.DB) {
-      const existingRow = await env.DB.prepare(
-        "SELECT username, email FROM users WHERE username = ?1 OR LOWER(email) = ?2"
-      )
-        .bind(val.normalized, email)
-        .first()
-        .catch(() => null);
+    if (!env.DB) {
+      return jsonResponse({ error: "Account storage is temporarily unavailable." }, 503);
+    }
 
-      if (existingRow && existingRow.username === val.normalized) {
-        return jsonResponse(
-          { error: "هذا الاسم محجوز بالفعل لمبدع آخر / Username already taken" },
-          409
-        );
-      }
-      if (existingRow && existingRow.email?.toLowerCase() === email) {
-        return jsonResponse(
-          { error: "البريد الإلكتروني مسجل بالفعل / Email already registered" },
-          409
-        );
-      }
+    const existingRow = await env.DB.prepare(
+      "SELECT username, email FROM users WHERE username = ?1 OR LOWER(email) = ?2"
+    )
+      .bind(val.normalized, email)
+      .first();
+
+    if (existingRow && existingRow.username === val.normalized) {
+      return jsonResponse(
+        { error: "هذا الاسم محجوز بالفعل لمبدع آخر / Username already taken" },
+        409
+      );
+    }
+    if (existingRow && existingRow.email?.toLowerCase() === email) {
+      return jsonResponse(
+        { error: "البريد الإلكتروني مسجل بالفعل / Email already registered" },
+        409
+      );
     }
 
     const { hash, salt } = await hashPasswordEdge(password);
@@ -754,15 +761,14 @@ async function handleApiRequest(request, url, env) {
       passwordHash: hash,
       salt,
     };
-    edgeStore.users[val.normalized] = userObj;
-
     const starter = createStarterPortfolio(
       val.normalized,
-      body.template || "haven",
-      body.displayName || val.normalized
+      template,
+      displayName || val.normalized
     );
     starter.email = email;
     await savePortfolioToD1AndMemory(env, starter, true, userObj);
+    edgeStore.users[val.normalized] = userObj;
 
     const sessionPayload = {
       id: userObj.id,
@@ -787,44 +793,46 @@ async function handleApiRequest(request, url, env) {
   }
 
   if (pathname === "/api/auth/login" && request.method === "POST") {
-    const body = await request.json().catch(() => ({}));
+    const parsed = await parseJsonBody(request, 32768);
+    if (!parsed.ok) return rateLimitBodyError(parsed);
+    const body = parsed.value;
     const identifier = String(body.identifier || body.email || body.username || "")
       .trim()
-      .toLowerCase();
+      .toLowerCase()
+      .slice(0, 254);
     const password = String(body.password || "");
 
-    if (!identifier) {
-      return jsonResponse({ error: "يرجى إدخال اسم المستخدم أو البريد الإلكتروني" }, 400);
+    if (!identifier || !password || password.length > 128) {
+      return jsonResponse({ error: "بيانات الدخول غير صحيحة / Invalid credentials" }, 401);
     }
 
-    let dbUser = null;
-    if (env.DB) {
-      dbUser = await env.DB.prepare(
-        "SELECT id, email, username, password_hash, salt FROM users WHERE LOWER(username) = ?1 OR LOWER(email) = ?1"
-      )
-        .bind(identifier)
-        .first()
-        .catch(() => null);
+    const identityLimit = await enforceRateLimit(
+      request,
+      env,
+      "login-identity",
+      6,
+      15 * 60 * 1000,
+      identifier,
+      false
+    );
+    if (identityLimit) return identityLimit;
+    if (!env.DB) {
+      return jsonResponse({ error: "Account storage is temporarily unavailable." }, 503);
     }
 
-    if (!dbUser) {
-      for (const u of Object.values(edgeStore.users)) {
-        if (u.username === identifier || u.email === identifier) {
-          dbUser = {
-            id: u.id,
-            email: u.email,
-            username: u.username,
-            password_hash: u.passwordHash,
-            salt: u.salt,
-          };
-          break;
-        }
-      }
-    }
+    const dbUser = await env.DB.prepare(
+      "SELECT id, email, username, password_hash, salt FROM users WHERE LOWER(username) = ?1 OR LOWER(email) = ?1"
+    )
+      .bind(identifier)
+      .first();
 
     if (!dbUser) {
+      await hashPasswordEdge(
+        password,
+        "pbkdf2-sha256$600000$000102030405060708090a0b0c0d0e0f"
+      );
       return jsonResponse(
-        { error: "الحساب غير موجود. يمكنك إنشاء حساب جديد أو معاينة الحساب الموثق." },
+        { error: "بيانات الدخول غير صحيحة / Invalid credentials" },
         401
       );
     }
@@ -833,22 +841,39 @@ async function handleApiRequest(request, url, env) {
       dbUser.password_hash === "seeded-pbkdf2" ||
       dbUser.password_hash === "seeded" ||
       dbUser.password_hash === "d1-hash";
-
     if (isSeededHash) {
-      return jsonResponse(
-        {
-          error: "هذا حساب عرض تجريبي. استخدم زر «معاينة الحساب التجريبي» من صفحة الدخول.",
-        },
-        403
-      );
-    }
-
-    const { hash } = await hashPasswordEdge(password, dbUser.salt);
-    if (!password || hash !== dbUser.password_hash) {
       return jsonResponse(
         { error: "بيانات الدخول غير صحيحة / Invalid credentials" },
         401
       );
+    }
+
+    let passwordMatches = false;
+    try {
+      const { hash } = await hashPasswordEdge(password, dbUser.salt);
+      passwordMatches = constantTimeStringEqual(hash, dbUser.password_hash);
+    } catch {
+      passwordMatches = false;
+    }
+    if (!passwordMatches) {
+      return jsonResponse(
+        { error: "بيانات الدخول غير صحيحة / Invalid credentials" },
+        401
+      );
+    }
+
+    // Opportunistically upgrade legacy 100k-iteration hashes after a successful login.
+    if (!String(dbUser.salt || "").startsWith(PBKDF2_SALT_PREFIX)) {
+      const upgraded = await hashPasswordEdge(password);
+      await env.DB.prepare(
+        "UPDATE users SET password_hash = ?1, salt = ?2 WHERE username = ?3"
+      )
+        .bind(upgraded.hash, upgraded.salt, dbUser.username)
+        .run();
+      if (edgeStore.users[dbUser.username]) {
+        edgeStore.users[dbUser.username].passwordHash = upgraded.hash;
+        edgeStore.users[dbUser.username].salt = upgraded.salt;
+      }
     }
 
     const portfolio =
@@ -861,7 +886,7 @@ async function handleApiRequest(request, url, env) {
       userId: dbUser.id,
       email: dbUser.email,
       username: dbUser.username,
-      isTestAccount: dbUser.username === "layla",
+      isTestAccount: Boolean(SEED_PORTFOLIOS[normalizeUsername(dbUser.username)]),
     };
     const token = await signEdgeSession(sessionPayload, env?.AUTH_SECRET);
 
