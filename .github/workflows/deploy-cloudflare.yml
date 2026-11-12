@@ -75,6 +75,9 @@ jobs:
       - name: Package Cloudflare assets
         run: pnpm build:cloudflare
 
+      - name: Install Chromium for responsive browser verification
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Run local end-to-end API and publishing verification
         env:
           AUTH_SECRET: "taqdom-ci-only-not-a-production-secret-00000000000000000000"
@@ -96,6 +99,7 @@ jobs:
             exit 1
           fi
           node scripts/verify-taqdom.mjs
+          node scripts/verify-responsive.mjs
 
       - name: Verify session signing secret is already configured
         shell: bash
@@ -119,6 +123,9 @@ jobs:
           printf '%s' "$HOME_HTML" | grep -q 'عبدالله يحى'
           printf '%s' "$HOME_HTML" | grep -q 'linkedin.com/in/abdullah-yehia/'
           printf '%s' "$HOME_HTML" | grep -q 'مبادرة سفراء الذكاء الاصطناعي'
+          printf '%s' "$HOME_HTML" | grep -q 'MCP / AI TOOLS'
+          printf '%s' "$HOME_HTML" | grep -q 'publish_portfolio'
+          printf '%s' "$HOME_HTML" | grep -q 'OAuth 2.1'
           PORTRAIT_FILE="$(mktemp)"
           PORTRAIT_HEADERS="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" -D - -o "$PORTRAIT_FILE" https://taqdom.me/images/abdullah-yehia.svg)"
           printf '%s' "$PORTRAIT_HEADERS" | grep -qi '^content-type: image/svg+xml'
