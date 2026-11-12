@@ -525,7 +525,7 @@ export function TaqdomReimagined() {
           <div className="neo-founder-photo-wrap neo-reveal">
             <div className="neo-founder-photo-frame">
               <Image
-                src="/images/abdullah-yehia.webp"
+                src="/images/abdullah-yehia.svg"
                 alt={t(creator.nameAr, creator.nameEn)}
                 fill
                 sizes="(max-width: 760px) 84vw, 420px"
