@@ -44,6 +44,18 @@ const FAQS = [
     aEn: "Yes. The sign-in page includes a demo account to explore the dashboard, Studio, and templates before creating an account.",
   },
   {
+    qAr: "هل يدعم تَقَدُّم الاتصال عبر MCP للقراءة والكتابة باستخدام أدوات الذكاء الاصطناعي؟",
+    qEn: "Does Taqdom support MCP read and write access for AI tools?",
+    aAr: "نعم. يمكنك ربط معرضك من صفحة اتصالات MCP في لوحة التحكم بتطبيق متوافق مع MCP. يتيح الاتصال قراءة بيانات المعرض والملف الشخصي والمشاريع، وتعديل الملف الشخصي وإضافة المشاريع وتحديثها وحذفها. تُحفظ التغييرات في مسودة خاصة، ولا تظهر للزوار إلا بعد استدعاء أداة publish_portfolio صراحةً. لكل اتصال مفتاح مستقل يمكنك إلغاؤه في أي وقت.",
+    aEn: "Yes. Connect your portfolio from the MCP Connections page in your dashboard to an MCP-compatible AI app. The connection can read your portfolio, profile, and projects, and update your profile, create, edit, or delete projects. Changes are saved to a private draft and become public only after the publish_portfolio tool is explicitly called. Each connection has its own revocable token.",
+  },
+  {
+    qAr: "أين أجد رابط MCP ومفتاح الاتصال، وهل يمكنني التحكم في الوصول؟",
+    qEn: "Where do I find my MCP endpoint and token, and can I control access?",
+    aAr: "افتح لوحة التحكم ثم اتصالات MCP، وأنشئ اتصالًا جديدًا لعرض رابط MCP ومفتاح Bearer مرة واحدة. انسخ المفتاح واحفظه بأمان؛ لا يمكن عرضه مرة أخرى. يمكنك إنشاء حتى 10 اتصالات نشطة وإلغاء أي اتصال منفردًا. الاتصال الحالي يستخدم مفاتيح شخصية عبر HTTPS، ولا يعتمد OAuth 2.1 حتى الآن.",
+    aEn: "Open Dashboard → MCP Connections and create a connection to reveal its MCP endpoint and one-time Bearer token. Copy and store the token securely; it cannot be shown again. You can create up to 10 active connections and revoke each one independently. The current connection uses personal HTTPS bearer tokens and does not yet implement OAuth 2.1.",
+  },
+  {
     qAr: "هل يمكنني التبديل بين القوالب السبعة دون إعادة إدخال بياناتي؟",
     qEn: "Can I switch between the seven templates without re-entering my content?",
     aAr: "تستخدم القوالب هيكل بيانات موحدًا، ويمكن تغيير القالب من الاستوديو مع الاحتفاظ بمحتوى المعرض وفق الحقول التي يدعمها القالب المختار.",
