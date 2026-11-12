@@ -1,6 +1,7 @@
 // cloudflare/worker.mjs — Sovereign Edge Worker for taqdom.me & *.taqdom.me backed by Cloudflare D1
 import { SEED_PORTFOLIOS, createStarterPortfolio, TEMPLATES_CATALOG } from "../lib/seed-data.ts";
 import { RESERVED_USERNAMES, normalizeUsername, validateUsername } from "../lib/types.ts";
+import { handleMcpRequest, handleMcpTokenApi } from "./mcp.mjs";
 
 const APP_ROUTES = new Set([
   ...RESERVED_USERNAMES,
@@ -661,6 +662,7 @@ async function handleApiRequest(request, url, env) {
 
   const session = await parseSessionFromRequest(request, env);
   const sessionName = normalizeUsername(String(session?.username || ""));
+  if (pathname === "/api/mcp/tokens") return handleMcpTokenApi(request, url, env, session);
   const readOnlySession = Boolean(session?.isTestAccount || SEED_PORTFOLIOS[sessionName]);
   const ownsUsername = (username) =>
     Boolean(session?.username) &&
@@ -1431,6 +1433,9 @@ export default {
     const rawHost = request.headers.get("host") || url.host;
     const { root, sub } = parseHost(rawHost);
     const { pathname } = url;
+
+    const mcpMatch = pathname.match(/^\/mcp\/([a-z0-9-]{3,30})\/?$/i);
+    if (mcpMatch) return applySecurityHeaders(await handleMcpRequest(request, env, normalizeUsername(mcpMatch[1])));
 
     // 1. Handle API endpoints
     if (pathname.startsWith("/api/")) {
