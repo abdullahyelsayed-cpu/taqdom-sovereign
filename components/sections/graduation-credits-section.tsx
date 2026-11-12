@@ -98,15 +98,15 @@ export function GraduationCreditsSection() {
                 {t("صاحب المشروع", "PROJECT CREATOR")}
               </span>
               <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center">
-                <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-[1.45rem] border border-[#C89D66]/55 bg-secondary shadow-[0_14px_38px_rgba(0,0,0,.22)] sm:h-36 sm:w-36">
+                <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-full border border-[#C89D66]/55 bg-secondary shadow-[0_14px_38px_rgba(0,0,0,.22)] sm:h-36 sm:w-36">
                   <Image
-                    src="/images/abdullah-yehia.webp"
+                    src="/images/abdullah-yehia.svg"
                     alt={t("عبدالله يحى", "Abdullah Yehia")}
                     fill
                     priority
                     unoptimized
                     sizes="(max-width: 640px) 112px, 144px"
-                    className="object-cover"
+                    className="rounded-full object-cover"
                   />
                 </div>
                 <div className="min-w-0">
