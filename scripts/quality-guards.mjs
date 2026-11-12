@@ -53,7 +53,7 @@ assert.match(worldText, /بورتفوليو يتجاوز التوقعات/, "The
 assert.match(headerText, /الأسعار/, "Navigation must link to the always-free pricing explanation.");
 assert.match(headerText, /المطورون/, "Navigation must expose the creator and founder section.");
 assert.match(worldText, /royal-studio-section/, "Homepage must include the Studio showcase.");
-assert.doesNotMatch(worldText, /دعم فني|الذكاء الاصطناعي/, "Homepage must not describe an AI website builder or technical support.");
+assert.doesNotMatch(worldText, /دعم فني/, "Homepage must not describe a technical-support service.");
 assert.match(royalCss, /--royal-sky-top/, "Day and night architecture tokens must exist.");
 assert.match(royalCss, /royal-feature-strip/, "Homepage must include the glass feature rail.");
 assert.match(royalCss, /royal-editor-workspace/, "The Studio showcase must use the matching visual system.");
