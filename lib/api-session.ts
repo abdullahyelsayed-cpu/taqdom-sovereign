@@ -9,7 +9,9 @@ export async function getRequestSession(req: NextRequest): Promise<SessionPayloa
 }
 
 export function sessionOwnsUsername(session: SessionPayload | null, username: string): boolean {
-  return Boolean(session?.username) && normalizeUsername(session!.username) === normalizeUsername(username);
+  return Boolean(session?.username) &&
+    session?.isTestAccount !== true &&
+    normalizeUsername(session!.username) === normalizeUsername(username);
 }
 
 export function sameOriginWriteAllowed(req: NextRequest): boolean {
