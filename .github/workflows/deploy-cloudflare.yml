@@ -108,3 +108,15 @@ jobs:
 
       - name: Deploy Taqdom Worker and assets
         run: pnpm dlx wrangler@latest deploy --config wrangler.jsonc
+
+      - name: Verify live homepage, founder credit, portrait, and portfolio subdomain
+        shell: bash
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36"
+          HOME_HTML="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" https://taqdom.me/)"
+          printf '%s' "$HOME_HTML" | grep -q 'عبدالله يحى'
+          printf '%s' "$HOME_HTML" | grep -q 'linkedin.com/in/abdullah-yehia/'
+          printf '%s' "$HOME_HTML" | grep -q 'مبادرة سفراء الذكاء الاصطناعي'
+          curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" -o /dev/null https://taqdom.me/images/abdullah-yehia.webp
+          PROFILE_HTML="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" https://layla.taqdom.me/)"
+          printf '%s' "$PROFILE_HTML" | grep -q 'ProfilePage'
