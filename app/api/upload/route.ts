@@ -2,11 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveMediaInDb } from "@/lib/db";
 import { getRequestSession, sameOriginWriteAllowed } from "@/lib/api-session";
 
-const MAX_IMAGE_BYTES = 1_600_000;
+const MAX_IMAGE_BYTES = 1_400_000;
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function matchesRasterSignature(mime: string, bytes: Uint8Array): boolean {
+  if (mime === "image/jpeg") {
+    return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  }
+  if (mime === "image/png") {
+    const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    return bytes.length >= 8 && signature.every((byte, index) => bytes[index] === byte);
+  }
+  if (mime === "image/webp") {
+    return bytes.length >= 12 &&
+      String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
+      String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+  }
+  return false;
+}
 
 export async function POST(req: NextRequest) {
   try {
+    const contentLength = Number(req.headers.get("content-length") || 0);
+    if (contentLength > 1_950_000) {
+      return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+    }
     if (!sameOriginWriteAllowed(req)) {
       return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
     }
@@ -32,7 +52,7 @@ export async function POST(req: NextRequest) {
       }
       if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
         return NextResponse.json(
-          { error: "حجم الصورة يجب أن يكون بين 1 بايت و1.5 ميجا / Max file size is 1.5MB" },
+          { error: "حجم الصورة يجب أن يكون بين 1 بايت و1.4 ميجابايت / Max file size is 1.4MB" },
           { status: 413 }
         );
       }
@@ -41,8 +61,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Only JPG, PNG, and WebP images are allowed" }, { status: 415 });
       }
       size = file.size;
-      const bytes = Buffer.from(await file.arrayBuffer());
-      dataUrl = `data:${mime};base64,${bytes.toString("base64")}`;
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      if (!matchesRasterSignature(mime, bytes)) {
+        return NextResponse.json({ error: "Image bytes do not match the declared file type" }, { status: 415 });
+      }
+      dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
     } else {
       const body = await req.json();
       if (body.username && String(body.username).toLowerCase() !== session.username.toLowerCase()) {
@@ -54,10 +77,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Only valid JPG, PNG, and WebP data URLs are allowed" }, { status: 400 });
       }
       mime = match[1].toLowerCase();
-      size = Math.floor((match[2].length * 3) / 4);
+      const padding = match[2].endsWith("==") ? 2 : match[2].endsWith("=") ? 1 : 0;
+      size = Math.floor((match[2].length * 3) / 4) - padding;
+      const binary = Buffer.from(match[2], "base64");
+      if (!matchesRasterSignature(mime, binary)) {
+        return NextResponse.json({ error: "Image bytes do not match the declared file type" }, { status: 415 });
+      }
       if (size <= 0 || size > MAX_IMAGE_BYTES) {
         return NextResponse.json(
-          { error: "حجم الصورة يجب ألا يتجاوز 1.5 ميجا / Max file size is 1.5MB" },
+          { error: "حجم الصورة يجب ألا يتجاوز 1.4 ميجابايت / Max file size is 1.4MB" },
           { status: 413 }
         );
       }
@@ -78,7 +106,6 @@ export async function POST(req: NextRequest) {
         ok: true,
         key,
         url: `/api/media/${key}`,
-        dataUrl,
       },
       { headers: { "Cache-Control": "private, no-store" } }
     );

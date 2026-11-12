@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit production dependencies
+        run: pnpm audit --audit-level=high
+
       - name: Type-check
         run: pnpm typecheck
 
@@ -44,11 +47,35 @@ jobs:
       - name: Run source quality guards
         run: node scripts/quality-guards.mjs
 
+      - name: Syntax-check verification tools
+        run: |
+          node --check scripts/verify-taqdom.mjs
+          node --check scripts/e2e-browser.mjs
+
       - name: Build production app
         run: pnpm build
 
       - name: Package Cloudflare static assets
         run: pnpm build:cloudflare
+
+      - name: Run local end-to-end API and publishing verification
+        env:
+          AUTH_SECRET: "taqdom-ci-only-not-a-production-secret-00000000000000000000"
+          PORT: "3040"
+          BASE_URL: "http://localhost:3040"
+        shell: bash
+        run: |
+          pnpm start -- --hostname 127.0.0.1 --port 3040 > /tmp/taqdom-next.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3040/api/auth/me >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:3040/api/auth/me >/dev/null
+          node scripts/verify-taqdom.mjs
 
       - name: Upload Cloudflare deployment assets
         uses: actions/upload-artifact@v7

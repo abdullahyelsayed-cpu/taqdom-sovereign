@@ -129,6 +129,8 @@ function StudioContent() {
   const searchParams = useSearchParams();
 
   const draft = useTaqdomStore((s) => s.draft);
+  const user = useTaqdomStore((s) => s.user);
+  const isDemoReadOnly = Boolean(user?.isFlagshipAccount);
   const setDraft = useTaqdomStore((s) => s.setDraft);
   const switchTemplate = useTaqdomStore((s) => s.switchTemplate);
   const undo = useTaqdomStore((s) => s.undo);
@@ -239,6 +241,7 @@ function StudioContent() {
 
   // Keyboard shortcuts: Ctrl+Z (Undo), Ctrl+S (Save)
   useEffect(() => {
+    if (isDemoReadOnly) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -272,11 +275,11 @@ function StudioContent() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [undo, t]);
+  }, [undo, t, isDemoReadOnly]);
 
   // Debounced autosave is acknowledged by the server before the draft is marked saved.
   useEffect(() => {
-    if (!hasInteracted && pastDrafts.length === 0) return;
+    if (isDemoReadOnly || (!hasInteracted && pastDrafts.length === 0)) return;
     const snapshot = structuredClone(draft);
     const timer = window.setTimeout(async () => {
       useTaqdomStore.setState({ saveStatus: "saving" });
@@ -300,9 +303,13 @@ function StudioContent() {
       }
     }, 800);
     return () => window.clearTimeout(timer);
-  }, [draft, hasInteracted, pastDrafts.length]);
+  }, [draft, hasInteracted, pastDrafts.length, isDemoReadOnly]);
 
   const handlePublish = async () => {
+    if (isDemoReadOnly) {
+      toast.info(t("حساب المعاينة للعرض فقط؛ سجّل حسابك لحفظ أو نشر بورتفوليو خاص بك.", "The demo is read-only. Create your own account to save or publish."));
+      return;
+    }
     setPublishing(true);
     try {
       const published = await publishCurrentDraft();
@@ -336,6 +343,10 @@ function StudioContent() {
   };
 
   const handleUnpublish = async () => {
+    if (isDemoReadOnly) {
+      toast.info(t("حساب المعاينة للعرض فقط.", "The demo account is read-only."));
+      return;
+    }
     try {
       const res = await fetch(`/api/portfolio/publish?u=${encodeURIComponent(draft.username)}`, {
         method: "DELETE",
@@ -408,31 +419,54 @@ function StudioContent() {
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (isDemoReadOnly) {
+      toast.info(t("حساب المعاينة للعرض فقط.", "The demo account is read-only."));
+      e.target.value = "";
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error(t("استخدم صورة JPG أو PNG أو WebP فقط.", "Choose a JPG, PNG, or WebP image."));
+      e.target.value = "";
+      return;
+    }
+    if (file.size <= 0 || file.size > 1_400_000) {
+      toast.error(t("الحد الأقصى للصورة 1.4 ميجابايت حتى يتم حفظها بأمان.", "Images must be 1.4 MB or smaller for reliable storage."));
+      e.target.value = "";
+      return;
+    }
+
     setHasInteracted(true);
     const reader = new FileReader();
+    reader.onerror = () => {
+      toast.error(t("تعذرت قراءة الصورة.", "Could not read the image."));
+      e.target.value = "";
+    };
     reader.onload = async () => {
-      if (typeof reader.result === "string") {
-        const dataUrl = reader.result;
-        onLoaded(dataUrl);
-        try {
-          const res = await fetch("/api/upload", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              dataUrl,
-              mime: file.type || "image/webp",
-              username: draft.username,
-            }),
-          });
-          if (res.ok) {
-            const uploaded = await res.json();
-            if (uploaded?.dataUrl) {
-              onLoaded(uploaded.dataUrl);
-            }
-          }
-        } catch {
-          // Keep local dataUrl
+      if (typeof reader.result !== "string") {
+        toast.error(t("تعذرت قراءة الصورة.", "Could not read the image."));
+        e.target.value = "";
+        return;
+      }
+      try {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            dataUrl: reader.result,
+            mime: file.type,
+            username: draft.username,
+          }),
+        });
+        const uploaded = await response.json().catch(() => null);
+        if (!response.ok || !uploaded?.url) {
+          throw new Error(uploaded?.error || t("تعذر حفظ الصورة. حاول مرة أخرى.", "Image upload failed. Please try again."));
         }
+        onLoaded(uploaded.url);
+        toast.success(t("تم رفع الصورة وحفظها.", "Image uploaded and saved."));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : t("تعذر رفع الصورة.", "Could not upload image."));
+      } finally {
+        e.target.value = "";
       }
     };
     reader.readAsDataURL(file);
@@ -549,8 +583,8 @@ function StudioContent() {
       toast.error(t("استخدم صورة JPG أو PNG أو WebP.", "Choose a JPG, PNG, or WebP image."));
       return;
     }
-    if (file.size > 1_500_000) {
-      toast.error(t("الحد الأقصى لصورة الخلفية 1.5 ميجابايت.", "Background images must be 1.5 MB or smaller."));
+    if (file.size > 1_400_000) {
+      toast.error(t("الحد الأقصى لصورة الخلفية 1.4 ميجابايت.", "Background images must be 1.4 MB or smaller."));
       return;
     }
     setBackgroundUploading(true);
@@ -754,6 +788,12 @@ function StudioContent() {
           </div>
         )}
       </header>
+
+      {isDemoReadOnly && (
+        <div role="status" className="mx-4 mt-3 rounded-xl border border-[#C89D66]/35 bg-[#C89D66]/10 px-4 py-3 text-sm text-foreground">
+          {t("أنت في وضع المعاينة فقط. يمكنك استكشاف الاستوديو، لكن لن يتم حفظ أي تعديل ولن تتأثر بيانات نموذج العرض المنشور.", "You are in read-only preview mode. Explore the Studio, but changes are not saved and the published showcase stays protected.")}
+        </div>
+      )}
 
       {/* Main Split Workspace: Side Editor + Live Center Stage */}
       <div className="studio-workspace-grid flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-64px)]">

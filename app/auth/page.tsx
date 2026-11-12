@@ -65,6 +65,8 @@ export default function AuthPage() {
         )
       );
       router.push("/dashboard");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("تعذر فتح حساب المعاينة.", "Could not open the demo preview."));
     } finally {
       setLoading(false);
     }
@@ -76,6 +78,11 @@ export default function AuthPage() {
     const val = validateUsername(clean);
     if (!val.valid) {
       toast.error(t(val.reasonAr || "اسم غير صالح", val.reasonEn || "Invalid username"));
+      return;
+    }
+
+    if (password.length < 15 || password.length > 128) {
+      toast.error(t("كلمة المرور يجب أن تكون من 15 إلى 128 حرفًا.", "Use a passphrase between 15 and 128 characters."));
       return;
     }
 
@@ -345,11 +352,12 @@ export default function AuthPage() {
                     <input
                       type="password"
                       required
-                      minLength={6}
+                      minLength={15}
+                      maxLength={128}
                       dir="ltr"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="•••••••••••••••"
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm"
                     />
                   </div>

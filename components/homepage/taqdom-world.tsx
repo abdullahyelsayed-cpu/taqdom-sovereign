@@ -22,6 +22,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
+import { GraduationCreditsSection } from "@/components/sections/graduation-credits-section";
 
 const templateCards = [
   { id: "madar", ar: "مَدَار", en: "Orbit", useAr: "التقنية والمنتجات الرقمية", useEn: "Technology & digital products", image: "/images/ultra/madar-1.webp" },
@@ -259,6 +260,7 @@ export function TaqdomWorldExperience() {
         <section className="royal-final-cta">
           <div className="royal-container royal-final-cta-inner"><div><span className="royal-section-kicker">{t("ابدأ في أي وقت", "START WHENEVER YOU ARE READY")}</span><h2>{t("مكان شغلك مستنيك.", "Your work deserves a home.")}</h2><p>{t("ابنِ بورتفوليوك المجاني وابدأ شارك رحلتك.", "Build your free portfolio and share your journey.")}</p></div><Link href="/auth" className="royal-button royal-button-dark">{t("أنشئ بورتفوليوك الآن", "Create your portfolio")}<Arrow size={17} /></Link></div>
         </section>
+        <GraduationCreditsSection />
       </main>
 
       <footer className="royal-footer">

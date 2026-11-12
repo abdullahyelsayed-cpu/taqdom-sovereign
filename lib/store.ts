@@ -109,6 +109,9 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
       },
 
       publishCurrentDraft: async () => {
+        if (get().user?.isFlagshipAccount) {
+          throw new Error("حساب المعاينة للعرض فقط ولا يمكن حفظ أو نشر تعديلاته.");
+        }
         set({ saveStatus: "saving" });
         const current = structuredClone(get().draft);
         current.publishedAt = Date.now();
@@ -146,17 +149,15 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
       },
 
       loginFlagshipShowcase: async () => {
-        const fresh = structuredClone(SEED_PORTFOLIOS.layla);
-        try {
-          await fetch("/api/auth/test-login", { method: "POST" });
-        } catch {
-          // Ignore network error
+        const response = await fetch("/api/auth/test-login", { method: "POST" });
+        const result = await response.json().catch(() => null);
+        if (!response.ok || !result?.ok || !result?.user?.isTestAccount || !result?.portfolio) {
+          throw new Error(result?.error || "تعذر فتح حساب المعاينة الآمن.");
         }
+        const fresh = structuredClone(result.portfolio as PortfolioData);
         set((state) => ({
           user: {
-            id: "user-layla",
-            email: "layla@taqdom.me",
-            username: "layla",
+            ...result.user,
             isFlagshipAccount: true,
           },
           draft: structuredClone(fresh),

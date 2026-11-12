@@ -120,7 +120,7 @@ const rootJsonLd = {
       name: "تَقَدُّم | Taqdom",
       url: "https://taqdom.me",
       logo: "https://taqdom.me/icon.svg",
-      founder: { "@type": "Person", name: "عبدالله يحى", alternateName: "Abdullah Yehia" },
+      founder: { "@type": "Person", name: "عبدالله يحى", alternateName: "Abdullah Yehia", image: "https://taqdom.me/images/abdullah-yehia.webp", sameAs: ["https://www.linkedin.com/in/abdullah-yehia/", "https://github.com/abdullahyelsayed-cpu"] },
       sameAs: ["https://github.com/abdullahyelsayed-cpu/taqdom-sovereign"],
     },
     {

@@ -44,7 +44,7 @@ import {
   BarChart3,
   MessageCircle,
 } from "lucide-react";
-import { CanvasSectionId, PortfolioData, PortfolioProject, getSubdomainUrl } from "@/lib/types";
+import { CanvasSectionId, PortfolioData, PortfolioProject, getSubdomainUrl, safePortfolioUrl } from "@/lib/types";
 import { TaqdomLogo } from "@/components/brand/taqdom-logo";
 
 interface PortfolioRendererProps {
@@ -455,9 +455,9 @@ export function PortfolioRenderer({
                     {data.links.map((lk, idx) => (
                       <a
                         key={idx}
-                        href={lk.url}
+                        href={safePortfolioUrl(lk.url)}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-xl border border-[#F4F1EA]/12 bg-[#181815] px-3.5 py-2 font-mono text-xs font-medium text-[#F4F1EA] hover:border-[#C89D66] hover:text-[#C89D66] transition"
                       >
                         <span>{lk.label}</span>
@@ -830,7 +830,7 @@ export function PortfolioRenderer({
                   {data.links.map((l, i) => (
                     <a
                       key={i}
-                      href={l.url}
+                      href={safePortfolioUrl(l.url)}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-full border border-[#F4F1EA]/20 bg-black/60 px-4 py-1.5 text-xs font-semibold text-[#F4F1EA] hover:border-[#C89D66] transition"

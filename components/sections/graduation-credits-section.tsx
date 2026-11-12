@@ -30,18 +30,18 @@ export function GraduationCreditsSection() {
         <div className="mb-12 max-w-3xl">
           <span className="mb-3 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[.22em] text-[#C89D66]">
             <Sparkles className="h-3.5 w-3.5" />
-            {t("المحطة الختامية • المشروع وصاحبه", "THE CLOSING NOTE • PROJECT & AUTHOR")}
+            {t("مشروع التخرّج • رحلة تعلّم وأثر", "GRADUATION PROJECT • LEARNING & IMPACT")}
           </span>
           <h2
             id="graduation-project-title"
             className="arabic-diacritics text-3xl font-bold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl"
           >
-            {t("فكرة تتقدّم… وأثر يستحق أن يُرى.", "A considered idea. A digital presence built to last.")}
+            {t("من فكرة تعلّم… إلى أثر رقمي يصنعه الجميع.", "From learning to a digital experience anyone can make their own.")}
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-8 text-muted-foreground sm:text-base">
             {t(
-              "خاتمة توثّق سياق المشروع والرحلة التعليمية التي انطلق منها، وتعرّف بصاحب العمل.",
-              "A final note documenting the project's learning context and introducing its creator."
+              "هذا مشروع تخرّجي ضمن مبادرة سفراء الذكاء الاصطناعي، ويوثّق ما تعلّمته وما نفّذته خلال الرحلة.",
+              "This is my graduation project within the AI Ambassadors Initiative, documenting what I learned and built throughout the programme."
             )}
           </p>
         </div>
@@ -61,8 +61,8 @@ export function GraduationCreditsSection() {
             </h3>
             <p className="max-w-xl text-sm leading-8 text-[#C7C3BA] sm:text-base">
               {t(
-                "منصة لبناء الهوية الرقمية ومعارض الأعمال، تجمع بين العرض الاحترافي، والقوالب المتخصصة، ومساحة رقمية تحمل اسم صاحبها.",
-                "A platform for digital identities and professional portfolios, bringing together focused templates, thoughtful presentation, and a personal web address."
+                "تقدّم مساحة تمنح كل شخص فرصة إنشاء بورتفوليو شخصي متكامل، يعرض مهاراته ومشاريعه وإنجازاته، برابط يحمل اسمه — مجاني دائمًا، وفي أي وقت.",
+                "Taqdom gives everyone a complete personal portfolio to showcase skills, projects, and achievements on a link with their name — free forever, whenever they need it."
               )}
             </p>
             <div className="mt-8 border-t border-white/10 pt-5">
@@ -79,7 +79,7 @@ export function GraduationCreditsSection() {
                 {t("الدفعة الثانية عشرة • المستوى الأساسي", "Batch 12 • Foundation Level")}
               </p>
               <a
-                href="https://www.nti.sci.eg/"
+                href="https://www.nti.sci.eg/ai-ambassadors/"
                 target="_blank"
                 rel="noreferrer"
                 className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-[#E2C18D] underline-offset-4 hover:underline"
@@ -161,57 +161,35 @@ export function GraduationCreditsSection() {
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
             <div>
-              <p className="mb-2 text-sm font-bold text-foreground">
-                {t("مدرّب البرنامج", "PROGRAM INSTRUCTOR")}
-              </p>
-              <p className="text-sm leading-7 text-muted-foreground">
-                {t(
-                  "خالص الشكر على الشرح الواضح، والتوجيه العملي، وما قُدّم من دعم طوال الرحلة التدريبية.",
-                  "Sincere thanks for the clear teaching, practical guidance, and support throughout the learning journey."
-                )}
-              </p>
+              <p className="mb-2 text-sm font-bold text-foreground">{t("مبادرة سفراء الذكاء الاصطناعي", "AI Ambassadors Initiative")}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{t("كل الشكر للقائمين على المبادرة لإتاحة فرصة التعلّم والتطبيق العملي، وتحويل المعرفة إلى مشروع قابل للاستخدام.", "Thanks to everyone behind the initiative for creating a space to learn, practise, and turn knowledge into a usable project.")}</p>
+              <a href="https://www.nti.sci.eg/ai-ambassadors/" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#C89D66] underline-offset-4 hover:underline">{t("صفحة البرنامج الرسمية", "Official programme page")}</a>
             </div>
             <div>
-              <p className="mb-2 text-sm font-bold text-foreground">
-                {t("المعهد القومي للاتصالات (NTI)", "National Telecommunication Institute (NTI)")}
-              </p>
-              <p className="text-sm leading-7 text-muted-foreground">
-                {t(
-                  "تقدير لدوره في تنمية المهارات الرقمية وإتاحة مسارات تدريبية تطبيقية، بقيادة الأستاذ الدكتور أحمد خطاب، مدير المعهد.",
-                  "With appreciation for its digital-skills and applied-training programmes, under the direction of Prof. Ahmed Khattab, NTI Director."
-                )}
-              </p>
-              <a href="https://www.nti.sci.eg/about_nti.html" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#C89D66] underline-offset-4 hover:underline">
-                {t("الموقع الرسمي", "Official website")}
-              </a>
+              <p className="mb-2 text-sm font-bold text-foreground">{t("المعهد القومي للاتصالات (NTI)", "National Telecommunication Institute (NTI)")}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{t("تقدير لدوره في تنظيم وتقديم البرنامج التدريبي وإتاحة محتوى تطبيقي يساعد المشاركين على تطوير مهاراتهم الرقمية.", "With appreciation for organising and delivering the programme and providing practical learning that helps participants grow their digital skills.")}</p>
+              <a href="https://www.nti.sci.eg/" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#C89D66] underline-offset-4 hover:underline">{t("الموقع الرسمي", "Official website")}</a>
             </div>
             <div>
-              <p className="mb-2 text-sm font-bold text-foreground">
-                {t("الجهاز القومي لتنظيم الاتصالات (NTRA)", "National Telecommunications Regulatory Authority (NTRA)")}
-              </p>
-              <p className="text-sm leading-7 text-muted-foreground">
-                {t(
-                  "تقدير لدوره في تنظيم قطاع الاتصالات ودعم بيئة رقمية موثوقة ومبتكرة، بقيادة المهندس محمد شمروخ، الرئيس التنفيذي للجهاز.",
-                  "With appreciation for its work to regulate the telecommunications sector and support a trusted digital environment, under Eng. Mohamed Shamroukh, Executive President."
-                )}
-              </p>
-              <a href="https://www.tra.gov.eg/" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#C89D66] underline-offset-4 hover:underline">
-                {t("الموقع الرسمي", "Official website")}
-              </a>
+              <p className="mb-2 text-sm font-bold text-foreground">{t("الجهاز القومي لتنظيم الاتصالات (NTRA)", "National Telecom Regulatory Authority (NTRA)")}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{t("خالص التقدير للجهاز القومي لتنظيم الاتصالات على دوره في تطوير قطاع الاتصالات ودعم البيئة الرقمية في مصر، بما يفتح آفاقًا أوسع للتعلّم والابتكار.", "With appreciation to NTRA for its role in developing Egypt’s telecommunications sector and digital environment, helping create wider opportunities for learning and innovation.")}</p>
+              <a href="https://www.tra.gov.eg/" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#C89D66] underline-offset-4 hover:underline">{t("الموقع الرسمي", "Official website")}</a>
             </div>
             <div>
-              <p className="mb-2 text-sm font-bold text-foreground">
-                {t("فخامة الرئيس عبد الفتاح السيسي", "H.E. President Abdel Fattah El-Sisi")}
-              </p>
-              <p className="text-sm leading-7 text-muted-foreground">
-                {t(
-                  "تقديرًا للاهتمام ببناء الإنسان المصري، وتنمية القدرات، ودعم مسارات التحول الرقمي.",
-                  "In recognition of the national focus on human-capital development, skills, and digital transformation."
-                )}
-              </p>
-              <a href="https://www.presidency.eg/" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-[#C89D66] underline-offset-4 hover:underline">
-                {t("الموقع الرسمي لرئاسة الجمهورية", "Official Presidency website")}
-              </a>
+              <p className="mb-2 text-sm font-bold text-foreground">{t("تقدير للجهود الوطنية", "National efforts")}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{t("كل التقدير لفخامة الرئيس عبد الفتاح السيسي على الاهتمام بتمكين الشباب، وبناء القدرات الرقمية، ودعم مسارات التحول الرقمي والذكاء الاصطناعي في مصر.", "With appreciation to President Abdel Fattah El-Sisi for the national focus on youth empowerment, digital skills, and Egypt’s digital transformation and artificial intelligence priorities.")}</p>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-bold text-foreground">{t("مؤسسة مهندسون من أجل مصر المستدامة", "Engineers for a Sustainable Egypt Foundation")}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{t("الشكر والتقدير لمشاركتها في دعم المبادرة ونشر الوعي بالذكاء الاصطناعي وإتاحة فرص التعلّم والتأهيل.", "With thanks for its partnership in supporting the initiative and expanding access to AI awareness and learning.")}</p>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-bold text-foreground">{t("المدربون والمشرفون", "Instructors & mentors")}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{t("خالص الامتنان على الشرح الواضح، والتوجيه العملي، والملاحظات البنّاءة التي ساعدت على تطوير الفكرة وتحسين تنفيذها.", "Sincere thanks for the clear teaching, practical guidance, and constructive feedback that helped shape and improve the work.")}</p>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-bold text-foreground">{t("زملاء الدفعة والداعمون", "Fellow participants & supporters")}</p>
+              <p className="text-sm leading-7 text-muted-foreground">{t("شكرًا لكل زميل شارك معرفة أو فكرة أو تشجيعًا، ولكل من ساندني خلال رحلة التعلّم والعمل على المشروع.", "Thank you to every fellow participant who shared knowledge, ideas, or encouragement, and to everyone who supported me throughout this journey.")}</p>
             </div>
           </div>
           <p className="mt-7 border-t border-border/70 pt-5 text-xs leading-6 text-muted-foreground">

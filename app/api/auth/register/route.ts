@@ -36,9 +36,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (password.length < 6) {
+    if (password.length < 15 || password.length > 128) {
       return NextResponse.json(
-        { error: "كلمة المرور يجب أن تكون ٦ أحرف على الأقل / Password min 6 chars" },
+        { error: "استخدم عبارة مرور من 15 إلى 128 حرفًا / Passwords must be 15–128 characters." },
         { status: 400 }
       );
     }

@@ -60,7 +60,7 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store",
       ...extraHeaders,
     },
   });
@@ -70,7 +70,16 @@ function applySecurityHeaders(response) {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("X-Permitted-Cross-Domain-Policies", "none");
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  headers.set("Cross-Origin-Resource-Policy", "same-site");
+  headers.set(
+    "Content-Security-Policy-Report-Only",
+    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; upgrade-insecure-requests"
+  );
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -78,11 +87,256 @@ function applySecurityHeaders(response) {
   });
 }
 
-async function hashPasswordEdge(password, saltHex) {
+let rateLimitSchemaPromise = null;
+let rateLimitSigningKeyPromise = null;
+let lastRateLimitCleanup = 0;
+
+async function parseJsonBody(request, maxBytes = 65536) {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength) {
+    const declared = Number(contentLength);
+    if (!Number.isSafeInteger(declared) || declared < 0 || declared > maxBytes) {
+      return { ok: false, status: 413 };
+    }
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) return { ok: true, value: {} };
+  const chunks = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return { ok: false, status: 413 };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { ok: false, status: 400 };
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    const value = JSON.parse(new TextDecoder().decode(bytes));
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return { ok: false, status: 400 };
+    }
+    return { ok: true, value };
+  } catch {
+    return { ok: false, status: 400 };
+  }
+}
+
+async function enforceRateLimit(request, env, scope, limit, windowMs, subject = "", includeIp = true) {
+  if (!env?.DB || typeof env?.AUTH_SECRET !== "string" || env.AUTH_SECRET.length < 32) {
+    return jsonResponse(
+      { error: "الحماية المؤقتة غير متاحة الآن. حاول بعد قليل / Security service temporarily unavailable." },
+      503,
+      { "Retry-After": "30" }
+    );
+  }
+
+  try {
+    if (!rateLimitSchemaPromise) {
+      rateLimitSchemaPromise = env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS edge_rate_limits (
+          key_hash TEXT NOT NULL,
+          window_start INTEGER NOT NULL,
+          hits INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (key_hash, window_start)
+        )`
+      )
+        .run()
+        .then(() => true)
+        .catch((error) => {
+          rateLimitSchemaPromise = null;
+          throw error;
+        });
+    }
+    await rateLimitSchemaPromise;
+
+    if (!rateLimitSigningKeyPromise) {
+      rateLimitSigningKeyPromise = crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(env.AUTH_SECRET),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+    }
+    const signingKey = await rateLimitSigningKeyPromise;
+    const ip = includeIp
+      ? request.headers.get("CF-Connecting-IP") || request.headers.get("x-real-ip") || "unknown"
+      : "";
+    const keyMaterial = `taqdom-rate-v1\\0${scope}\\0${ip}\\0${String(subject).toLowerCase().slice(0, 256)}`;
+    const digest = new Uint8Array(await crypto.subtle.sign("HMAC", signingKey, new TextEncoder().encode(keyMaterial)));
+    const keyHash = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const now = Date.now();
+    const windowStart = Math.floor(now / windowMs) * windowMs;
+    const row = await env.DB.prepare(
+      `INSERT INTO edge_rate_limits (key_hash, window_start, hits)
+       VALUES (?1, ?2, 1)
+       ON CONFLICT(key_hash, window_start) DO UPDATE SET hits = hits + 1
+       RETURNING hits`
+    )
+      .bind(keyHash, windowStart)
+      .first();
+    const hits = Number(row?.hits);
+    if (!Number.isFinite(hits)) throw new Error("Rate limit counter was not returned.");
+
+    if (now - lastRateLimitCleanup > 6 * 60 * 60 * 1000) {
+      lastRateLimitCleanup = now;
+      env.DB.prepare("DELETE FROM edge_rate_limits WHERE window_start < ?1")
+        .bind(now - 24 * 60 * 60 * 1000)
+        .run()
+        .catch(() => {});
+    }
+
+    if (hits > limit) {
+      const retryAfter = Math.max(1, Math.ceil((windowStart + windowMs - now) / 1000));
+      return jsonResponse(
+        { error: "طلبات كثيرة في وقت قصير. حاول مرة أخرى بعد قليل / Too many requests. Try again shortly." },
+        429,
+        { "Retry-After": String(retryAfter) }
+      );
+    }
+    return null;
+  } catch {
+    return jsonResponse(
+      { error: "تعذر التحقق من حدّ الطلبات. حاول لاحقًا / Rate limit check failed." },
+      503,
+      { "Retry-After": "30" }
+    );
+  }
+}
+
+function rateLimitBodyError(result) {
+  return jsonResponse(
+    { error: result.status === 413 ? "حجم الطلب أكبر من المسموح / Request body is too large." : "بيانات الطلب غير صالحة / Invalid JSON body." },
+    result.status
+  );
+}
+
+const PBKDF2_CURRENT_ITERATIONS = 600000;
+const PBKDF2_LEGACY_ITERATIONS = 100000;
+const PBKDF2_SALT_PREFIX = "pbkdf2-sha256$";
+
+function parsePasswordSalt(storedSalt) {
+  const value = String(storedSalt || "");
+  if (value.startsWith(PBKDF2_SALT_PREFIX)) {
+    const parts = value.split("$");
+    const iterations = Number(parts[1]);
+    const hex = parts[2] || "";
+    if (![PBKDF2_LEGACY_ITERATIONS, PBKDF2_CURRENT_ITERATIONS].includes(iterations) || !/^[a-f0-9]{32}$/i.test(hex)) {
+      throw new Error("Invalid stored password salt.");
+    }
+    return {
+      saltBytes: new Uint8Array(hex.match(/.{2}/g).map((byte) => parseInt(byte, 16))),
+      iterations,
+    };
+  }
+  if (!/^[a-f0-9]{32}$/i.test(value)) {
+    throw new Error("Invalid legacy password salt.");
+  }
+  return {
+    saltBytes: new Uint8Array(value.match(/.{2}/g).map((byte) => parseInt(byte, 16))),
+    iterations: PBKDF2_LEGACY_ITERATIONS,
+  };
+}
+
+function constantTimeStringEqual(left, right) {
   const encoder = new TextEncoder();
-  const saltBytes = saltHex
-    ? new Uint8Array(saltHex.match(/.{1,2}/g).map((b) => parseInt(b, 16)))
-    : crypto.getRandomValues(new Uint8Array(16));
+  const a = encoder.encode(String(left || ""));
+  const b = encoder.encode(String(right || ""));
+  let difference = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i++) {
+    difference |= (a[i] || 0) ^ (b[i] || 0);
+  }
+  return difference === 0;
+}
+
+function safePortfolioHref(value) {
+  const raw = String(value || "").trim().slice(0, 2048);
+  if (!raw || raw.includes("\n") || raw.includes("\r")) return "#";
+  if (/^#[a-z0-9_-]+$/i.test(raw)) return raw;
+  if (/^(mailto:|tel:)/i.test(raw)) return raw;
+  let candidate = raw;
+  if (!/^https?:\/\//i.test(candidate)) {
+    if (/^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[:/].*)?$/i.test(candidate)) candidate = "https://" + candidate;
+    else return "#";
+  }
+  try {
+    const parsed = new URL(candidate);
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) return "#";
+    return parsed.toString();
+  } catch {
+    return "#";
+  }
+}
+
+function safeJsonForHtmlScript(value) {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+function toPublicPortfolio(portfolio) {
+  if (!portfolio || typeof portfolio !== "object") return null;
+  const { email: privateAccountEmail, ...publicPortfolio } = portfolio;
+  void privateAccountEmail;
+  if (Array.isArray(publicPortfolio.links)) {
+    publicPortfolio.links = publicPortfolio.links
+      .filter((link) => link && typeof link === "object")
+      .map((link) => ({ ...link, url: safePortfolioHref(link.url) }));
+  }
+  return publicPortfolio;
+}
+
+function validRasterImageData(mime, base64) {
+  try {
+    const head = atob(base64.slice(0, 24));
+    if (mime === "image/jpeg") {
+      return head.length >= 3 && head.charCodeAt(0) === 0xff && head.charCodeAt(1) === 0xd8 && head.charCodeAt(2) === 0xff;
+    }
+    if (mime === "image/png") {
+      const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+      return head.length >= 8 && signature.every((byte, index) => head.charCodeAt(index) === byte);
+    }
+    if (mime === "image/webp") {
+      return head.length >= 12 &&
+        head.slice(0, 4) === "RIFF" &&
+        head.slice(8, 12) === "WEBP";
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+async function hashPasswordEdge(password, storedSalt) {
+  const encoder = new TextEncoder();
+  let saltBytes;
+  let iterations;
+  if (storedSalt) {
+    const parsed = parsePasswordSalt(storedSalt);
+    saltBytes = parsed.saltBytes;
+    iterations = parsed.iterations;
+  } else {
+    saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    iterations = PBKDF2_CURRENT_ITERATIONS;
+  }
 
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -96,19 +350,23 @@ async function hashPasswordEdge(password, saltHex) {
     {
       name: "PBKDF2",
       salt: saltBytes,
-      iterations: 100000,
+      iterations,
       hash: "SHA-256",
     },
     keyMaterial,
     256
   );
 
-  const hashArray = Array.from(new Uint8Array(derivedBits));
-  const saltArray = Array.from(saltBytes);
+  const hash = Array.from(new Uint8Array(derivedBits))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  const saltHex = Array.from(saltBytes)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 
   return {
-    hash: hashArray.map((b) => b.toString(16).padStart(2, "0")).join(""),
-    salt: saltArray.map((b) => b.toString(16).padStart(2, "0")).join(""),
+    hash,
+    salt: PBKDF2_SALT_PREFIX + iterations + "$" + saltHex,
   };
 }
 
@@ -189,8 +447,7 @@ function makeSessionCookie(token, isSecure = true) {
 
 async function getPublishedPortfolioFromD1(env, username) {
   const clean = normalizeUsername(username);
-  if (!clean) return null;
-  if (edgeStore.unpublished.has(clean)) return null;
+  if (!clean || edgeStore.unpublished.has(clean)) return null;
 
   if (env.DB) {
     try {
@@ -201,13 +458,23 @@ async function getPublishedPortfolioFromD1(env, username) {
         .first();
       if (row) {
         if (!row.published_json) return null;
-        return JSON.parse(row.published_json);
+        return toPublicPortfolio(JSON.parse(row.published_json));
       }
+      return SEED_PORTFOLIOS[clean] ? toPublicPortfolio(SEED_PORTFOLIOS[clean]) : null;
     } catch {
-      // Fallback to edgeStore
+      const cached = edgeStore.portfolios[clean];
+      if (cached?.publishedAt || cached?.isFlagshipShowcase === true) {
+        return toPublicPortfolio(cached);
+      }
+      return SEED_PORTFOLIOS[clean] ? toPublicPortfolio(SEED_PORTFOLIOS[clean]) : null;
     }
   }
-  return edgeStore.portfolios[clean] || SEED_PORTFOLIOS[clean] || null;
+
+  const cached = edgeStore.portfolios[clean];
+  if (cached?.publishedAt || cached?.isFlagshipShowcase === true) {
+    return toPublicPortfolio(cached);
+  }
+  return SEED_PORTFOLIOS[clean] ? toPublicPortfolio(SEED_PORTFOLIOS[clean]) : null;
 }
 
 async function getDraftPortfolioFromD1(env, username) {
@@ -232,38 +499,45 @@ async function getDraftPortfolioFromD1(env, username) {
 }
 
 async function getAllPublishedPortfoliosFromD1(env) {
-  const map = { ...SEED_PORTFOLIOS, ...edgeStore.portfolios };
-  for (const unpub of edgeStore.unpublished) {
-    delete map[unpub];
-  }
+  const collect = (entries) =>
+    entries
+      .filter((portfolio) =>
+        portfolio?.isFlagshipShowcase === true ||
+        (portfolio?.discoverable === true && Boolean(portfolio?.publishedAt))
+      )
+      .map(toPublicPortfolio)
+      .filter(Boolean);
+
   if (env.DB) {
     try {
       const { results } = await env.DB.prepare(
-        "SELECT username, published_json FROM portfolios"
+        "SELECT username, published_json FROM portfolios WHERE published_json IS NOT NULL"
       ).all();
+      const map = { ...SEED_PORTFOLIOS };
       if (Array.isArray(results)) {
         for (const row of results) {
-          if (row.username) {
-            if (row.published_json) {
-              try {
-                map[row.username] = JSON.parse(row.published_json);
-              } catch {}
-            } else {
-              delete map[row.username];
-            }
+          if (!row.username || !row.published_json) continue;
+          try {
+            map[row.username] = JSON.parse(row.published_json);
+          } catch {
+            // Ignore a single malformed portfolio rather than failing the entire directory.
           }
         }
       }
+      for (const username of edgeStore.unpublished) delete map[username];
+      return collect(Object.values(map));
     } catch {
-      // Ignore D1 error
+      const map = { ...SEED_PORTFOLIOS, ...edgeStore.portfolios };
+      for (const username of edgeStore.unpublished) delete map[username];
+      return collect(Object.values(map));
     }
   }
-  return Object.values(map).filter(
-    (portfolio) =>
-      portfolio?.isFlagshipShowcase === true ||
-      portfolio?.discoverable === true
-  );
+
+  const map = { ...SEED_PORTFOLIOS, ...edgeStore.portfolios };
+  for (const username of edgeStore.unpublished) delete map[username];
+  return collect(Object.values(map));
 }
+
 
 async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, userAuth = null) {
   const clean = normalizeUsername(portfolio.username);
@@ -278,7 +552,7 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
     ...portfolio,
     username: clean,
     updatedAt: now,
-    publishedAt: isPublish ? now : portfolio.publishedAt || now,
+    publishedAt: isPublish ? now : (edgeStore.unpublished.has(clean) ? null : (portfolio.publishedAt || null)),
   };
 
   try {
@@ -354,12 +628,41 @@ async function handleApiRequest(request, url, env) {
   const { pathname, searchParams } = url;
   const isSecure = url.protocol === "https:";
   const origin = request.headers.get("origin");
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method) && origin && origin !== url.origin) {
+  const isWriteMethod = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method);
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (
+    isWriteMethod &&
+    ((origin && origin !== url.origin) || (!origin && fetchSite === "cross-site"))
+  ) {
     return jsonResponse({ error: "Cross-origin request rejected" }, 403);
   }
+
+  const rateProfiles = {
+    "GET:/api/username/check": ["username-check", 80, 60_000],
+    "POST:/api/auth/register": ["register-ip", 5, 60 * 60 * 1000],
+    "POST:/api/auth/login": ["login-ip", 12, 15 * 60 * 1000],
+    "POST:/api/auth/test-login": ["demo-login", 12, 15 * 60 * 1000],
+    "POST:/api/auth/settings": ["account-settings", 12, 60 * 60 * 1000],
+    "DELETE:/api/auth/settings": ["account-delete", 3, 60 * 60 * 1000],
+    "POST:/api/upload": ["upload", 20, 60 * 60 * 1000],
+    "POST:/api/views": ["views", 180, 60_000],
+    "POST:/api/portfolio/publish": ["publish", 20, 60 * 60 * 1000],
+    "DELETE:/api/portfolio/publish": ["unpublish", 10, 60 * 60 * 1000],
+  };
+  const profile = rateProfiles[`${request.method}:${pathname}`];
+  if (profile) {
+    const [scope, limit, windowMs] = profile;
+    const rateResponse = await enforceRateLimit(request, env, scope, limit, windowMs);
+    if (rateResponse) return rateResponse;
+  }
+
   const session = await parseSessionFromRequest(request, env);
+  const sessionName = normalizeUsername(String(session?.username || ""));
+  const readOnlySession = Boolean(session?.isTestAccount || SEED_PORTFOLIOS[sessionName]);
   const ownsUsername = (username) =>
-    Boolean(session?.username) && session.username === normalizeUsername(username);
+    Boolean(session?.username) &&
+    !readOnlySession &&
+    session.username === normalizeUsername(username);
   const unauthorized = () =>
     jsonResponse({ error: "يجب تسجيل الدخول أولاً / Authentication required" }, 401);
   const forbidden = () =>
@@ -400,8 +703,10 @@ async function handleApiRequest(request, url, env) {
   }
 
   if (pathname === "/api/auth/test-login" && request.method === "POST") {
-    const fresh = structuredClone(SEED_PORTFOLIOS.layla);
-    await savePortfolioToD1AndMemory(env, fresh, true);
+    const fresh = await getPublishedPortfolioFromD1(env, "layla");
+    if (!fresh) {
+      return jsonResponse({ error: "Demo portfolio is temporarily unavailable." }, 503);
+    }
     const userPayload = {
       id: "user-layla",
       email: "layla@taqdom.me",
@@ -414,6 +719,7 @@ async function handleApiRequest(request, url, env) {
         ok: true,
         user: userPayload,
         portfolio: fresh,
+        readOnly: true,
       },
       200,
       {
@@ -423,12 +729,19 @@ async function handleApiRequest(request, url, env) {
   }
 
   if (pathname === "/api/auth/register" && request.method === "POST") {
-    const body = await request.json().catch(() => ({}));
+    const parsed = await parseJsonBody(request, 32768);
+    if (!parsed.ok) return rateLimitBodyError(parsed);
+    const body = parsed.value;
     const email = String(body.email || "").trim().toLowerCase();
     const password = String(body.password || "");
     const val = validateUsername(String(body.username || ""));
+    const displayName = String(body.displayName || "").trim().slice(0, 80);
+    const requestedTemplate = String(body.template || "haven");
+    const template = TEMPLATES_CATALOG.some((item) => item.slug === requestedTemplate)
+      ? requestedTemplate
+      : "haven";
 
-    if (!email || !email.includes("@")) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/u.test(email) || email.length > 254) {
       return jsonResponse(
         { error: "يرجى إدخال بريد إلكتروني صحيح / Valid email required" },
         400
@@ -437,39 +750,39 @@ async function handleApiRequest(request, url, env) {
     if (!val.valid) {
       return jsonResponse({ error: val.reasonAr || val.reasonEn || "Invalid username" }, 400);
     }
-    if (password.length < 6) {
+    if (password.length < 15 || password.length > 128) {
       return jsonResponse(
-        { error: "كلمة المرور يجب أن تكون ٦ أحرف على الأقل / Password min 6 chars" },
+        { error: "استخدم عبارة مرور من 15 إلى 128 حرفًا / Passwords must be 15–128 characters." },
         400
       );
     }
-
     if (SEED_PORTFOLIOS[val.normalized]) {
       return jsonResponse(
         { error: "هذا النطاق مستخدم لحساب عرض رسمي / Reserved showcase username" },
         409
       );
     }
-    if (env.DB) {
-      const existingRow = await env.DB.prepare(
-        "SELECT username, email FROM users WHERE username = ?1 OR LOWER(email) = ?2"
-      )
-        .bind(val.normalized, email)
-        .first()
-        .catch(() => null);
+    if (!env.DB) {
+      return jsonResponse({ error: "Account storage is temporarily unavailable." }, 503);
+    }
 
-      if (existingRow && existingRow.username === val.normalized) {
-        return jsonResponse(
-          { error: "هذا الاسم محجوز بالفعل لمبدع آخر / Username already taken" },
-          409
-        );
-      }
-      if (existingRow && existingRow.email?.toLowerCase() === email) {
-        return jsonResponse(
-          { error: "البريد الإلكتروني مسجل بالفعل / Email already registered" },
-          409
-        );
-      }
+    const existingRow = await env.DB.prepare(
+      "SELECT username, email FROM users WHERE username = ?1 OR LOWER(email) = ?2"
+    )
+      .bind(val.normalized, email)
+      .first();
+
+    if (existingRow && existingRow.username === val.normalized) {
+      return jsonResponse(
+        { error: "هذا الاسم محجوز بالفعل لمبدع آخر / Username already taken" },
+        409
+      );
+    }
+    if (existingRow && existingRow.email?.toLowerCase() === email) {
+      return jsonResponse(
+        { error: "البريد الإلكتروني مسجل بالفعل / Email already registered" },
+        409
+      );
     }
 
     const { hash, salt } = await hashPasswordEdge(password);
@@ -480,15 +793,14 @@ async function handleApiRequest(request, url, env) {
       passwordHash: hash,
       salt,
     };
-    edgeStore.users[val.normalized] = userObj;
-
     const starter = createStarterPortfolio(
       val.normalized,
-      body.template || "haven",
-      body.displayName || val.normalized
+      template,
+      displayName || val.normalized
     );
     starter.email = email;
     await savePortfolioToD1AndMemory(env, starter, true, userObj);
+    edgeStore.users[val.normalized] = userObj;
 
     const sessionPayload = {
       id: userObj.id,
@@ -513,44 +825,46 @@ async function handleApiRequest(request, url, env) {
   }
 
   if (pathname === "/api/auth/login" && request.method === "POST") {
-    const body = await request.json().catch(() => ({}));
+    const parsed = await parseJsonBody(request, 32768);
+    if (!parsed.ok) return rateLimitBodyError(parsed);
+    const body = parsed.value;
     const identifier = String(body.identifier || body.email || body.username || "")
       .trim()
-      .toLowerCase();
+      .toLowerCase()
+      .slice(0, 254);
     const password = String(body.password || "");
 
-    if (!identifier) {
-      return jsonResponse({ error: "يرجى إدخال اسم المستخدم أو البريد الإلكتروني" }, 400);
+    if (!identifier || !password || password.length > 128) {
+      return jsonResponse({ error: "بيانات الدخول غير صحيحة / Invalid credentials" }, 401);
     }
 
-    let dbUser = null;
-    if (env.DB) {
-      dbUser = await env.DB.prepare(
-        "SELECT id, email, username, password_hash, salt FROM users WHERE LOWER(username) = ?1 OR LOWER(email) = ?1"
-      )
-        .bind(identifier)
-        .first()
-        .catch(() => null);
+    const identityLimit = await enforceRateLimit(
+      request,
+      env,
+      "login-identity",
+      6,
+      15 * 60 * 1000,
+      identifier,
+      false
+    );
+    if (identityLimit) return identityLimit;
+    if (!env.DB) {
+      return jsonResponse({ error: "Account storage is temporarily unavailable." }, 503);
     }
 
-    if (!dbUser) {
-      for (const u of Object.values(edgeStore.users)) {
-        if (u.username === identifier || u.email === identifier) {
-          dbUser = {
-            id: u.id,
-            email: u.email,
-            username: u.username,
-            password_hash: u.passwordHash,
-            salt: u.salt,
-          };
-          break;
-        }
-      }
-    }
+    const dbUser = await env.DB.prepare(
+      "SELECT id, email, username, password_hash, salt FROM users WHERE LOWER(username) = ?1 OR LOWER(email) = ?1"
+    )
+      .bind(identifier)
+      .first();
 
     if (!dbUser) {
+      await hashPasswordEdge(
+        password,
+        "pbkdf2-sha256$600000$000102030405060708090a0b0c0d0e0f"
+      );
       return jsonResponse(
-        { error: "الحساب غير موجود. يمكنك إنشاء حساب جديد أو معاينة الحساب الموثق." },
+        { error: "بيانات الدخول غير صحيحة / Invalid credentials" },
         401
       );
     }
@@ -559,22 +873,39 @@ async function handleApiRequest(request, url, env) {
       dbUser.password_hash === "seeded-pbkdf2" ||
       dbUser.password_hash === "seeded" ||
       dbUser.password_hash === "d1-hash";
-
     if (isSeededHash) {
-      return jsonResponse(
-        {
-          error: "هذا حساب عرض تجريبي. استخدم زر «معاينة الحساب التجريبي» من صفحة الدخول.",
-        },
-        403
-      );
-    }
-
-    const { hash } = await hashPasswordEdge(password, dbUser.salt);
-    if (!password || hash !== dbUser.password_hash) {
       return jsonResponse(
         { error: "بيانات الدخول غير صحيحة / Invalid credentials" },
         401
       );
+    }
+
+    let passwordMatches = false;
+    try {
+      const { hash } = await hashPasswordEdge(password, dbUser.salt);
+      passwordMatches = constantTimeStringEqual(hash, dbUser.password_hash);
+    } catch {
+      passwordMatches = false;
+    }
+    if (!passwordMatches) {
+      return jsonResponse(
+        { error: "بيانات الدخول غير صحيحة / Invalid credentials" },
+        401
+      );
+    }
+
+    // Opportunistically upgrade legacy 100k-iteration hashes after a successful login.
+    if (parsePasswordSalt(dbUser.salt).iterations < PBKDF2_CURRENT_ITERATIONS) {
+      const upgraded = await hashPasswordEdge(password);
+      await env.DB.prepare(
+        "UPDATE users SET password_hash = ?1, salt = ?2 WHERE username = ?3"
+      )
+        .bind(upgraded.hash, upgraded.salt, dbUser.username)
+        .run();
+      if (edgeStore.users[dbUser.username]) {
+        edgeStore.users[dbUser.username].passwordHash = upgraded.hash;
+        edgeStore.users[dbUser.username].salt = upgraded.salt;
+      }
     }
 
     const portfolio =
@@ -587,7 +918,7 @@ async function handleApiRequest(request, url, env) {
       userId: dbUser.id,
       email: dbUser.email,
       username: dbUser.username,
-      isTestAccount: dbUser.username === "layla",
+      isTestAccount: Boolean(SEED_PORTFOLIOS[normalizeUsername(dbUser.username)]),
     };
     const token = await signEdgeSession(sessionPayload, env?.AUTH_SECRET);
 
@@ -636,124 +967,132 @@ async function handleApiRequest(request, url, env) {
   if (pathname === "/api/auth/settings") {
     if (request.method === "POST") {
       if (!session?.username) return unauthorized();
-      const body = await request.json().catch(() => ({}));
+      if (!env.DB) return jsonResponse({ error: "Account storage is temporarily unavailable." }, 503);
+      const parsed = await parseJsonBody(request, 32768);
+      if (!parsed.ok) return rateLimitBodyError(parsed);
+      const body = parsed.value;
       const cur = normalizeUsername(String(body.currentUsername || ""));
       if (!cur) return jsonResponse({ error: "Missing currentUsername" }, 400);
       if (!ownsUsername(cur)) return forbidden();
+
+      const existingUser = await env.DB.prepare(
+        "SELECT id, email, username, password_hash, salt FROM users WHERE username = ?1"
+      )
+        .bind(cur)
+        .first();
+      if (!existingUser) return jsonResponse({ error: "Account not found" }, 404);
+
+      const portfolioRow = await env.DB.prepare(
+        "SELECT published_json, published_at FROM portfolios WHERE username = ?1"
+      )
+        .bind(cur)
+        .first();
+      if (!portfolioRow) return jsonResponse({ error: "Portfolio not found" }, 404);
+      const wasPublished = Boolean(portfolioRow.published_json);
 
       let targetUsername = cur;
       if (body.newUsername && normalizeUsername(String(body.newUsername)) !== cur) {
         const val = validateUsername(String(body.newUsername));
         if (!val.valid) return jsonResponse({ error: val.reasonAr || "Invalid username" }, 400);
         const candidate = val.normalized;
-        if (
-          RESERVED_USERNAMES.has(candidate) ||
-          SEED_PORTFOLIOS[candidate] ||
-          edgeStore.users[candidate] ||
-          edgeStore.portfolios[candidate]
-        ) {
+        if (RESERVED_USERNAMES.has(candidate) || SEED_PORTFOLIOS[candidate]) {
           return jsonResponse({ error: "Username already taken" }, 409);
         }
-        if (env.DB) {
-          const takenRow = await env.DB.prepare(
-            "SELECT username FROM users WHERE username = ?1 UNION SELECT username FROM portfolios WHERE username = ?1"
-          )
-            .bind(candidate)
-            .first()
-            .catch(() => null);
-          if (takenRow) {
-            return jsonResponse({ error: "Username already taken" }, 409);
-          }
+        const takenRow = await env.DB.prepare(
+          "SELECT username FROM users WHERE username = ?1 UNION SELECT username FROM portfolios WHERE username = ?1"
+        )
+          .bind(candidate)
+          .first();
+        if (takenRow || edgeStore.users[candidate] || edgeStore.portfolios[candidate]) {
+          return jsonResponse({ error: "Username already taken" }, 409);
         }
         targetUsername = candidate;
       }
 
       let pwdInfo = null;
       if (body.newPassword) {
-        if (String(body.newPassword).length < 6) {
-          return jsonResponse({ error: "Password min 6 chars" }, 400);
+        const newPassword = String(body.newPassword);
+        if (newPassword.length < 15 || newPassword.length > 128) {
+          return jsonResponse(
+            { error: "استخدم عبارة مرور من 15 إلى 128 حرفًا / Passwords must be 15–128 characters." },
+            400
+          );
         }
-        pwdInfo = await hashPasswordEdge(String(body.newPassword));
+        pwdInfo = await hashPasswordEdge(newPassword);
       }
 
-      // Fetch existing user credentials so we preserve id, email, password_hash, and salt
-      let existingUser = edgeStore.users[cur] || null;
-      if (!existingUser && env.DB) {
-        existingUser = await env.DB.prepare(
-          "SELECT id, email, username, password_hash, salt FROM users WHERE username = ?1"
-        )
-          .bind(cur)
-          .first()
-          .catch(() => null);
-      }
-
-      const isFlagshipSeed = Boolean(SEED_PORTFOLIOS[cur]);
-      const preservedUserId =
-        !isFlagshipSeed && existingUser?.id ? existingUser.id : `user-${targetUsername}`;
-      const preservedEmail =
-        !isFlagshipSeed && existingUser?.email
-          ? existingUser.email
-          : `${targetUsername}@taqdom.me`;
-      const preservedHash = pwdInfo
-        ? pwdInfo.hash
-        : existingUser?.password_hash || "seeded-pbkdf2";
-      const preservedSalt = pwdInfo
-        ? pwdInfo.salt
-        : existingUser?.salt || "taqdom-salt-2026";
-
+      const preservedHash = pwdInfo?.hash || existingUser.password_hash;
+      const preservedSalt = pwdInfo?.salt || existingUser.salt;
+      const preservedEmail = existingUser.email;
+      const preservedUserId = existingUser.id;
       const currentPortfolio = structuredClone(
         (await getDraftPortfolioFromD1(env, cur)) ||
-          createStarterPortfolio(targetUsername, "haven", targetUsername)
+          createStarterPortfolio(cur, "haven", cur)
       );
       currentPortfolio.username = targetUsername;
       currentPortfolio.email = preservedEmail;
+      currentPortfolio.publishedAt = wasPublished
+        ? (portfolioRow.published_at || currentPortfolio.publishedAt || Date.now())
+        : null;
       currentPortfolio.updatedAt = Date.now();
 
-      if (targetUsername !== cur && !isFlagshipSeed) {
+      if (targetUsername !== cur) {
+        const publishedJson = wasPublished
+          ? JSON.stringify({
+              ...JSON.parse(portfolioRow.published_json),
+              username: targetUsername,
+              email: preservedEmail,
+            })
+          : null;
+        await env.DB.batch([
+          env.DB.prepare(
+            "UPDATE users SET username = ?1, password_hash = ?2, salt = ?3 WHERE username = ?4"
+          ).bind(targetUsername, preservedHash, preservedSalt, cur),
+          env.DB.prepare(
+            "UPDATE portfolios SET username = ?1, draft_json = ?2, published_json = ?3, updated_at = ?4 WHERE username = ?5"
+          ).bind(
+            targetUsername,
+            JSON.stringify(currentPortfolio),
+            publishedJson,
+            Date.now(),
+            cur
+          ),
+        ]);
         delete edgeStore.portfolios[cur];
         delete edgeStore.users[cur];
         edgeStore.views[targetUsername] = edgeStore.views[cur] || 1;
         delete edgeStore.views[cur];
-
-        if (env.DB) {
-          const jsonStr = JSON.stringify(currentPortfolio);
-          await env.DB.prepare(
-            "UPDATE users SET username = ?1, password_hash = ?2, salt = ?3 WHERE username = ?4"
-          )
-            .bind(targetUsername, preservedHash, preservedSalt, cur)
-            .run()
-            .catch(() => {});
-          await env.DB.prepare(
-            "UPDATE portfolios SET username = ?1, draft_json = ?2, published_json = ?3, updated_at = ?4 WHERE username = ?5"
-          )
-            .bind(targetUsername, jsonStr, jsonStr, Date.now(), cur)
-            .run()
-            .catch(() => {});
-        }
+        if (wasPublished) edgeStore.unpublished.delete(targetUsername);
+        else edgeStore.unpublished.add(targetUsername);
+      } else {
+        await env.DB.prepare(
+          "UPDATE users SET password_hash = ?1, salt = ?2 WHERE username = ?3"
+        )
+          .bind(preservedHash, preservedSalt, cur)
+          .run();
       }
 
-      edgeStore.users[targetUsername] = {
-        id: preservedUserId,
-        email: preservedEmail,
-        username: targetUsername,
-        password_hash: preservedHash,
-        salt: preservedSalt,
-      };
-      edgeStore.portfolios[targetUsername] = currentPortfolio;
-
-      const saved = await savePortfolioToD1AndMemory(env, currentPortfolio, true, {
+      const userAuth = {
         id: preservedUserId,
         email: preservedEmail,
         passwordHash: preservedHash,
         salt: preservedSalt,
-      });
+      };
+      const saved = await savePortfolioToD1AndMemory(env, currentPortfolio, false, userAuth);
+      edgeStore.users[targetUsername] = {
+        id: preservedUserId,
+        email: preservedEmail,
+        username: targetUsername,
+        passwordHash: preservedHash,
+        salt: preservedSalt,
+      };
 
       const sessionPayload = {
         id: preservedUserId,
         userId: preservedUserId,
         email: preservedEmail,
         username: targetUsername,
-        isTestAccount: targetUsername === "layla",
+        isTestAccount: false,
       };
       const token = await signEdgeSession(sessionPayload, env?.AUTH_SECRET);
 
@@ -766,21 +1105,25 @@ async function handleApiRequest(request, url, env) {
 
     if (request.method === "DELETE") {
       if (!session?.username) return unauthorized();
+      if (!env.DB) return jsonResponse({ error: "Account storage is temporarily unavailable." }, 503);
       const u = normalizeUsername(searchParams.get("u") || "");
       if (!u || SEED_PORTFOLIOS[u]) {
         return jsonResponse({ error: "Cannot delete showcase account" }, 403);
       }
       if (!ownsUsername(u)) return forbidden();
+
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM portfolios WHERE username = ?1").bind(u),
+        env.DB.prepare("DELETE FROM users WHERE username = ?1").bind(u),
+      ]);
       delete edgeStore.portfolios[u];
       delete edgeStore.users[u];
-      if (env.DB) {
-        await env.DB.prepare("DELETE FROM portfolios WHERE username = ?1").bind(u).run().catch(() => {});
-        await env.DB.prepare("DELETE FROM users WHERE username = ?1").bind(u).run().catch(() => {});
-      }
+      delete edgeStore.views[u];
+      edgeStore.unpublished.add(u);
       return jsonResponse(
         { ok: true },
         200,
-        { "Set-Cookie": "taqdom_session=; Path=/; Max-Age=0" }
+        { "Set-Cookie": "taqdom_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure" }
       );
     }
   }
@@ -791,67 +1134,84 @@ async function handleApiRequest(request, url, env) {
         const portfolios = await getAllPublishedPortfoliosFromD1(env);
         return jsonResponse({ portfolios });
       }
-      const u = normalizeUsername(searchParams.get("u") || "layla");
+      const username = normalizeUsername(searchParams.get("u") || "layla");
       const mode = searchParams.get("mode") || "published";
-      if (mode === "draft" && !ownsUsername(u)) return unauthorized();
-      const p =
-        mode === "draft"
-          ? await getDraftPortfolioFromD1(env, u)
-          : await getPublishedPortfolioFromD1(env, u);
-      if (!p) return jsonResponse({ error: "Not found" }, 404);
-      return jsonResponse({ portfolio: p });
+      if (mode === "draft" && !ownsUsername(username)) return unauthorized();
+      const portfolio = mode === "draft"
+        ? await getDraftPortfolioFromD1(env, username)
+        : await getPublishedPortfolioFromD1(env, username);
+      if (!portfolio) return jsonResponse({ error: "Not found" }, 404);
+      return jsonResponse({ portfolio });
     }
     if (request.method === "PUT") {
       if (!session?.username) return unauthorized();
-      const body = await request.json().catch(() => ({}));
-      if (body?.portfolio?.username) {
-        if (!ownsUsername(body.portfolio.username)) return forbidden();
-        const saved = await savePortfolioToD1AndMemory(env, body.portfolio, false);
-        return jsonResponse({ ok: true, portfolio: saved });
+      if (!ownsUsername(session.username)) return forbidden();
+      const parsed = await parseJsonBody(request, 1_000_000);
+      if (!parsed.ok) return rateLimitBodyError(parsed);
+      const portfolio = parsed.value?.portfolio;
+      if (!portfolio?.username) return jsonResponse({ error: "Invalid payload" }, 400);
+      if (!ownsUsername(portfolio.username)) return forbidden();
+      const validation = validateUsername(String(portfolio.username));
+      if (!validation.valid) {
+        return jsonResponse({ error: validation.reasonAr || "Invalid username" }, 400);
       }
-      return jsonResponse({ error: "Invalid payload" }, 400);
+      const saved = await savePortfolioToD1AndMemory(
+        env,
+        { ...portfolio, username: validation.normalized },
+        false
+      );
+      return jsonResponse({ ok: true, portfolio: saved });
     }
   }
 
   if (pathname === "/api/portfolio/publish") {
     if (request.method === "POST") {
       if (!session?.username) return unauthorized();
-      const body = await request.json().catch(() => ({}));
-      if (body?.portfolio?.username) {
-        if (!ownsUsername(body.portfolio.username)) return forbidden();
-        const val = validateUsername(String(body.portfolio.username));
-        if (!val.valid) {
-          return jsonResponse({ error: val.reasonAr || "Invalid username" }, 400);
-        }
-        const saved = await savePortfolioToD1AndMemory(
-          env,
-          { ...body.portfolio, username: val.normalized },
-          true
-        );
-        return jsonResponse({
-          ok: true,
-          portfolio: saved,
-          subdomainUrl: `https://${saved.username}.taqdom.me`,
-        });
+      const parsed = await parseJsonBody(request, 1_000_000);
+      if (!parsed.ok) return rateLimitBodyError(parsed);
+      const portfolio = parsed.value?.portfolio;
+      if (!portfolio?.username) return jsonResponse({ error: "Missing portfolio" }, 400);
+      if (!ownsUsername(portfolio.username)) return forbidden();
+      const validation = validateUsername(String(portfolio.username));
+      if (!validation.valid) {
+        return jsonResponse({ error: validation.reasonAr || "Invalid username" }, 400);
       }
-      return jsonResponse({ error: "Missing portfolio" }, 400);
+      const saved = await savePortfolioToD1AndMemory(
+        env,
+        { ...portfolio, username: validation.normalized },
+        true
+      );
+      return jsonResponse({
+        ok: true,
+        portfolio: saved,
+        subdomainUrl: `https://${saved.username}.taqdom.me`,
+      });
     }
 
     if (request.method === "DELETE") {
       if (!session?.username) return unauthorized();
+      if (!env.DB) return jsonResponse({ error: "Portfolio storage is unavailable." }, 503);
       const uParam = searchParams.get("u");
-      const body = await request.json().catch(() => ({}));
-      const clean = normalizeUsername(String(uParam || body.username || ""));
+      const parsed = await parseJsonBody(request, 8192);
+      if (!parsed.ok) return rateLimitBodyError(parsed);
+      const clean = normalizeUsername(String(uParam || parsed.value.username || ""));
       if (!clean) return jsonResponse({ error: "Missing username" }, 400);
       if (!ownsUsername(clean)) return forbidden();
+      const existing = await env.DB.prepare(
+        "SELECT username FROM portfolios WHERE username = ?1"
+      )
+        .bind(clean)
+        .first();
+      if (!existing) return jsonResponse({ error: "Portfolio not found" }, 404);
+
+      await env.DB.prepare(
+        "UPDATE portfolios SET published_json = NULL, published_at = NULL WHERE username = ?1"
+      )
+        .bind(clean)
+        .run();
       edgeStore.unpublished.add(clean);
-      if (env.DB) {
-        await env.DB.prepare(
-          "UPDATE portfolios SET published_json = NULL, published_at = NULL WHERE username = ?1"
-        )
-          .bind(clean)
-          .run()
-          .catch(() => {});
+      if (edgeStore.portfolios[clean]) {
+        edgeStore.portfolios[clean] = { ...edgeStore.portfolios[clean], publishedAt: null };
       }
       return jsonResponse({ ok: true, username: clean });
     }
@@ -859,69 +1219,71 @@ async function handleApiRequest(request, url, env) {
 
   if (pathname === "/api/upload" && request.method === "POST") {
     if (!session?.username) return unauthorized();
-    const body = await request.json().catch(() => ({}));
+    if (!ownsUsername(session.username)) return forbidden();
+    if (!env.DB) return jsonResponse({ error: "Image storage is unavailable." }, 503);
+    const parsed = await parseJsonBody(request, 1_950_000);
+    if (!parsed.ok) return rateLimitBodyError(parsed);
+    const body = parsed.value;
     if (body.username && normalizeUsername(body.username) !== normalizeUsername(session.username)) {
       return jsonResponse({ error: "You can only upload to your own portfolio" }, 403);
     }
     const dataUrl = String(body.dataUrl || "");
     const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
     if (!match) {
-      return jsonResponse({ error: "Only valid JPG, PNG, and WebP images are allowed" }, 400);
+      return jsonResponse({ error: "Only valid JPG, PNG, and WebP data URLs are allowed" }, 400);
     }
     const mime = match[1].toLowerCase();
     if (body.mime && String(body.mime).toLowerCase() !== mime) {
       return jsonResponse({ error: "Image type mismatch" }, 400);
     }
-    const size = Math.floor((match[2].length * 3) / 4);
-    if (size <= 0 || size > 1_600_000) {
-      return jsonResponse({ error: "Max file size is 1.5MB" }, 413);
+    const base64 = match[2];
+    const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+    const size = Math.floor((base64.length * 3) / 4) - padding;
+    // D1 limits a single value/row to 2,000,000 bytes; base64 expands binary data by ~33%.
+    if (size <= 0 || size > 1_400_000) {
+      return jsonResponse({ error: "Max image size is 1.4MB while R2 is not enabled for this account." }, 413);
     }
+    if (!validRasterImageData(mime, base64)) {
+      return jsonResponse({ error: "Image bytes do not match the declared JPG, PNG, or WebP type." }, 415);
+    }
+
     const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : "webp";
     const key = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+    )
+      .bind(key, mime, size, dataUrl, Date.now())
+      .run();
     edgeStore.media[key] = { key, mime, size, dataUrl };
-    if (env.DB) {
-      try {
-        await env.DB.prepare(
-          "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT, size INTEGER, data_url TEXT, created_at INTEGER)"
-        ).run();
-        await env.DB.prepare(
-          "INSERT OR REPLACE INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
-        )
-          .bind(key, mime, size, dataUrl, Date.now())
-          .run();
-      } catch {
-        // Ignore D1 media error
-      }
-    }
+
     return jsonResponse({
       ok: true,
       key,
       url: `/api/media/${key}`,
-      dataUrl,
     });
   }
 
   if (pathname.startsWith("/api/media/") && request.method === "GET") {
     const key = pathname.slice("/api/media/".length);
-    let item = edgeStore.media[key];
-    if ((!item || !item.dataUrl) && env.DB) {
-      try {
-        const row = await env.DB.prepare(
-          "SELECT mime, size, data_url FROM media_blobs WHERE key = ?1"
-        )
-          .bind(key)
-          .first();
-        if (row && row.data_url) {
-          item = { key, mime: row.mime, size: row.size, dataUrl: row.data_url };
-          edgeStore.media[key] = item;
-        }
-      } catch {
-        // Ignore
-      }
-    }
-    if (!item || !item.dataUrl) {
+    if (!/^\d{10,}-[0-9a-f-]{36}\.(?:jpg|png|webp)$/i.test(key)) {
       return new Response("Not found", { status: 404 });
     }
+    let item = edgeStore.media[key];
+    if ((!item || !item.dataUrl) && env.DB) {
+      const row = await env.DB.prepare(
+        "SELECT mime, size, data_url FROM media_blobs WHERE key = ?1"
+      )
+        .bind(key)
+        .first();
+      if (row?.data_url) {
+        item = { key, mime: row.mime, size: row.size, dataUrl: row.data_url };
+        edgeStore.media[key] = item;
+      }
+    }
+    if (!item?.dataUrl) return new Response("Not found", { status: 404 });
     const base64Idx = item.dataUrl.indexOf("base64,");
     if (base64Idx === -1) return new Response("Invalid media", { status: 400 });
     const binStr = atob(item.dataUrl.slice(base64Idx + 7));
@@ -931,25 +1293,31 @@ async function handleApiRequest(request, url, env) {
       status: 200,
       headers: {
         "Content-Type": item.mime || "image/webp",
+        "Content-Disposition": "inline",
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   }
 
   if (pathname === "/api/views" && request.method === "POST") {
-    const body = await request.json().catch(() => ({}));
-    const clean = normalizeUsername(String(body.username || "layla"));
-    edgeStore.views[clean] = (edgeStore.views[clean] || 100) + 1;
-    if (env.DB) {
-      const day = new Date().toISOString().slice(0, 10);
-      await env.DB.prepare(
-        `INSERT INTO views (username, day, count) VALUES (?1, ?2, 1)
-         ON CONFLICT(username, day) DO UPDATE SET count = views.count + 1`
-      )
-        .bind(clean, day)
-        .run()
-        .catch(() => {});
-    }
+    const parsed = await parseJsonBody(request, 8192);
+    if (!parsed.ok) return rateLimitBodyError(parsed);
+    const clean = normalizeUsername(String(parsed.value.username || ""));
+    if (!clean) return jsonResponse({ error: "Invalid username" }, 400);
+    const published = await getPublishedPortfolioFromD1(env, clean);
+    if (!published) return jsonResponse({ error: "Portfolio not found" }, 404);
+    if (!env.DB) return jsonResponse({ error: "View counter is unavailable." }, 503);
+
+    const day = new Date().toISOString().slice(0, 10);
+    const result = await env.DB.prepare(
+      `INSERT INTO views (username, day, count) VALUES (?1, ?2, 1)
+       ON CONFLICT(username, day) DO UPDATE SET count = views.count + 1
+       RETURNING count`
+    )
+      .bind(clean, day)
+      .first();
+    const total = Number(result?.count || 0);
+    edgeStore.views[clean] = total;
     return jsonResponse({ ok: true, views: edgeStore.views[clean] });
   }
 
@@ -1040,11 +1408,11 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       /<script type="application\/ld\+json">[\s\S]*?<\/script>/gi,
       (match) =>
         match.includes('"@type":"ProfilePage"')
-          ? `<script type="application/ld+json">${JSON.stringify(personJsonLd)}</script>`
+          ? `<script type="application/ld+json">${safeJsonForHtmlScript(personJsonLd)}</script>`
           : match
     );
 
-  const safeJson = JSON.stringify(customData).replace(/</g, "\\u003c");
+  const safeJson = safeJsonForHtmlScript(customData);
   const bootstrapScript = `<meta name="x-taqdom-bio" content="${escapeHtml(
     customData.bio?.ar || ""
   )}"/><script>window.__TAQDOM_SUBDOMAIN__=${JSON.stringify(
@@ -1063,7 +1431,13 @@ export default {
 
     // 1. Handle API endpoints
     if (pathname.startsWith("/api/")) {
-      return applySecurityHeaders(await handleApiRequest(request, url, env));
+      try {
+        return applySecurityHeaders(await handleApiRequest(request, url, env));
+      } catch {
+        return applySecurityHeaders(
+          jsonResponse({ error: "حدث خطأ داخلي. حاول مرة أخرى / An internal error occurred." }, 500)
+        );
+      }
     }
 
     // 2. Dynamic /robots.txt and /sitemap.xml

@@ -49,10 +49,21 @@ async function main() {
     "rgb(255, 255, 255)",
     `Day Mode body background must not be pure white, got ${bodyBgLight}`
   );
-  assert.equal(await page.getByText("بورتفوليو مجاني دائمًا").first().isVisible(), true);
-  assert.equal(await page.getByRole("heading", { name: /بورتفوليو يليق بطموحك/ }).isVisible(), true);
+  assert.equal(await page.getByText(/مجاني دائمًا/).first().isVisible(), true);
+  assert.equal(await page.getByRole("heading", { name: /بورتفوليو يتجاوز التوقعات/ }).isVisible(), true);
   console.log(`[PASS] Browser E2E 1: Approved free-portfolio homepage is visible in daylight mode (${bodyBgLight})`);
 
+  const graduationSection = page.locator("#graduation-project");
+  await graduationSection.scrollIntoViewIfNeeded();
+  assert.equal(await graduationSection.isVisible(), true, "Graduation project section must be visible on the homepage");
+  const founderImage = graduationSection.locator('img[alt="عبدالله يحى"]');
+  await founderImage.scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => {
+    const img = document.querySelector('#graduation-project img[alt="عبدالله يحى"]');
+    return img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0;
+  });
+  assert.equal(await graduationSection.locator('a[href="https://www.linkedin.com/in/abdullah-yehia/"]').isVisible(), true);
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "01-home-day-ar.png") });
 
   // 2. Toggle Language AR -> EN without reload
@@ -99,37 +110,33 @@ async function main() {
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "05-dashboard.png") });
   console.log("[PASS] Browser E2E 6: 1-Click Verified Creator button logs into layla.taqdom.me and navigates to /dashboard");
 
-  // 6. Visit /studio?u=layla, test Appearance tab (theme mode & accent), edit bio, and click Publish
-  await page.goto(`${BASE}/studio?u=layla`, { waitUntil: "domcontentloaded" });
+  // 6. The showcase account is a protected, read-only preview.
+  await page.goto(BASE + "/studio?u=layla", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(600);
   const studioThemeBefore = await page.evaluate(() => document.documentElement.classList.contains("dark"));
   await page.getByTestId("studio-theme-toggle").click();
   const studioThemeAfter = await page.evaluate(() => document.documentElement.classList.contains("dark"));
-  assert.notEqual(studioThemeAfter, studioThemeBefore, "Studio must toggle between the shared day and night themes");
+  assert.notEqual(studioThemeAfter, studioThemeBefore, "Studio must toggle between shared day and night themes");
   await page.getByTestId("studio-theme-toggle").click();
   const studioThemeRestored = await page.evaluate(() => document.documentElement.classList.contains("dark"));
-  assert.equal(studioThemeRestored, studioThemeBefore, "Studio theme toggle must restore the original mode");
-  const e2eBio = "نبذة معمارية تم تحديثها ونشرها حياً عبر الاستوديو — Layla Studio E2E 2026";
-  await page.getByTestId("studio-bio-ar-input").fill(e2eBio);
+  assert.equal(studioThemeRestored, studioThemeBefore, "Studio must restore the original theme");
+  assert.equal(await page.getByText(/وضع المعاينة فقط/).isVisible(), true, "The showcase must show a read-only notice");
   await page.getByTestId("studio-publish-btn").click();
-  await page.getByTestId("studio-publish-banner").waitFor({ state: "visible", timeout: 10000 });
+  await page.waitForTimeout(300);
+  assert.equal(await page.getByTestId("studio-publish-banner").count(), 0, "A demo account must not publish changes");
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "06-studio.png") });
-  console.log("[PASS] Browser E2E 7: /studio live edit and publish banner verified");
+  console.log("[PASS] Browser E2E 7: Studio theme toggle and read-only showcase protection verified");
 
-  // 7. Visit http://layla.localhost:PORT in Browser and verify published bio & sticky layered parallax stack
-  await page.goto(`http://layla.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
+  // 7. Verify the public Layla showcase remains intact after preview.
+  await page.goto("http://layla.localhost:" + PORT + "/", { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(700);
   const pageContent = await page.content();
-  assert.equal(
-    pageContent.includes(e2eBio),
-    true,
-    "Published bio must be visible on http://layla.localhost:PORT/"
-  );
+  assert.equal(pageContent.includes("ProfilePage"), true, "Published profile JSON-LD must be present");
+  assert.equal(pageContent.includes("Layla Studio E2E 2026"), false, "Demo preview must not alter the live showcase");
   const havenStackVisible = await page.getByTestId("haven-layered-parallax-stack").isVisible();
-  assert.equal(havenStackVisible, true, "Haven sticky layered parallax stack must be visible");
+  assert.equal(havenStackVisible, true, "Haven layered parallax stack must be visible");
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "07-subdomain-layla.png") });
-  console.log("[PASS] Browser E2E 8: Subdomain http://layla.localhost:PORT/ renders updated Haven portfolio with sticky layered parallax plates");
-
+  console.log("[PASS] Browser E2E 8: Public showcase remains intact after read-only Studio preview");
   // 8. Verify domain-specific interactive widgets across Madar, Athar, Siyada, Wameed, Salam, and Meshwar subdomains
   await page.goto(`http://youssef.localhost:${PORT}/`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(500);
@@ -183,9 +190,6 @@ async function main() {
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(SCREENSHOT_DIR, "12-subdomain-meshwar-nora.png") });
   console.log("[PASS] Browser E2E 9: Interactive widgets on Madar (youssef), Athar (farida), Siyada (karim), Wameed (tariq), Salam (salma), and Meshwar (nora) verified");
-
-  // Restore layla back to clean flagship state
-  await page.request.post(`${BASE}/api/auth/test-login`);
 
   await browser.close();
   console.log("=== ALL REAL BROWSER E2E TESTS PASSED 100% ===");

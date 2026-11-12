@@ -38,11 +38,38 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
   }
 }
 
-export async function hashPasswordPBKDF2(password: string, saltHex?: string): Promise<{ hash: string; salt: string }> {
+const PBKDF2_CURRENT_ITERATIONS = 600000;
+const PBKDF2_LEGACY_ITERATIONS = 100000;
+const PBKDF2_SALT_PREFIX = "pbkdf2-sha256$";
+
+function parseStoredPasswordSalt(storedSalt?: string): { saltBytes: Uint8Array; iterations: number } {
+  const value = String(storedSalt || "");
+  if (value.startsWith(PBKDF2_SALT_PREFIX)) {
+    const parts = value.split("$");
+    const iterations = Number(parts[1]);
+    const hex = parts[2] || "";
+    if (![PBKDF2_LEGACY_ITERATIONS, PBKDF2_CURRENT_ITERATIONS].includes(iterations) || !/^[a-f0-9]{32}$/i.test(hex)) {
+      throw new Error("Invalid stored password salt.");
+    }
+    return {
+      saltBytes: new Uint8Array(hex.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))),
+      iterations,
+    };
+  }
+  if (!/^[a-f0-9]{32}$/i.test(value)) {
+    throw new Error("Invalid legacy password salt.");
+  }
+  return {
+    saltBytes: new Uint8Array(value.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))),
+    iterations: PBKDF2_LEGACY_ITERATIONS,
+  };
+}
+
+export async function hashPasswordPBKDF2(password: string, storedSalt?: string): Promise<{ hash: string; salt: string }> {
   const encoder = new TextEncoder();
-  const saltBytes = saltHex
-    ? new Uint8Array(saltHex.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)))
-    : crypto.getRandomValues(new Uint8Array(16));
+  const parsed = storedSalt
+    ? parseStoredPasswordSalt(storedSalt)
+    : { saltBytes: crypto.getRandomValues(new Uint8Array(16)), iterations: PBKDF2_CURRENT_ITERATIONS };
 
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
@@ -55,19 +82,23 @@ export async function hashPasswordPBKDF2(password: string, saltHex?: string): Pr
   const derivedBits = await crypto.subtle.deriveBits(
     {
       name: "PBKDF2",
-      salt: saltBytes,
-      iterations: 100000,
+      salt: parsed.saltBytes.slice().buffer as ArrayBuffer,
+      iterations: parsed.iterations,
       hash: "SHA-256",
     },
     keyMaterial,
     256
   );
 
-  const hashArray = Array.from(new Uint8Array(derivedBits));
-  const saltArray = Array.from(saltBytes);
+  const hash = Array.from(new Uint8Array(derivedBits))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+  const saltHex = Array.from(parsed.saltBytes)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 
   return {
-    hash: hashArray.map((b) => b.toString(16).padStart(2, "0")).join(""),
-    salt: saltArray.map((b) => b.toString(16).padStart(2, "0")).join(""),
+    hash,
+    salt: `${PBKDF2_SALT_PREFIX}${parsed.iterations}$${saltHex}`,
   };
 }
