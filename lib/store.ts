@@ -149,33 +149,6 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
       },
 
       loginFlagshipShowcase: async () => {
-        const fresh = structuredClone(SEED_PORTFOLIOS.layla);
-        try {
-          await fetch("/api/auth/test-login", { method: "POST" });
-        } catch {
-          // Ignore network error
-        }
-        set((state) => ({
-          user: {
-            id: "user-layla",
-            email: "layla@taqdom.me",
-            username: "layla",
-            isFlagshipAccount: true,
-          },
-          draft: structuredClone(fresh),
-          publishedPortfolios: {
-            ...SEED_PORTFOLIOS,
-            ...state.publishedPortfolios,
-            layla: structuredClone(fresh),
-          },
-          pastDrafts: [],
-          futureDrafts: [],
-          saveStatus: "saved",
-        }));
-        return fresh;
-      },
-
-loginFlagshipShowcase: async () => {
         const response = await fetch("/api/auth/test-login", { method: "POST" });
         const result = await response.json().catch(() => null);
         if (!response.ok || !result?.ok || !result?.user?.isTestAccount || !result?.portfolio) {
