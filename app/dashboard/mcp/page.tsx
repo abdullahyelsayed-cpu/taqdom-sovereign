@@ -65,12 +65,12 @@ export default function McpConnectionsPage() {
       <Link href="/dashboard" className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> العودة للوحة التحكم</Link>
       <div className="mb-8 flex items-start gap-4">
         <div className="rounded-2xl border border-[#C99750]/40 bg-[#C99750]/10 p-3"><KeyRound className="h-7 w-7 text-[#A97835]" /></div>
-        <div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#A97835]">Taqdom Connect</p><h1 className="mt-1 text-3xl font-black sm:text-4xl">اتصالات MCP</h1><p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">اربط معرضك بتطبيقات الذكاء الاصطناعي المتوافقة مع MCP، واسمح لها بقراءة بيانات معرضك من خلال اتصال خاص بحسابك.</p></div>
+        <div><p className="text-xs font-bold uppercase tracking-[.2em] text-[#A97835]">Taqdom Connect</p><h1 className="mt-1 text-3xl font-black sm:text-4xl">اتصالات MCP</h1><p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">اربط معرضك بتطبيقات الذكاء الاصطناعي المتوافقة مع MCP، واسمح لها بقراءة وتعديل بيانات معرضك من خلال اتصال خاص بحسابك.</p></div>
       </div>
 
       <div className="mb-6 rounded-3xl border border-emerald-500/25 bg-emerald-500/5 p-5">
-        <div className="flex items-center gap-2 font-bold"><ShieldCheck className="h-5 w-5 text-emerald-600" /> وصول آمن للقراءة فقط</div>
-        <p className="mt-2 text-sm leading-7 text-muted-foreground">الاتصال لا يستطيع تعديل معرضك أو نشره أو حذف بياناتك. كل مفتاح مرتبط بحساب واحد، ويمكنك إلغاؤه في أي وقت. لا تشارك المفتاح مع أي شخص، وسيظهر كاملًا مرة واحدة فقط عند إنشائه.</p>
+        <div className="flex items-center gap-2 font-bold"><ShieldCheck className="h-5 w-5 text-emerald-600" /> وصول آمن للقراءة والكتابة</div>
+        <p className="mt-2 text-sm leading-7 text-muted-foreground">الاتصال يقدر يعدّل بيانات الملف الشخصي ويضيف ويحدّث ويحذف المشاريع في المسودة. النشر العام لا يحدث تلقائيًا؛ لازم تستدعي أداة publish_portfolio صراحةً. كل مفتاح محصور في حسابك، ويمكنك إلغاؤه فورًا. لا تشارك المفتاح، وسيظهر كاملًا مرة واحدة فقط عند إنشائه.</p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[.9fr_1.1fr]">
@@ -96,6 +96,6 @@ export default function McpConnectionsPage() {
         <button onClick={() => setCreated(null)} className="mt-4 text-sm font-bold text-muted-foreground underline">أخفي المفتاح بعد حفظه بأمان</button>
       </div>}
 
-      <div className="mt-6 rounded-3xl border border-border bg-card p-6"><h2 className="font-extrabold">الأدوات المتاحة حاليًا</h2><div className="mt-3 grid gap-3 sm:grid-cols-3">{[["get_portfolio","قراءة بيانات المعرض"],["get_profile","قراءة الملف الشخصي"],["list_projects","عرض المشاريع"]].map(([name,desc]) => <div key={name} className="rounded-xl bg-muted/50 p-3"><code className="text-xs font-bold text-[#A97835]">{name}</code><p className="mt-1 text-sm">{desc}</p></div>)}</div><p className="mt-4 text-xs leading-6 text-muted-foreground">النسخة الحالية تستخدم مفاتيح وصول شخصية بنطاق قراءة فقط عبر HTTPS وMCP Streamable HTTP. دعم OAuth 2.1 وتفويض التطبيقات من داخل Claude/ChatGPT مرحلة لاحقة مستقلة، وليست مفعّلة في هذه النسخة.</p></div>
+      <div className="mt-6 rounded-3xl border border-border bg-card p-6"><h2 className="font-extrabold">الأدوات المتاحة</h2><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[["get_portfolio","قراءة بيانات المعرض"],["get_profile","قراءة الملف الشخصي"],["list_projects","عرض المشاريع"],["update_profile","تعديل الملف الشخصي"],["create_project","إضافة مشروع"],["update_project","تعديل مشروع"],["delete_project","حذف مشروع"],["publish_portfolio","نشر المسودة"]].map(([name,desc]) => <div key={name} className="rounded-xl bg-muted/50 p-3"><code className="text-xs font-bold text-[#A97835]">{name}</code><p className="mt-1 text-sm">{desc}</p></div>)}</div><p className="mt-4 text-xs leading-6 text-muted-foreground">تستخدم الاتصالات مفاتيح وصول شخصية عبر HTTPS وMCP Streamable HTTP. التعديلات تحفظ كمسودة خاصة حتى تطلب النشر صراحةً. دعم OAuth 2.1 وتفويض التطبيقات من داخل Claude/ChatGPT مرحلة لاحقة مستقلة، وليست مفعّلة في هذه النسخة.</p></div>
     </section><FooterSection /></main>;
 }
