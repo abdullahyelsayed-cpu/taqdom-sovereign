@@ -1102,14 +1102,190 @@ async function handleApiRequest(request, url, env) {
         const portfolios = await getAllPublishedPortfoliosFromD1(env);
         return jsonResponse({ portfolios });
       }
-      const u = normalizeUsername(searchParams.get("u") || "layla");
+      const username = normalizeUsername(searchParams.get("u") || "layla");
       const mode = searchParams.get("mode") || "published";
-      if (mode === "draft" && !ownsUsername(u)) return unauthorized();
-      const p =
-        mode === "draft"
-          ? await getDraftPortfolioFromD1(env, u)
-          : await getPublishedPortfolioFromD1(env, u);
-      if (!p) return jsonResponse({ error: "Not found" }, 404);
+      if (mode === "draft" && !ownsUsername(username)) return unauthorized();
+      const portfolio = mode === "draft"
+        ? await getDraftPortfolioFromD1(env, username)
+        : await getPublishedPortfolioFromD1(env, username);
+      if (!portfolio) return jsonResponse({ error: "Not found" }, 404);
+      return jsonResponse({ portfolio });
+    }
+    if (request.method === "PUT") {
+      if (!session?.username) return unauthorized();
+      if (!ownsUsername(session.username)) return forbidden();
+      const parsed = await parseJsonBody(request, 1_000_000);
+      if (!parsed.ok) return rateLimitBodyError(parsed);
+      const portfolio = parsed.value?.portfolio;
+      if (!portfolio?.username) return jsonResponse({ error: "Invalid payload" }, 400);
+      if (!ownsUsername(portfolio.username)) return forbidden();
+      const validation = validateUsername(String(portfolio.username));
+      if (!validation.valid) {
+        return jsonResponse({ error: validation.reasonAr || "Invalid username" }, 400);
+      }
+      const saved = await savePortfolioToD1AndMemory(
+        env,
+        { ...portfolio, username: validation.normalized },
+        false
+      );
+      return jsonResponse({ ok: true, portfolio: saved });
+    }
+  }
+
+  if (pathname === "/api/portfolio/publish") {
+    if (request.method === "POST") {
+      if (!session?.username) return unauthorized();
+      const parsed = await parseJsonBody(request, 1_000_000);
+      if (!parsed.ok) return rateLimitBodyError(parsed);
+      const portfolio = parsed.value?.portfolio;
+      if (!portfolio?.username) return jsonResponse({ error: "Missing portfolio" }, 400);
+      if (!ownsUsername(portfolio.username)) return forbidden();
+      const validation = validateUsername(String(portfolio.username));
+      if (!validation.valid) {
+        return jsonResponse({ error: validation.reasonAr || "Invalid username" }, 400);
+      }
+      const saved = await savePortfolioToD1AndMemory(
+        env,
+        { ...portfolio, username: validation.normalized },
+        true
+      );
+      return jsonResponse({
+        ok: true,
+        portfolio: saved,
+        subdomainUrl: `https://${saved.username}.taqdom.me`,
+      });
+    }
+
+    if (request.method === "DELETE") {
+      if (!session?.username) return unauthorized();
+      if (!env.DB) return jsonResponse({ error: "Portfolio storage is unavailable." }, 503);
+      const uParam = searchParams.get("u");
+      const parsed = await parseJsonBody(request, 8192);
+      if (!parsed.ok) return rateLimitBodyError(parsed);
+      const clean = normalizeUsername(String(uParam || parsed.value.username || ""));
+      if (!clean) return jsonResponse({ error: "Missing username" }, 400);
+      if (!ownsUsername(clean)) return forbidden();
+      const existing = await env.DB.prepare(
+        "SELECT username FROM portfolios WHERE username = ?1"
+      )
+        .bind(clean)
+        .first();
+      if (!existing) return jsonResponse({ error: "Portfolio not found" }, 404);
+
+      await env.DB.prepare(
+        "UPDATE portfolios SET published_json = NULL, published_at = NULL WHERE username = ?1"
+      )
+        .bind(clean)
+        .run();
+      edgeStore.unpublished.add(clean);
+      return jsonResponse({ ok: true, username: clean });
+    }
+  }
+
+  if (pathname === "/api/upload" && request.method === "POST") {
+    if (!session?.username) return unauthorized();
+    if (!ownsUsername(session.username)) return forbidden();
+    if (!env.DB) return jsonResponse({ error: "Image storage is unavailable." }, 503);
+    const parsed = await parseJsonBody(request, 1_950_000);
+    if (!parsed.ok) return rateLimitBodyError(parsed);
+    const body = parsed.value;
+    if (body.username && normalizeUsername(body.username) !== normalizeUsername(session.username)) {
+      return jsonResponse({ error: "You can only upload to your own portfolio" }, 403);
+    }
+    const dataUrl = String(body.dataUrl || "");
+    const match = dataUrl.match(/^data:(image\\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
+    if (!match) {
+      return jsonResponse({ error: "Only valid JPG, PNG, and WebP data URLs are allowed" }, 400);
+    }
+    const mime = match[1].toLowerCase();
+    if (body.mime && String(body.mime).toLowerCase() !== mime) {
+      return jsonResponse({ error: "Image type mismatch" }, 400);
+    }
+    const base64 = match[2];
+    const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+    const size = Math.floor((base64.length * 3) / 4) - padding;
+    // D1 limits a single value/row to 2,000,000 bytes; base64 expands binary data by ~33%.
+    if (size <= 0 || size > 1_400_000) {
+      return jsonResponse({ error: "Max image size is 1.4MB while R2 is not enabled for this account." }, 413);
+    }
+    if (!validRasterImageData(mime, base64)) {
+      return jsonResponse({ error: "Image bytes do not match the declared JPG, PNG, or WebP type." }, 415);
+    }
+
+    const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : "webp";
+    const key = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
+    ).run();
+    await env.DB.prepare(
+      "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+    )
+      .bind(key, mime, size, dataUrl, Date.now())
+      .run();
+    edgeStore.media[key] = { key, mime, size, dataUrl };
+
+    return jsonResponse({
+      ok: true,
+      key,
+      url: `/api/media/${key}`,
+    });
+  }
+
+  if (pathname.startsWith("/api/media/") && request.method === "GET") {
+    const key = pathname.slice("/api/media/".length);
+    if (!/^\\d{10,}-[0-9a-f-]{36}\\.(?:jpg|png|webp)$/i.test(key)) {
+      return new Response("Not found", { status: 404 });
+    }
+    let item = edgeStore.media[key];
+    if ((!item || !item.dataUrl) && env.DB) {
+      const row = await env.DB.prepare(
+        "SELECT mime, size, data_url FROM media_blobs WHERE key = ?1"
+      )
+        .bind(key)
+        .first();
+      if (row?.data_url) {
+        item = { key, mime: row.mime, size: row.size, dataUrl: row.data_url };
+        edgeStore.media[key] = item;
+      }
+    }
+    if (!item?.dataUrl) return new Response("Not found", { status: 404 });
+    const base64Idx = item.dataUrl.indexOf("base64,");
+    if (base64Idx === -1) return new Response("Invalid media", { status: 400 });
+    const binStr = atob(item.dataUrl.slice(base64Idx + 7));
+    const bytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+    return new Response(bytes, {
+      status: 200,
+      headers: {
+        "Content-Type": item.mime || "image/webp",
+        "Content-Disposition": "inline",
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
+  }
+
+  if (pathname === "/api/views" && request.method === "POST") {
+    const parsed = await parseJsonBody(request, 8192);
+    if (!parsed.ok) return rateLimitBodyError(parsed);
+    const clean = normalizeUsername(String(parsed.value.username || ""));
+    if (!clean) return jsonResponse({ error: "Invalid username" }, 400);
+    const published = await getPublishedPortfolioFromD1(env, clean);
+    if (!published) return jsonResponse({ error: "Portfolio not found" }, 404);
+    if (!env.DB) return jsonResponse({ error: "View counter is unavailable." }, 503);
+
+    const day = new Date().toISOString().slice(0, 10);
+    const result = await env.DB.prepare(
+      `INSERT INTO views (username, day, count) VALUES (?1, ?2, 1)
+       ON CONFLICT(username, day) DO UPDATE SET count = views.count + 1`
+    )
+      .bind(clean, day)
+      .run();
+    const total = Number(result.meta?.changes || 1);
+    edgeStore.views[clean] = (edgeStore.views[clean] || 100) + total;
+    return jsonResponse({ ok: true, views: edgeStore.views[clean] });
+  }
+
+  return jsonResponse({ error: "Not found" }, 404);
       return jsonResponse({ portfolio: p });
     }
     if (request.method === "PUT") {
