@@ -1,4 +1,4 @@
-import { PortfolioData, RESERVED_USERNAMES, normalizeUsername } from "./types";
+import { PortfolioData, RESERVED_USERNAMES, normalizeUsername, safePortfolioUrl } from "./types";
 import { SEED_PORTFOLIOS, createStarterPortfolio } from "./seed-data";
 
 export interface StoredUser {
@@ -127,7 +127,10 @@ async function writeDiskAndMemoryDb(snapshot: DbSnapshot): Promise<void> {
 function stripPrivateAccountEmail(portfolio: PortfolioData): PortfolioData {
   const { email: privateAccountEmail, ...publicPortfolio } = portfolio;
   void privateAccountEmail;
-  return publicPortfolio as PortfolioData;
+  const links = Array.isArray(publicPortfolio.links)
+    ? publicPortfolio.links.map((link) => ({ ...link, url: safePortfolioUrl(link.url) }))
+    : [];
+  return { ...publicPortfolio, links } as PortfolioData;
 }
 
 export async function getPublishedPortfolio(username: string): Promise<PortfolioData | null> {
