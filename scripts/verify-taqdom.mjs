@@ -282,6 +282,7 @@ async function runTests() {
 
   const safeLinkPortfolio = {
     ...publicPortfolioData.portfolio,
+    discoverable: true,
     links: [{ name: "Unsafe test", url: "javascript:alert(1)" }],
   };
   const publishRes = await fetch(BASE + "/api/portfolio/publish", {
