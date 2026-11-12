@@ -24,7 +24,7 @@ try {
         cards: cards.length,
         columns: style?.gridTemplateColumns || "",
         mcpCardCount: cards.filter((card) => card.textContent?.includes("MCP")).length,
-        hasReadWrite: faq?.textContent?.includes("القراءة والكتابة") || false,
+        hasReadWrite: /read and write|القراءة والكتابة/i.test(faq?.textContent || ""),
         hasPublishGate: faq?.textContent?.includes("publish_portfolio") || false,
       };
     });
