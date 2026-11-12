@@ -177,8 +177,8 @@ assert.match(mcpServerText, /publish_portfolio/, "MCP must expose explicit portf
 assert.match(mcpServerText, /WHERE username = \?1 AND user_id = \?2/, "MCP reads must enforce both username and account ID.");
 assert.match(mcpServerText, /UPDATE portfolios SET draft_json/, "MCP writes must persist to the account draft.");
 assert.match(mcpServerText, /list_projects/, "MCP must expose project reading.");
-assert.match(mcpServerText, /bilingual\(portfolio\.name\)/, "MCP profile fields must match the bilingual portfolio schema.");
-assert.match(mcpServerText, /safeProjects/, "MCP project data must be explicitly allow-listed.");
+assert.match(mcpServerText, /bilingual\(portfolio\.name \|\| ""/, "MCP profile fields must match the bilingual portfolio schema.");
+assert.match(mcpServerText, /function publicProject\(/, "MCP project data must be explicitly allow-listed.");
 assert.doesNotMatch(mcpServerText, /email:\s*portfolio\.email/, "MCP must not expose account email by default.");
 assert.match(workerText, /mcp-token-create/, "MCP token creation must be rate-limited.");
 assert.match(dashboardTextMcp, /api\/mcp\/tokens/, "Account dashboard must manage MCP connections.");
