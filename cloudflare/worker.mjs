@@ -895,7 +895,7 @@ async function handleApiRequest(request, url, env) {
     }
 
     // Opportunistically upgrade legacy 100k-iteration hashes after a successful login.
-    if (!String(dbUser.salt || "").startsWith(PBKDF2_SALT_PREFIX)) {
+    if (parsePasswordSalt(dbUser.salt).iterations < PBKDF2_CURRENT_ITERATIONS) {
       const upgraded = await hashPasswordEdge(password);
       await env.DB.prepare(
         "UPDATE users SET password_hash = ?1, salt = ?2 WHERE username = ?3"
