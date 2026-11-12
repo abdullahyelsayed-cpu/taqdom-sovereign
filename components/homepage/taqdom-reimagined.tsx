@@ -317,7 +317,7 @@ export function TaqdomReimagined() {
 
             <div className="neo-owner-chip">
               <Image
-                src="/images/abdullah-yehia.webp"
+                src="/images/abdullah-yehia.svg"
                 alt={t(creator.nameAr, creator.nameEn)}
                 width={72}
                 height={72}
