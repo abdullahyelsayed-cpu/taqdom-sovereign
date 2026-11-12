@@ -189,10 +189,13 @@ assert.match(wranglerText, /"\/mcp\/\*"/, "Cloudflare Worker must receive MCP re
 assert.match(dashboardText, /dashboard\/mcp/, "Dashboard must link to MCP connection settings.");
 assert.match(dashboardTextMcp, /قراءة والكتابة/, "MCP dashboard must explain read and write access.");
 assert.match(dashboardTextMcp, /publish_portfolio/, "MCP dashboard must explain explicit publishing.");
-assert.match(testimonialsText, /MCP read and write access/, "FAQ must explain MCP read and write integration.");
-assert.match(testimonialsText, /publish_portfolio/, "FAQ must explain explicit MCP publishing.");
-assert.match(testimonialsText, /MCP Connections page/, "FAQ must explain where to configure MCP.");
-assert.match(testimonialsText, /OAuth 2\.1/, "FAQ must accurately disclose the current MCP authentication model.");
+assert.match(worldText, /id="faq"/, "The live homepage must render the FAQ section.");
+assert.match(worldText, /royal-faq-card-mcp/, "The live homepage FAQ must render the MCP cards.");
+assert.match(worldText, /publish_portfolio/, "The live homepage FAQ must explain explicit MCP publishing.");
+assert.match(worldText, /OAuth 2\\.1/, "The live homepage FAQ must accurately disclose the MCP authentication model.");
+assert.match(royalCss, /@media \\(max-width: 380px\\)/, "Homepage must include narrow-phone layout rules.");
+assert.match(royalCss, /royal-faq-grid \\{ grid-template-columns: minmax\\(0,1fr\\);/, "FAQ cards must stack cleanly on phones.");
+assert.match(royalCss, /overflow-wrap: anywhere/, "Long FAQ and URL text must wrap without horizontal overflow.");
 
 
 console.log("Taqdom quality guards: PASS");
