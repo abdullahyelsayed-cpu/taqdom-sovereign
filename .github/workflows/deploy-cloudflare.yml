@@ -76,7 +76,7 @@ jobs:
         run: pnpm build:cloudflare
 
       - name: Install Chromium for responsive browser verification
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright-core install --with-deps chromium
 
       - name: Run local end-to-end API and publishing verification
         env:
