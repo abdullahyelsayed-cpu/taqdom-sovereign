@@ -151,6 +151,25 @@ export const RESERVED_USERNAMES = new Set([
   "support",
 ]);
 
+export function safePortfolioUrl(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim().slice(0, 2048) : "";
+  if (!raw || raw.includes("\n") || raw.includes("\r")) return "#";
+  if (/^#[a-z0-9_-]+$/i.test(raw)) return raw;
+  if (/^(mailto:|tel:)/i.test(raw)) return raw;
+  let candidate = raw;
+  if (!/^https?:\/\//i.test(candidate)) {
+    if (/^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[:/].*)?$/i.test(candidate)) candidate = "https://" + candidate;
+    else return "#";
+  }
+  try {
+    const parsed = new URL(candidate);
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) return "#";
+    return parsed.toString();
+  } catch {
+    return "#";
+  }
+}
+
 export function normalizeUsername(input: string): string {
   return input
     .trim()
