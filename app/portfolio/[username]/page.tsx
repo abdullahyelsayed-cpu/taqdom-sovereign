@@ -1,7 +1,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import { getPublishedPortfolio } from "@/lib/db";
-import { normalizeUsername } from "@/lib/types";
+import { normalizeUsername, safePortfolioUrl } from "@/lib/types";
 import { PublishedPortfolioClient } from "@/components/templates/published-portfolio-client";
 
 export const dynamic = "force-dynamic";
@@ -95,7 +95,7 @@ export default async function PortfolioSubdomainPage({
             "@type": "PostalAddress",
             addressLocality: portfolio.city.en,
           },
-          sameAs: portfolio.links.map((l) => l.url),
+          sameAs: portfolio.links.map((link) => safePortfolioUrl(link.url)).filter((url) => url !== "#"),
         },
         hasPart: portfolio.projects.map((p) => ({
           "@type": "CreativeWork",
@@ -112,7 +112,7 @@ export default async function PortfolioSubdomainPage({
       {personJsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026").replace(/\\u2028/g, "\\u2028").replace(/\\u2029/g, "\\u2029") }}
         />
       )}
       <PublishedPortfolioClient initialPortfolio={portfolio} username={clean} />
