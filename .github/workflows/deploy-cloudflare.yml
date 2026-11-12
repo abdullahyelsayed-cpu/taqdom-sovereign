@@ -131,7 +131,7 @@ jobs:
           printf '%s' "$PORTRAIT_HEADERS" | grep -qi '^content-type: image/svg+xml'
           grep -q '<svg' "$PORTRAIT_FILE"
           grep -q 'data:image/webp;base64,' "$PORTRAIT_FILE"
-          grep -q 'abdullah-yehia.svg' "$HOME_HTML"
+          printf '%s' "$HOME_HTML" | grep -q 'abdullah-yehia.svg'
           rm -f "$PORTRAIT_FILE"
           PROFILE_HTML="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" https://layla.taqdom.me/)"
           printf '%s' "$PROFILE_HTML" | grep -q 'ProfilePage'
