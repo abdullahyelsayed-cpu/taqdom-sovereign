@@ -176,6 +176,13 @@ export default function DashboardPage() {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Link
+                href="/dashboard/mcp"
+                className="inline-flex items-center gap-2 rounded-xl border border-[#C99750]/40 bg-[#C99750]/10 px-4 py-2.5 text-xs font-bold hover:border-[#C99750]"
+              >
+                <span>{t("اتصالات MCP", "MCP Connections")}</span>
+              </Link>
+
+              <Link
                 href="/dashboard/settings"
                 className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-bold hover:border-[#9A7B4F]"
               >
