@@ -854,12 +854,10 @@ main:not(.home-experience) select:focus,
   background: rgba(25,35,61,.97);
 }
 [data-taqdom-studio] aside > div:first-child {
-  position: sticky;
-  top: 0;
-  z-index: 8;
+  position: relative;
+  z-index: 2;
   background: #EEF1F8;
   border-color: var(--neo-line);
-  backdrop-filter: blur(14px);
 }
 .dark [data-taqdom-studio] aside > div:first-child {
   background: #202C48;

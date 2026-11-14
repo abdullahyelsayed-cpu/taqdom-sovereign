@@ -3,7 +3,22 @@ import { chromium } from "playwright-core";
 
 const base = process.env.BASE_URL || "http://127.0.0.1:3040";
 const widths = [320, 360, 375, 390, 430, 640, 768, 900, 1024, 1280, 1440];
-const browser = await chromium.launch({ headless: true });
+async function launchBrowser() {
+  try {
+    return await chromium.launch({ headless: true });
+  } catch {
+    for (const channel of ["msedge", "chrome"]) {
+      try {
+        return await chromium.launch({ headless: true, channel });
+      } catch {
+        // try next channel
+      }
+    }
+    throw new Error("Could not launch headless Chromium, Edge, or Chrome");
+  }
+}
+
+const browser = await launchBrowser();
 try {
   for (const width of widths) {
     const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });

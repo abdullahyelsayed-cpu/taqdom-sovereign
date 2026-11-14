@@ -229,6 +229,7 @@ function rateLimitBodyError(result) {
 
 const PBKDF2_CURRENT_ITERATIONS = 600000;
 const PBKDF2_LEGACY_ITERATIONS = 100000;
+const PBKDF2_WORKERD_MAX_ITERATIONS = 100000;
 const PBKDF2_SALT_PREFIX = "pbkdf2-sha256$";
 
 function parsePasswordSalt(storedSalt) {
@@ -339,26 +340,37 @@ async function hashPasswordEdge(password, storedSalt) {
     iterations = PBKDF2_CURRENT_ITERATIONS;
   }
 
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveBits"]
-  );
+  let remaining = iterations;
+  let currentKeyBytes = encoder.encode(password);
+  let derivedBytes = new Uint8Array(32);
 
-  const derivedBits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      salt: saltBytes,
-      iterations,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    256
-  );
+  while (remaining > 0) {
+    const stepIterations = Math.min(remaining, PBKDF2_WORKERD_MAX_ITERATIONS);
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      currentKeyBytes,
+      { name: "PBKDF2" },
+      false,
+      ["deriveBits"]
+    );
 
-  const hash = Array.from(new Uint8Array(derivedBits))
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        salt: saltBytes.slice().buffer,
+        iterations: stepIterations,
+        hash: "SHA-256",
+      },
+      keyMaterial,
+      256
+    );
+
+    derivedBytes = new Uint8Array(derivedBits);
+    currentKeyBytes = derivedBytes;
+    remaining -= stepIterations;
+  }
+
+  const hash = Array.from(derivedBytes)
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
   const saltHex = Array.from(saltBytes)
@@ -630,6 +642,47 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
 
 async function handleApiRequest(request, url, env) {
   const { pathname, searchParams } = url;
+  if (pathname === "/api/health" && request.method === "GET") {
+    try {
+      const hasDb = Boolean(env?.DB);
+      const hasAuthSecret =
+        typeof env?.AUTH_SECRET === "string" && env.AUTH_SECRET.trim().length >= 32;
+      let dbOk = false;
+      if (hasDb) {
+        const row = await env.DB.prepare("SELECT 1 AS ok").first();
+        dbOk = row?.ok === 1;
+      }
+      const probe = await hashPasswordEdge(
+        "TaqdomHealthProbe#2026!",
+        PBKDF2_SALT_PREFIX + PBKDF2_CURRENT_ITERATIONS + "$00112233445566778899aabbccddeeff"
+      );
+      const pbkdf2Ok = Boolean(
+        probe?.hash &&
+          probe.hash.length === 64 &&
+          probe?.salt?.startsWith(PBKDF2_SALT_PREFIX + PBKDF2_CURRENT_ITERATIONS + "$")
+      );
+      const ok = hasDb && dbOk && hasAuthSecret && pbkdf2Ok;
+      return jsonResponse(
+        {
+          ok,
+          status: ok ? "healthy" : "degraded",
+          checks: {
+            db: dbOk,
+            authSecret: hasAuthSecret,
+            pbkdf2: pbkdf2Ok,
+          },
+        },
+        ok ? 200 : 503
+      );
+    } catch (err) {
+      console.error(
+        "Taqdom health check failed:",
+        err instanceof Error ? err.stack || err.message : err
+      );
+      return jsonResponse({ ok: false, status: "error" }, 503);
+    }
+  }
+
   const isSecure = url.protocol === "https:";
   const origin = request.headers.get("origin");
   const isWriteMethod = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method);
@@ -800,7 +853,7 @@ async function handleApiRequest(request, url, env) {
 
     const { hash, salt } = await hashPasswordEdge(password);
     const userObj = {
-      id: `user-${val.normalized}`,
+      id: `user-${crypto.randomUUID()}`,
       email,
       username: val.normalized,
       passwordHash: hash,
@@ -1359,7 +1412,7 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
         (match) => (match.includes('"@type":"ProfilePage"') ? "" : match)
       );
 
-    const bootstrapScript = `<script>window.__TAQDOM_SUBDOMAIN__=${JSON.stringify(
+    const bootstrapScript = `<meta name="robots" content="noindex, nofollow"/><script>window.__TAQDOM_SUBDOMAIN__=${JSON.stringify(
       targetUser
     )};window.__TAQDOM_PORTFOLIO__=null;</script>`;
     return html.replace("</head>", `${bootstrapScript}</head>`);
@@ -1449,7 +1502,13 @@ export default {
     if (pathname.startsWith("/api/")) {
       try {
         return applySecurityHeaders(await handleApiRequest(request, url, env));
-      } catch {
+      } catch (error) {
+        console.error(
+          "Taqdom API error:",
+          request.method,
+          pathname,
+          error instanceof Error ? error.stack || error.message : error
+        );
         return applySecurityHeaders(
           jsonResponse({ error: "حدث خطأ داخلي. حاول مرة أخرى / An internal error occurred." }, 500)
         );
@@ -1536,7 +1595,7 @@ export default {
         const customData = await getPublishedPortfolioFromD1(env, targetUser);
         const enrichedHtml = rewriteSubdomainHtml(rawHtml, targetUser, customData);
         return applySecurityHeaders(new Response(enrichedHtml, {
-          status: 200,
+          status: customData ? 200 : 404,
           headers: {
             "Content-Type": "text/html; charset=utf-8",
             "X-Taqdom-Subdomain": targetUser,

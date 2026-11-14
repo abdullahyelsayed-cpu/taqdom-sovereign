@@ -190,6 +190,28 @@ function StudioContent() {
     if (uParam) {
       const clean = normalizeUsername(uParam);
       if (clean.length >= 3) {
+        if (SEED_PORTFOLIOS[clean] && (isDemoReadOnly || !user || user.username !== clean)) {
+          const seeded = {
+            ...structuredClone(SEED_PORTFOLIOS[clean]),
+            template: validTpl || SEED_PORTFOLIOS[clean].template,
+          };
+          setDraft(seeded, false);
+          return;
+        }
+        if (!SEED_PORTFOLIOS[clean] && (isDemoReadOnly || !user || user.username !== clean)) {
+          const current = useTaqdomStore.getState().draft;
+          if (current.username === clean) {
+            if (validTpl) switchTemplate(validTpl);
+          } else {
+            const starter = createStarterPortfolio(
+              clean,
+              validTpl || current.template || "haven",
+              clean
+            );
+            setDraft(starter, false);
+          }
+          return;
+        }
         let cancelled = false;
         fetch(`/api/portfolio?u=${encodeURIComponent(clean)}&mode=draft`, {
           cache: "no-store",
@@ -237,7 +259,7 @@ function StudioContent() {
         };
       }
     }
-  }, [searchParams, switchTemplate, setDraft]);
+  }, [searchParams, switchTemplate, setDraft, isDemoReadOnly, user]);
 
   // Keyboard shortcuts: Ctrl+Z (Undo), Ctrl+S (Save)
   useEffect(() => {
@@ -796,9 +818,9 @@ function StudioContent() {
       )}
 
       {/* Main Split Workspace: Side Editor + Live Center Stage */}
-      <div className="studio-workspace-grid flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-64px)]">
+      <div className="studio-workspace-grid flex-1 grid grid-cols-1 min-h-[calc(100vh-64px)]">
         {/* Editor Control Panel */}
-        <aside className="studio-sidebar lg:col-span-4 xl:col-span-4 border-e border-border bg-card/90 flex flex-col h-full lg:max-h-[calc(100vh-64px)] overflow-y-auto">
+        <aside className="studio-sidebar border-e border-border bg-card/90 flex flex-col h-full lg:max-h-[calc(100vh-64px)] overflow-y-auto">
           <div className="studio-side-intro">
             <div className="studio-side-intro-top">
               <div className="studio-side-avatar">
@@ -1694,7 +1716,7 @@ function StudioContent() {
           onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
           onPointerCancel={handleCanvasPointerUp}
-          className="studio-canvas-stage lg:col-span-8 xl:col-span-8 bg-secondary/40 p-3 sm:p-6 flex flex-col items-center overflow-y-auto lg:max-h-[calc(100vh-64px)]"
+          className="studio-canvas-stage bg-secondary/40 p-3 sm:p-6 flex flex-col items-center overflow-y-auto lg:max-h-[calc(100vh-64px)]"
         >
           <div className="studio-preview-toolbar mb-3 flex w-full max-w-7xl items-center justify-between gap-3 rounded-2xl border border-border bg-card/90 px-3 py-2">
             <div className="min-w-0">

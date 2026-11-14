@@ -29,6 +29,18 @@ export function Header() {
     { href: "/#faq", labelAr: "الأسئلة الشائعة", labelEn: "FAQ" },
   ];
 
+  const handleHashNavigation = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (pathname === "/" && href.startsWith("/#")) {
+      const targetId = href.slice(2);
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        e.preventDefault();
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.history.replaceState(null, "", `#${targetId}`);
+      }
+    }
+  };
+
   const brand = (
     <Link href="/" className="neo-header-brand" aria-label={t("الصفحة الرئيسية لتَقَدُّم", "Taqdom home")}>
       <TaqdomLogo size={38} lang={lang} />
@@ -47,6 +59,7 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={(e) => handleHashNavigation(e, item.href)}
               aria-current={active ? "page" : undefined}
             >
               {t(item.labelAr, item.labelEn)}
@@ -104,7 +117,14 @@ export function Header() {
       {isMenuOpen && (
         <nav id="taqdom-mobile-navigation" className="neo-header-mobile-menu" aria-label={t("التنقل الرئيسي", "Main navigation")}>
           {navItems.map((item) => (
-            <Link key={item.href} href={item.href} onClick={() => setIsMenuOpen(false)}>
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={(e) => {
+                handleHashNavigation(e, item.href);
+                setIsMenuOpen(false);
+              }}
+            >
               {t(item.labelAr, item.labelEn)}
             </Link>
           ))}

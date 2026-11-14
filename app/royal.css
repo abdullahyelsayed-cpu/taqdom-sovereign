@@ -171,9 +171,8 @@ body { background: var(--background); color: var(--foreground); }
   grid-template-columns: minmax(0, 1fr) minmax(370px, .92fr);
   align-items: center;
   gap: clamp(32px, 5vw, 90px);
-  direction: rtl;
 }
-.royal-hero-copy { max-width: 690px; padding: 0 0 16px; text-align: right; }
+.royal-hero-copy { max-width: 690px; padding: 0 0 16px; text-align: start; }
 .royal-badge {
   display: inline-flex; align-items: center; gap: 9px;
   padding: 9px 15px;
@@ -253,6 +252,12 @@ body { background: var(--background); color: var(--foreground); }
   background: rgba(7,15,27,.92);
   box-shadow: 0 35px 85px rgba(0,0,0,.50), 0 0 35px rgba(201,150,76,.14), inset 0 1px rgba(255,255,255,.13);
 }
+html[dir="ltr"] .royal-browser {
+  transform: rotateY(7deg) rotateX(2deg);
+}
+html[dir="ltr"] .royal-browser:hover {
+  transform: rotateY(2deg) rotateX(0deg) translateY(-6px);
+}
 .royal-browser-top { height: 43px; display: flex; align-items: center; gap: 12px; padding: 0 15px; background: rgba(255,255,255,.73); border-bottom: 1px solid rgba(53,74,103,.12); }
 .dark .royal-browser-top { background: rgba(18,31,49,.92); border-color: rgba(228,182,111,.14); }
 .royal-window-dots { display: flex; gap: 5px; }
@@ -298,7 +303,7 @@ body { background: var(--background); color: var(--foreground); }
   backdrop-filter: blur(20px) saturate(1.35);
 }
 .dark .royal-feature-strip { background: rgba(7,15,27,.72); border-color: rgba(228,182,111,.27); box-shadow: 0 19px 54px rgba(0,0,0,.35), inset 0 1px rgba(255,255,255,.08); }
-.royal-feature { display: flex; align-items: center; justify-content: center; gap: 13px; padding: 8px 13px; text-align: right; }
+.royal-feature { display: flex; align-items: center; justify-content: center; gap: 13px; padding: 8px 13px; text-align: start; }
 .royal-feature + .royal-feature { border-inline-start: 1px solid rgba(100,116,139,.24); }
 .dark .royal-feature + .royal-feature { border-color: rgba(228,182,111,.19); }
 .royal-feature-icon { display: grid; place-items: center; width: 45px; height: 45px; flex: 0 0 45px; border-radius: 15px; color: #a77434; background: linear-gradient(145deg, rgba(248,225,185,.72), rgba(212,163,93,.12)); }
@@ -328,8 +333,9 @@ body { background: var(--background); color: var(--foreground); }
 .dark .royal-template-arrow:hover { background: #16243a; }
 .royal-template-arrow:focus-visible { outline: 3px solid rgba(201,151,80,.55); outline-offset: 3px; }
 .royal-template-grid { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 56px) / 5); grid-template-columns: none; gap: 14px; min-width: 0; overflow-x: auto; padding: 7px 4px 18px; direction: ltr; scroll-snap-type: x mandatory; overscroll-behavior-inline: contain; scrollbar-width: thin; scrollbar-color: rgba(190,143,72,.42) transparent; }
-.royal-template-card { direction: rtl; scroll-snap-align: start; }
-.royal-template-card { min-width: 0; text-decoration: none; color: inherit; }
+.royal-template-card { min-width: 0; scroll-snap-align: start; text-decoration: none; color: inherit; }
+html[dir="rtl"] .royal-template-card { direction: rtl; }
+html[dir="ltr"] .royal-template-card { direction: ltr; }
 .royal-template-art { position: relative; height: clamp(132px, 10.5vw, 172px); overflow: hidden; border: 4px solid rgba(255,255,255,.92); border-radius: 17px; background: #dde6f2; box-shadow: 0 12px 27px rgba(33,48,74,.11); transition: transform .3s ease, box-shadow .3s ease; }
 .dark .royal-template-art { border-color: rgba(228,182,111,.22); background: #111d30; box-shadow: 0 14px 34px rgba(0,0,0,.34); }
 .royal-template-art img { object-fit: cover; transition: transform .65s cubic-bezier(.2,.8,.2,1); }
@@ -340,7 +346,8 @@ body { background: var(--background); color: var(--foreground); }
 .royal-template-meta { display: flex; align-items: start; justify-content: space-between; gap: 6px; padding: 13px 3px 0; }
 .royal-template-meta > div { display: flex; min-width: 0; flex-direction: column; gap: 5px; }
 .royal-template-meta strong { font-size: 14px; font-weight: 950; }
-.royal-template-meta span { color: var(--muted-foreground); font-size: 9px; line-height: 1.7; }
+.royal-template-meta span { color: #49566b; font-size: 0.75rem; line-height: 1.7; }
+.dark .royal-template-meta span { color: rgba(255, 255, 255, 0.78); }
 .royal-template-meta > i { flex: 0 0 auto; color: #a17b4a; font: 800 8px/1.4 var(--font-jakarta), sans-serif; letter-spacing: .08em; }
 .dark .royal-template-meta > i { color: #d9b779; }
 
@@ -437,11 +444,19 @@ body { background: var(--background); color: var(--foreground); }
 .royal-footer-main { display: flex; align-items: center; justify-content: space-between; gap: 22px; padding-bottom: 28px; }
 .royal-footer-brand { display: inline-flex; align-items: center; gap: 9px; color: white; font: 900 18px/1 var(--font-jakarta),sans-serif; }
 .royal-footer-brand span { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: #271b0d; background: linear-gradient(145deg,#f4dca9,#bf873e); }
-.royal-footer-main p { margin: 0; color: #a8b3c4; font-size: 11px; }
+.royal-footer-main p { margin: 0; color: rgba(255, 255, 255, 0.78); font-size: 12px; }
 .royal-footer-links { display: flex; flex-wrap: wrap; gap: 17px; }
-.royal-footer-links a { color: #c4cdd9; font-size: 10px; font-weight: 800; }
-.royal-footer-bottom { display: flex; justify-content: space-between; gap: 17px; padding-top: 15px; border-top: 1px solid rgba(230,238,249,.12); color: #8997aa; font: 700 8px/1.7 var(--font-jakarta),sans-serif; letter-spacing: .04em; }
+.royal-footer-links a { color: rgba(255, 255, 255, 0.78); font-size: 0.85rem; font-weight: 800; }
+.royal-footer-bottom { display: flex; justify-content: space-between; gap: 17px; padding-top: 15px; border-top: 1px solid rgba(230,238,249,.12); color: rgba(255, 255, 255, 0.68); font: 700 0.78rem/1.7 var(--font-jakarta),sans-serif; letter-spacing: .04em; }
 .royal-footer-bottom span:nth-child(2) { color: #e4c48f; }
+#studio-preview,
+#pricing,
+#about,
+#faq,
+#templates,
+#graduation-project {
+  scroll-margin-top: 96px;
+}
 
 /* Internal app pages use the same champagne / midnight system */
 .templates-experience { background: var(--background) !important; color: var(--foreground) !important; }
@@ -525,6 +540,7 @@ body { background: var(--background); color: var(--foreground); }
   .neo-header .neo-logo-word small { font-size: 6px; }
   .neo-header-nav { display: none !important; }
   .neo-header-actions { gap: 6px !important; }
+  .neo-header .neo-button { display: none !important; }
   .royal-hero { padding-top: 100px; }
   .royal-hero-content { gap: 1px; }
   .royal-badge { font-size: 9px; padding: 7px 11px; }

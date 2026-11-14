@@ -13,6 +13,7 @@ export async function POST(req: import("next/server").NextRequest) {
     email: "layla@taqdom.me",
     username: "layla",
     isFlagshipAccount: true,
+    isTestAccount: true,
   };
 
   const token = await signSessionToken({

@@ -85,6 +85,8 @@ assert.match(staticHeaders, /X-Content-Type-Options: nosniff/, "Static responses
 assert.match(workerText, /edge_rate_limits/, "Authentication and media endpoints must use persistent request rate limits.");
 assert.match(workerText, /login-identity/, "Login attempts must be rate-limited by both IP and account identifier.");
 assert.match(workerText, /PBKDF2_CURRENT_ITERATIONS = 600000/, "New and upgraded passwords must use the stronger PBKDF2 iteration count.");
+assert.match(workerText, /PBKDF2_WORKERD_MAX_ITERATIONS = 100000/, "Edge WebCrypto PBKDF2 steps must stay within Cloudflare Workers' 100k per-call limit.");
+assert.ok(workerText.includes("Math.min(remaining, PBKDF2_WORKERD_MAX_ITERATIONS)"), "hashPasswordEdge must chain PBKDF2 rounds within the workerd per-call iteration limit.");
 assert.ok(workerText.includes('salt: PBKDF2_SALT_PREFIX + iterations + "$" + saltHex,'), "New password salts must use the delimiter expected by the versioned salt parser.");
 assert.equal((storeText.match(/loginFlagshipShowcase: async/g) || []).length, 1, "The showcase login action must have exactly one implementation.");
 assert.match(workerText, /PBKDF2_LEGACY_ITERATIONS = 100000/, "Existing passwords must remain verifiable during transparent hash upgrades.");

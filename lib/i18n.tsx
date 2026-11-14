@@ -34,6 +34,11 @@ export function LanguageProvider({
     const dir = nextLang === "ar" ? "rtl" : "ltr";
     document.documentElement.lang = nextLang;
     document.documentElement.dir = dir;
+    const AR_DEFAULT_TITLE = "تقدّم | بورتفوليو شخصي مجاني دائمًا";
+    const EN_DEFAULT_TITLE = "Taqdom | Always-Free Personal Portfolio";
+    if (document.title === AR_DEFAULT_TITLE || document.title === EN_DEFAULT_TITLE) {
+      document.title = nextLang === "ar" ? AR_DEFAULT_TITLE : EN_DEFAULT_TITLE;
+    }
     try {
       localStorage.setItem("taqdom_lang", nextLang);
       document.cookie = `taqdom_lang=${nextLang}; path=/; max-age=31536000; SameSite=Lax`;

@@ -135,3 +135,9 @@ jobs:
           rm -f "$PORTRAIT_FILE"
           PROFILE_HTML="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" https://layla.taqdom.me/)"
           printf '%s' "$PROFILE_HTML" | grep -q 'ProfilePage'
+          HEALTH_JSON="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" https://taqdom.me/api/health)"
+          printf '%s' "$HEALTH_JSON" | grep -q '"ok":true'
+          TPL_HTML="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" https://taqdom.me/templates)"
+          printf '%s' "$TPL_HTML" | grep -q 'madar'
+          LAYLA_API="$(curl --fail --silent --show-error --retry 5 --retry-delay 3 --retry-all-errors -A "$UA" 'https://taqdom.me/api/portfolio?u=layla')"
+          printf '%s' "$LAYLA_API" | grep -q '"username":"layla"'

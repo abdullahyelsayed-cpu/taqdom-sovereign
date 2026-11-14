@@ -18,9 +18,11 @@ export async function generateMetadata({
   const canonicalUrl = `https://${clean}.taqdom.me`;
 
   if (!portfolio) {
+    const unclaimedTitle = `${clean}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`;
     return {
-      title: `${clean}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`,
+      title: { absolute: unclaimedTitle },
       description: `احجز النطاق السيادي ${clean}.taqdom.me وأنشئ معرض أعمالك الفاخر على منصة تَقَدُّم.`,
+      robots: { index: false, follow: false },
       alternates: { canonical: canonicalUrl },
     };
   }
@@ -33,7 +35,7 @@ export async function generateMetadata({
     `${portfolio.bio.ar} — ${portfolio.bio.en}`;
 
   return {
-    title,
+    title: { absolute: title },
     description,
     keywords: portfolio.seo?.keywords || [
       portfolio.name.ar,

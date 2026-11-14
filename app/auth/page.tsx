@@ -16,6 +16,8 @@ import {
   CheckCircle2,
   UserPlus,
   LogIn,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Header } from "@/components/header";
 import { FooterSection } from "@/components/sections/footer-section";
@@ -26,8 +28,8 @@ import {
   validateUsername,
   getSubdomainUrl,
   TemplateId,
-  ALL_TEMPLATE_IDS,
 } from "@/lib/types";
+import { TEMPLATES_CATALOG } from "@/lib/seed-data";
 
 export default function AuthPage() {
   const { lang, t } = useLanguage();
@@ -42,16 +44,55 @@ export default function AuthPage() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [template, setTemplate] = useState<TemplateId>("haven");
   const [loading, setLoading] = useState(false);
   const [flagshipLoggedIn, setFlagshipLoggedIn] = useState(false);
   const [host, setHost] = useState("taqdom.me");
+  const [usernameCheck, setUsernameCheck] = useState<{
+    status: "idle" | "checking" | "available" | "unavailable";
+    reasonAr?: string;
+    reasonEn?: string;
+  }>({ status: "idle" });
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setHost(window.location.host);
     }
   }, []);
+
+  useEffect(() => {
+    if (mode !== "register") {
+      setUsernameCheck({ status: "idle" });
+      return;
+    }
+    const clean = normalizeUsername(username);
+    if (clean.length < 2) {
+      setUsernameCheck({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setUsernameCheck({ status: "checking" });
+    const timer = setTimeout(() => {
+      fetch(`/api/username/check?u=${encodeURIComponent(clean)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (cancelled || !data) return;
+          setUsernameCheck({
+            status: data.valid && data.available ? "available" : "unavailable",
+            reasonAr: data.reasonAr,
+            reasonEn: data.reasonEn,
+          });
+        })
+        .catch(() => {
+          if (!cancelled) setUsernameCheck({ status: "idle" });
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [username, mode]);
 
   const handleFlagshipCreatorAccess = async () => {
     setLoading(true);
@@ -314,6 +355,21 @@ export default function AuthPage() {
                     <p dir="ltr" className="mt-1 font-mono text-xs text-[#9A7B4F] dark:text-[#C89D66]">
                       https://{username || "username"}.taqdom.me
                     </p>
+                    {usernameCheck.status === "checking" && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t("جاري التحقق من التوفر...", "Checking availability...")}
+                      </p>
+                    )}
+                    {usernameCheck.status === "available" && (
+                      <p className="mt-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        {t(usernameCheck.reasonAr || "النطاق الفرعي متاح للحجز ✓", usernameCheck.reasonEn || "Available to claim ✓")}
+                      </p>
+                    )}
+                    {usernameCheck.status === "unavailable" && (
+                      <p className="mt-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+                        {t(usernameCheck.reasonAr || "هذا الاسم غير متاح", usernameCheck.reasonEn || "Username unavailable")}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -346,39 +402,66 @@ export default function AuthPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold mb-1.5">
-                      {t("كلمة المرور", "Password")}
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      minLength={15}
-                      maxLength={128}
-                      dir="ltr"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="•••••••••••••••"
-                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm"
-                    />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-bold">
+                        {t("كلمة المرور", "Password")}
+                      </label>
+                      <span
+                        dir="ltr"
+                        className={`font-mono text-[11px] font-bold ${
+                          password.length >= 15
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {password.length}/15+
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        minLength={15}
+                        maxLength={128}
+                        dir="ltr"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="•••••••••••••••"
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 pe-11 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        aria-label={showPassword ? t("إخفاء كلمة المرور", "Hide password") : t("إظهار كلمة المرور", "Show password")}
+                        className="absolute inset-y-0 end-2.5 flex items-center text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {t("استخدم عبارة مرور قوية من 15 إلى 128 حرفًا.", "Use a passphrase between 15 and 128 characters.")}
+                    </p>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold mb-1.5">
                       {t("اختَر الستايل الأول (7 خيارات)", "Choose your starting style (7 options)")}
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {ALL_TEMPLATE_IDS.map((tpl) => (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {TEMPLATES_CATALOG.map((tmpl) => (
                         <button
-                          key={tpl}
+                          key={tmpl.id}
                           type="button"
-                          onClick={() => setTemplate(tpl)}
-                          className={`rounded-xl border py-2 text-xs font-bold uppercase ${
-                            template === tpl
+                          onClick={() => setTemplate(tmpl.id)}
+                          className={`rounded-xl border px-2.5 py-2 text-xs font-bold transition cursor-pointer ${
+                            template === tmpl.id
                               ? "border-[#9A7B4F] dark:border-[#C89D66] bg-[#9A7B4F]/20"
-                              : "border-border bg-background"
+                              : "border-border bg-background hover:border-[#9A7B4F]/50"
                           }`}
                         >
-                          {tpl}
+                          {lang === "ar"
+                            ? `${tmpl.name.ar} • ${tmpl.name.en}`
+                            : `${tmpl.name.en} • ${tmpl.name.ar}`}
                         </button>
                       ))}
                     </div>
@@ -423,15 +506,25 @@ export default function AuthPage() {
                     <label className="block text-xs font-bold mb-1.5">
                       {t("كلمة المرور", "Password")}
                     </label>
-                    <input
-                      type="password"
-                      required
-                      dir="ltr"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        dir="ltr"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 pe-11 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        aria-label={showPassword ? t("إخفاء كلمة المرور", "Hide password") : t("إظهار كلمة المرور", "Show password")}
+                        className="absolute inset-y-0 end-2.5 flex items-center text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <button

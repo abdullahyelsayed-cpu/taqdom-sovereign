@@ -40,6 +40,7 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
 
 const PBKDF2_CURRENT_ITERATIONS = 600000;
 const PBKDF2_LEGACY_ITERATIONS = 100000;
+const PBKDF2_WORKERD_MAX_ITERATIONS = 100000;
 const PBKDF2_SALT_PREFIX = "pbkdf2-sha256$";
 
 function parseStoredPasswordSalt(storedSalt?: string): { saltBytes: Uint8Array; iterations: number } {
@@ -71,26 +72,37 @@ export async function hashPasswordPBKDF2(password: string, storedSalt?: string):
     ? parseStoredPasswordSalt(storedSalt)
     : { saltBytes: crypto.getRandomValues(new Uint8Array(16)), iterations: PBKDF2_CURRENT_ITERATIONS };
 
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(password),
-    { name: "PBKDF2" },
-    false,
-    ["deriveBits"]
-  );
+  let remaining = parsed.iterations;
+  let currentKeyBytes: Uint8Array = encoder.encode(password);
+  let derivedBytes: Uint8Array = new Uint8Array(32);
 
-  const derivedBits = await crypto.subtle.deriveBits(
-    {
-      name: "PBKDF2",
-      salt: parsed.saltBytes.slice().buffer as ArrayBuffer,
-      iterations: parsed.iterations,
-      hash: "SHA-256",
-    },
-    keyMaterial,
-    256
-  );
+  while (remaining > 0) {
+    const stepIterations = Math.min(remaining, PBKDF2_WORKERD_MAX_ITERATIONS);
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      currentKeyBytes.slice().buffer as ArrayBuffer,
+      { name: "PBKDF2" },
+      false,
+      ["deriveBits"]
+    );
 
-  const hash = Array.from(new Uint8Array(derivedBits))
+    const derivedBits = await crypto.subtle.deriveBits(
+      {
+        name: "PBKDF2",
+        salt: parsed.saltBytes.slice().buffer as ArrayBuffer,
+        iterations: stepIterations,
+        hash: "SHA-256",
+      },
+      keyMaterial,
+      256
+    );
+
+    derivedBytes = new Uint8Array(derivedBits);
+    currentKeyBytes = derivedBytes;
+    remaining -= stepIterations;
+  }
+
+  const hash = Array.from(derivedBytes)
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
   const saltHex = Array.from(parsed.saltBytes)

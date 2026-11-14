@@ -79,7 +79,12 @@ async function runTests() {
   }
   console.log(`[PASS] 1b. All ${ultraFiles.length} Ultra-HD 4K WebP assets verified in public/images/ultra/`);
 
-  // 2. All core pages & all 7 template routes return 200
+  // 2. Health endpoint & all core pages & 7 template routes return 200
+  const healthRes = await fetch(`${BASE}/api/health`);
+  assert.equal(healthRes.status, 200, `Expected 200 on /api/health, got ${healthRes.status}`);
+  const healthData = await healthRes.json();
+  assert.equal(healthData.ok, true, "Expected /api/health payload ok === true");
+
   const routes = [
     "/",
     "/templates",
