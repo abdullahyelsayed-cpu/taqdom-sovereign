@@ -20,7 +20,7 @@ interface TaqdomStoreState {
   futureDrafts: PortfolioData[];
   publishedPortfolios: Record<string, PortfolioData>;
   saveStatus: "saved" | "saving" | "unsaved";
-  setUser: (user: AuthUser | null) => void;
+  setUser: (user: AuthUser | null, initialPortfolio?: PortfolioData | null) => void;
   setDraft: (
     updater: PortfolioData | ((prev: PortfolioData) => PortfolioData),
     recordHistory?: boolean
@@ -44,22 +44,46 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
       publishedPortfolios: { ...SEED_PORTFOLIOS },
       saveStatus: "saved",
 
-      setUser: (user) => {
+      setUser: (user, initialPortfolio) => {
         if (!user) {
-          set({ user: null });
+          const seedOnly: Record<string, PortfolioData> = {};
+          for (const key of Object.keys(SEED_PORTFOLIOS)) {
+            seedOnly[key] = structuredClone(SEED_PORTFOLIOS[key]);
+          }
+          set({
+            user: null,
+            draft: structuredClone(SEED_PORTFOLIOS.layla),
+            pastDrafts: [],
+            futureDrafts: [],
+            publishedPortfolios: seedOnly,
+            saveStatus: "saved",
+          });
           return;
         }
+        const prevUsername = get().user?.username;
+        const cleanUser = user.username;
+        const nextPublished: Record<string, PortfolioData> = {
+          ...get().publishedPortfolios,
+        };
+        if (prevUsername && prevUsername !== cleanUser && !SEED_PORTFOLIOS[prevUsername]) {
+          delete nextPublished[prevUsername];
+        }
         const existing =
-          get().publishedPortfolios[user.username] ||
-          SEED_PORTFOLIOS[user.username] ||
-          createStarterPortfolio(user.username, "madar", user.username);
+          initialPortfolio ||
+          nextPublished[cleanUser] ||
+          SEED_PORTFOLIOS[cleanUser] ||
+          createStarterPortfolio(cleanUser, "madar", cleanUser);
+        if (existing.publishedAt || SEED_PORTFOLIOS[cleanUser]) {
+          nextPublished[cleanUser] = structuredClone(existing);
+        } else {
+          delete nextPublished[cleanUser];
+        }
         set({
           user,
           draft: structuredClone(existing),
-          publishedPortfolios: {
-            ...get().publishedPortfolios,
-            [user.username]: structuredClone(existing),
-          },
+          pastDrafts: prevUsername !== cleanUser ? [] : get().pastDrafts,
+          futureDrafts: prevUsername !== cleanUser ? [] : get().futureDrafts,
+          publishedPortfolios: nextPublished,
         });
       },
 

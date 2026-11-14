@@ -1043,7 +1043,7 @@ async function handleApiRequest(request, url, env) {
     return jsonResponse(
       { ok: true },
       200,
-      { "Set-Cookie": "taqdom_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" }
+      { "Set-Cookie": `taqdom_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}` }
     );
   }
 

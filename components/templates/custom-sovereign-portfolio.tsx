@@ -1261,8 +1261,9 @@ export function CustomSovereignPortfolio({
                         <div>
                           {item.badge && (
                             <span
+                              dir="ltr"
                               className="inline-block rounded-full px-3 py-0.5 text-[10px] font-mono font-bold mb-3"
-                              style={{ backgroundColor: alphaColor(accent, 0.12), color: accent }}
+                              style={{ backgroundColor: alphaColor(accent, 0.12), color: accent, unicodeBidi: "isolate" }}
                             >
                               {item.badge}
                             </span>

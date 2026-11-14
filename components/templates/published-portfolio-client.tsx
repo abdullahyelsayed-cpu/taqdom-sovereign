@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Sparkles, Globe2 } from "lucide-react";
 import { formatStandalonePortfolioTitle, PortfolioData } from "@/lib/types";
@@ -42,26 +42,27 @@ export function PublishedPortfolioClient({
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(initialPortfolio);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const storePortfolios = useTaqdomStore((s) => s.publishedPortfolios);
+  const trackedViewForRef = useRef<string>("");
 
   useEffect(() => {
     const detected = detectBrowserSubdomain(ssrUsername);
     setActiveUsername(detected);
+    const localPublished = useTaqdomStore.getState().publishedPortfolios;
 
     // 1. If Edge Worker already injected fresh D1 data, use it immediately after hydration
     if (typeof window !== "undefined" && window.__TAQDOM_PORTFOLIO__ !== undefined) {
       setPortfolio(window.__TAQDOM_PORTFOLIO__);
       setIsLoading(false);
     } else if (detected !== ssrUsername) {
-      if (storePortfolios[detected]) {
-        setPortfolio(storePortfolios[detected]);
+      if (localPublished[detected]) {
+        setPortfolio(localPublished[detected]);
         setIsLoading(false);
       } else {
         setPortfolio(null);
         setIsLoading(true);
       }
-    } else if (storePortfolios[detected]) {
-      const localItem = storePortfolios[detected];
+    } else if (localPublished[detected]) {
+      const localItem = localPublished[detected];
       setPortfolio((prev) => {
         if (!prev || prev.username !== detected) return localItem;
         if ((localItem.updatedAt || 0) > (prev.updatedAt || 0)) return localItem;
@@ -90,17 +91,22 @@ export function PublishedPortfolioClient({
         if (!cancelled) setIsLoading(false);
       });
 
-    // 3. Increment view counter
-    fetch("/api/views", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username: detected }),
-    }).catch(() => {});
+    // 3. Increment view counter once per creator slug and drain response stream cleanly
+    if (trackedViewForRef.current !== detected) {
+      trackedViewForRef.current = detected;
+      fetch("/api/views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: detected }),
+      })
+        .then((res) => res.text())
+        .catch(() => {});
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [ssrUsername, storePortfolios]);
+  }, [ssrUsername]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;

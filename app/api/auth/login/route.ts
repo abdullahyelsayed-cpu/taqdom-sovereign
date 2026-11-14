@@ -44,12 +44,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const portfolio = (await getDraftPortfolio(user.username)) || SEED_PORTFOLIOS[user.username] || SEED_PORTFOLIOS.test;
+    const portfolio = (await getDraftPortfolio(user.username)) || SEED_PORTFOLIOS[user.username] || SEED_PORTFOLIOS.layla;
+    const isSeedUser = Boolean(SEED_PORTFOLIOS[user.username]);
     const token = await signSessionToken({
       userId: user.id,
       email: user.email,
       username: user.username,
-      isTestAccount: user.username === "test",
+      isTestAccount: isSeedUser,
     });
 
     const res = NextResponse.json({
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
         id: user.id,
         email: user.email,
         username: user.username,
-        isTestAccount: user.username === "test",
+        isTestAccount: isSeedUser,
       },
       portfolio,
     });

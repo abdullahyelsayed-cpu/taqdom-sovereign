@@ -62,10 +62,7 @@ export default function DashboardSettingsPage() {
           return;
         }
         if (res.ok && data?.user) {
-          setUser(data.user);
-          if (data.portfolio) {
-            setDraft(data.portfolio, false);
-          }
+          setUser(data.user, data.portfolio || null);
           syncedUsernameRef.current = data.user.username;
           setNewUsername(data.user.username);
         }
@@ -128,10 +125,11 @@ export default function DashboardSettingsPage() {
       }
       if (data.user) {
         syncedUsernameRef.current = data.user.username || "";
-        setUser(data.user);
+        setUser(data.user, data.portfolio || null);
         setNewUsername(data.user.username || cleanNew);
+      } else if (data.portfolio) {
+        setDraft(data.portfolio, false);
       }
-      if (data.portfolio) setDraft(data.portfolio, false);
       setNewPassword("");
       toast.success(t("تم تحديث إعدادات الحساب بنجاح!", "Account settings updated!"));
     } catch {

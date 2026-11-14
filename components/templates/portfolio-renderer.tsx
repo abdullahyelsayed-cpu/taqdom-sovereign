@@ -1435,13 +1435,17 @@ export function PortfolioRenderer({
                       </div>
                     </div>
                     <div className="px-6 py-4 border-t border-[#141413]/15 flex items-center justify-between font-mono text-xs">
-                      <span
-                        dir="ltr"
-                        style={{ unicodeBidi: "isolate" }}
-                        className="inline-block font-bold text-[#1E3A2F]"
-                      >
-                        {proj.metrics}
-                      </span>
+                      {proj.metrics ? (
+                        <span
+                          dir="ltr"
+                          style={{ unicodeBidi: "isolate" }}
+                          className="inline-block font-bold text-[#1E3A2F]"
+                        >
+                          {proj.metrics}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
                       <span className="underline">{t("قراءة الدراسة", "Read Dossier")}</span>
                     </div>
                   </article>
@@ -1854,13 +1858,15 @@ export function PortfolioRenderer({
                       fill
                       className="object-cover"
                     />
-                    <span
-                      dir="ltr"
-                      style={{ unicodeBidi: "isolate" }}
-                      className="absolute top-3 end-3 rounded-lg bg-emerald-500 px-3 py-1 font-mono text-xs font-extrabold text-[#0A0A09]"
-                    >
-                      {proj.metrics}
-                    </span>
+                    {proj.metrics && (
+                      <span
+                        dir="ltr"
+                        style={{ unicodeBidi: "isolate" }}
+                        className="absolute top-3 end-3 rounded-lg bg-emerald-500 px-3 py-1 font-mono text-xs font-extrabold text-[#0A0A09]"
+                      >
+                        {proj.metrics}
+                      </span>
+                    )}
                   </div>
                   <div className="p-6 space-y-2">
                     <h3 className="arabic-diacritics text-xl font-bold">
