@@ -526,6 +526,21 @@ async function verifyEdgeSession(token, secret) {
   }
 }
 
+const sessionUserCache = new Map();
+const SESSION_CACHE_TTL_MS = 15_000;
+const initializedWorkerMediaDbs = new WeakSet();
+
+async function ensureWorkerMediaSchema(env) {
+  if (!env?.DB || initializedWorkerMediaDbs.has(env.DB)) return;
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
+  ).run();
+  initializedWorkerMediaDbs.add(env.DB);
+}
+
 async function parseSessionFromRequest(request, env) {
   const cookieHeader = request.headers.get("cookie") || "";
   const match = cookieHeader.match(/(?:^|;\s*)taqdom_session=([^;]+)/);
@@ -541,6 +556,13 @@ async function parseSessionFromRequest(request, env) {
       !verified.isTestAccount &&
       !SEED_PORTFOLIOS[normalizeUsername(verified.username)]
     ) {
+      const now = Date.now();
+      const cached = sessionUserCache.get(uid);
+      if (cached && cached.expiresAt > now) {
+        verified.username = cached.username;
+        verified.email = cached.email || verified.email;
+        return verified;
+      }
       try {
         const row = await env.DB.prepare(
           "SELECT username, email FROM users WHERE id = ?1 LIMIT 1"
@@ -548,8 +570,16 @@ async function parseSessionFromRequest(request, env) {
           .bind(uid)
           .first();
         if (row?.username) {
-          verified.username = normalizeUsername(row.username);
-          verified.email = row.email || verified.email;
+          const cleanName = normalizeUsername(row.username);
+          const cleanEmail = row.email || verified.email;
+          if (sessionUserCache.size > 500) sessionUserCache.clear();
+          sessionUserCache.set(uid, {
+            username: cleanName,
+            email: cleanEmail,
+            expiresAt: now + SESSION_CACHE_TTL_MS,
+          });
+          verified.username = cleanName;
+          verified.email = cleanEmail;
         }
       } catch {
         // Keep token claims if D1 lookup fails
@@ -931,6 +961,11 @@ async function renameAndSaveAccountInD1(env, curUsername, targetRawUsername, opt
     passwordHash: preservedHash,
     salt: preservedSalt,
   };
+  sessionUserCache.set(preservedUserId, {
+    username: targetUsername,
+    email: preservedEmail,
+    expiresAt: Date.now() + SESSION_CACHE_TTL_MS,
+  });
 
   const sessionPayload = {
     id: preservedUserId,
@@ -1027,21 +1062,21 @@ async function handleApiRequest(request, url, env) {
   const sessionName = normalizeUsername(String(session?.username || ""));
 
   const rateProfiles = {
-    "GET:/api/username/check": ["username-check", 80, 60_000],
-    "POST:/api/auth/register": ["register-ip", 25, 60 * 60 * 1000],
-    "POST:/api/auth/login": ["login-ip", 12, 15 * 60 * 1000],
-    "POST:/api/auth/firebase": ["firebase-auth", 25, 60 * 60 * 1000],
-    "POST:/api/auth/google": ["firebase-auth", 25, 60 * 60 * 1000],
-    "POST:/api/auth/test-login": ["demo-login", 12, 15 * 60 * 1000],
-    "POST:/api/auth/settings": ["account-settings", 12, 60 * 60 * 1000],
-    "DELETE:/api/auth/settings": ["account-delete", 25, 60 * 60 * 1000],
-    "POST:/api/upload": ["upload", 20, 60 * 60 * 1000],
-    "POST:/api/views": ["views", 180, 60_000],
-    "POST:/api/portfolio/publish": ["publish", 20, 60 * 60 * 1000],
-    "DELETE:/api/portfolio/publish": ["unpublish", 10, 60 * 60 * 1000],
-    "GET:/api/mcp/tokens": ["mcp-token-list", 60, 60_000],
-    "POST:/api/mcp/tokens": ["mcp-token-create", 10, 60 * 60 * 1000],
-    "DELETE:/api/mcp/tokens": ["mcp-token-revoke", 30, 60 * 60 * 1000],
+    "GET:/api/username/check": ["username-check", 600, 60_000],
+    "POST:/api/auth/register": ["register-ip", 120, 60 * 60 * 1000],
+    "POST:/api/auth/login": ["login-ip", 120, 15 * 60 * 1000],
+    "POST:/api/auth/firebase": ["firebase-auth", 120, 60 * 60 * 1000],
+    "POST:/api/auth/google": ["firebase-auth", 120, 60 * 60 * 1000],
+    "POST:/api/auth/test-login": ["demo-login", 120, 15 * 60 * 1000],
+    "POST:/api/auth/settings": ["account-settings", 200, 60 * 60 * 1000],
+    "DELETE:/api/auth/settings": ["account-delete", 60, 60 * 60 * 1000],
+    "POST:/api/upload": ["upload", 300, 60 * 60 * 1000],
+    "POST:/api/views": ["views", 600, 60_000],
+    "POST:/api/portfolio/publish": ["publish", 300, 60 * 60 * 1000],
+    "DELETE:/api/portfolio/publish": ["unpublish", 120, 60 * 60 * 1000],
+    "GET:/api/mcp/tokens": ["mcp-token-list", 300, 60_000],
+    "POST:/api/mcp/tokens": ["mcp-token-create", 120, 60 * 60 * 1000],
+    "DELETE:/api/mcp/tokens": ["mcp-token-revoke", 120, 60 * 60 * 1000],
   };
   const profile = rateProfiles[`${request.method}:${pathname}`];
   if (profile) {
@@ -1797,9 +1832,7 @@ async function handleApiRequest(request, url, env) {
     const key = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
     const cleanDataUrl = `data:${mime};base64,${cleanBase64}`;
     const now = Date.now();
-    await env.DB.prepare(
-      "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
-    ).run();
+    await ensureWorkerMediaSchema(env);
 
     if (cleanDataUrl.length <= 900_000) {
       await env.DB.prepare(
@@ -1809,9 +1842,6 @@ async function handleApiRequest(request, url, env) {
         .run();
       edgeStore.media[key] = { key, mime, size, dataUrl: cleanDataUrl };
     } else {
-      await env.DB.prepare(
-        "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
-      ).run();
       const CHUNK_CHARS = 800_000;
       const chunkStmts = [];
       let seq = 0;

@@ -83,8 +83,10 @@ function constantTimeEqual(left, right) {
   return diff === 0;
 }
 
+const initializedOAuthDbs = new WeakSet();
+
 export async function ensureOAuthSchema(env) {
-  if (!env?.DB) return;
+  if (!env?.DB || initializedOAuthDbs.has(env.DB)) return;
   await env.DB.prepare(`
     CREATE TABLE IF NOT EXISTS mcp_access_tokens (
       id TEXT PRIMARY KEY,
@@ -155,11 +157,12 @@ export async function ensureOAuthSchema(env) {
       revoked_at INTEGER
     )
   `).run();
+  initializedOAuthDbs.add(env.DB);
 }
 
 export function isValidRedirectUri(rawUri) {
   const val = String(rawUri || "").trim();
-  if (!val || val.length > 1024 || /\s/.test(val)) return false;
+  if (!val || val.length > 4096 || /\s/.test(val)) return false;
   try {
     const parsed = new URL(val);
     if (parsed.hash) return false;
@@ -226,7 +229,7 @@ function isPublicSafeHttpsUrl(rawUrl) {
 
 export async function resolveOAuthClient(env, clientId) {
   const id = String(clientId || "").trim();
-  if (!id || id.length > 512) return null;
+  if (!id || id.length > 2048) return null;
 
   if (env?.DB) {
     await ensureOAuthSchema(env);
@@ -453,6 +456,7 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
       ],
       service_documentation: `${origin}/dashboard/mcp`,
       client_id_metadata_document_supported: true,
+      authorization_response_iss_parameter_supported: true,
     });
   }
 
@@ -545,7 +549,7 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
       );
     }
 
-    if (!codeChallenge || codeChallenge.length < 43 || codeChallengeMethod !== "S256") {
+    if ((!client.clientSecretHash || codeChallenge) && (codeChallenge.length < 43 || codeChallengeMethod !== "S256")) {
       return oauthError(
         "invalid_request",
         "OAuth 2.1 requires PKCE with code_challenge_method=S256.",
@@ -603,10 +607,10 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
 
     const clientId = String(body.client_id || "").trim();
     const redirectUri = String(body.redirect_uri || "").trim();
-    const state = String(body.state || "").slice(0, 512);
+    const state = String(body.state || "").slice(0, 8192);
     const codeChallenge = String(body.code_challenge || "").trim();
     const codeChallengeMethod = String(body.code_challenge_method || "").trim();
-    const resource = String(body.resource || "").trim().slice(0, 512);
+    const resource = String(body.resource || "").trim().slice(0, 2048);
     const decision = String(body.decision || "approve");
 
     const client = await resolveOAuthClient(env, clientId);
@@ -629,7 +633,7 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
       return json({ ok: true, denied: true, redirectTo: targetUrl.toString() });
     }
 
-    if (!codeChallenge || codeChallenge.length < 43 || codeChallengeMethod !== "S256") {
+    if ((!client.clientSecretHash || codeChallenge) && (codeChallenge.length < 43 || codeChallengeMethod !== "S256")) {
       return oauthError("invalid_request", "PKCE S256 code_challenge required");
     }
 
@@ -667,8 +671,8 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
         redirectUri,
         grantedScopes,
         resource || `${origin}/mcp`,
-        codeChallenge,
-        codeChallengeMethod,
+        codeChallenge || "",
+        codeChallenge ? codeChallengeMethod : "none",
         now,
         expiresAt
       )
@@ -715,6 +719,23 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
     }
 
     const grantType = String(params.grant_type || "").trim();
+    let preCodeRecord = null;
+    if (!clientId && grantType === "authorization_code" && params.code) {
+      preCodeRecord = await env.DB.prepare(
+        "SELECT code_hash, client_id, user_id, username, redirect_uri, scope, resource, code_challenge, code_challenge_method, expires_at, used_at FROM oauth_codes WHERE code_hash = ?1"
+      )
+        .bind(await digestHex(String(params.code).trim()))
+        .first();
+      if (preCodeRecord?.client_id) clientId = preCodeRecord.client_id;
+    } else if (!clientId && grantType === "refresh_token" && params.refresh_token) {
+      const preRt = await env.DB.prepare(
+        "SELECT client_id FROM oauth_refresh_tokens WHERE token_hash = ?1"
+      )
+        .bind(await digestHex(String(params.refresh_token).trim()))
+        .first();
+      if (preRt?.client_id) clientId = preRt.client_id;
+    }
+
     const client = await resolveOAuthClient(env, clientId);
     if (!client) {
       return oauthError("invalid_client", "Unknown client_id", 401);
@@ -735,19 +756,18 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
       const redirectUri = String(params.redirect_uri || "").trim();
       const codeVerifier = String(params.code_verifier || "").trim();
 
-      if (!code || !redirectUri || !codeVerifier) {
-        return oauthError("invalid_request", "Missing code, redirect_uri, or code_verifier");
-      }
-      if (!/^[A-Za-z0-9._~-]{43,128}$/.test(codeVerifier)) {
-        return oauthError("invalid_grant", "Malformed PKCE code_verifier");
+      if (!code || !redirectUri) {
+        return oauthError("invalid_request", "Missing code or redirect_uri");
       }
 
-      const codeHash = await digestHex(code);
-      const record = await env.DB.prepare(
-        "SELECT code_hash, client_id, user_id, username, redirect_uri, scope, resource, code_challenge, code_challenge_method, expires_at, used_at FROM oauth_codes WHERE code_hash = ?1"
-      )
-        .bind(codeHash)
-        .first();
+      const codeHash = preCodeRecord ? preCodeRecord.code_hash : await digestHex(code);
+      const record =
+        preCodeRecord ||
+        (await env.DB.prepare(
+          "SELECT code_hash, client_id, user_id, username, redirect_uri, scope, resource, code_challenge, code_challenge_method, expires_at, used_at FROM oauth_codes WHERE code_hash = ?1"
+        )
+          .bind(codeHash)
+          .first());
 
       if (!record) {
         return oauthError("invalid_grant", "Invalid authorization code");
@@ -766,9 +786,17 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
         return oauthError("invalid_grant", "redirect_uri mismatch on authorization code");
       }
 
-      const computedChallenge = await pkceS256Challenge(codeVerifier);
-      if (!constantTimeEqual(computedChallenge, record.code_challenge)) {
-        return oauthError("invalid_grant", "Invalid PKCE code_verifier");
+      if (Boolean(record.code_challenge) || !client.clientSecretHash) {
+        if (!codeVerifier) {
+          return oauthError("invalid_request", "Missing PKCE code_verifier");
+        }
+        if (!/^[A-Za-z0-9._~-]{43,128}$/.test(codeVerifier)) {
+          return oauthError("invalid_grant", "Malformed PKCE code_verifier");
+        }
+        const computedChallenge = await pkceS256Challenge(codeVerifier);
+        if (!constantTimeEqual(computedChallenge, record.code_challenge)) {
+          return oauthError("invalid_grant", "Invalid PKCE code_verifier");
+        }
       }
 
       const consumeResult = await env.DB.prepare(

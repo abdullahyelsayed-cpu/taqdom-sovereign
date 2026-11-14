@@ -451,6 +451,23 @@ const authCode = callbackParsed.searchParams.get("code");
 assert.ok(authCode && authCode.startsWith("tqd_code_"));
 assert.equal(callbackParsed.searchParams.get("state"), "xyz-state");
 
+const longState = "GKey_" + "A".repeat(1190) + "_HMAC";
+const longStateRes = await oauthCall("/api/oauth/approve", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    client_id: registeredClient.client_id,
+    redirect_uri: ephemeralRedirect,
+    state: longState,
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+  }),
+});
+assert.equal(longStateRes.status, 200);
+const longStateData = await longStateRes.json();
+const longStateCallback = new URL(longStateData.redirectTo);
+assert.equal(longStateCallback.searchParams.get("state"), longState, "Long OAuth state tokens (>512 chars) must never be truncated");
+
 // 5. Token exchange rejects invalid code_verifier, succeeds on match, rejects replay
 const badVerifierRes = await oauthCall("/oauth/token", {
   method: "POST",

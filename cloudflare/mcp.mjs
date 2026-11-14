@@ -27,8 +27,21 @@ function randomToken() {
   return "tqd_mcp_" + hex(crypto.getRandomValues(new Uint8Array(32)));
 }
 
+const initializedMcpMediaDbs = new WeakSet();
+
 async function ensureSchema(env) {
   await ensureOAuthSchema(env);
+}
+
+async function ensureMcpMediaSchema(env) {
+  if (!env?.DB || initializedMcpMediaDbs.has(env.DB)) return;
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
+  ).run();
+  initializedMcpMediaDbs.add(env.DB);
 }
 
 export async function handleMcpTokenApi(request, url, env, session) {
@@ -57,8 +70,8 @@ export async function handleMcpTokenApi(request, url, env, session) {
     )
       .bind(userId)
       .first();
-    if (Number(count?.total || 0) >= 10) {
-      return json({ error: "Maximum 10 active MCP connections" }, 429);
+    if (Number(count?.total || 0) >= 100) {
+      return json({ error: "Maximum 100 active MCP connections" }, 429);
     }
     const token = randomToken();
     const id = crypto.randomUUID();
@@ -1540,10 +1553,11 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
       serverInfo: { name: "taqdom-account-mcp", version: "2.0.0" },
       instructions:
         `You are connected to ${username}'s Sovereign Taqdom Portfolio Architect (https://${username}.taqdom.me). ` +
-        "You have full read/write creative control over the account draft: you are NOT limited to the 7 built-in templates. " +
-        "Call get_portfolio_blueprint and list_templates_and_capabilities to understand the creator and all visual capabilities. " +
-        "To build a completely custom portfolio design beyond any existing preset template, call design_custom_portfolio_theme with an original palette, typography, heroVariant, projectGrid, GPU effects, custom sectionOrder, heroCta, and customSections. " +
-        "Use update_portfolio_content and create_project/update_project for bilingual (ar & en) content. Pass publish=true or call publish_portfolio when ready to go live.",
+        "You have full read/write creative control over the account draft and live site — even when the user asks casually in natural Arabic or English for a legendary luxury CV or bespoke portfolio completely different from standard templates. " +
+        "Workflow for any natural design request: (1) Call get_portfolio_blueprint (and list_templates_and_capabilities if helpful) first to inspect the creator state. " +
+        "(2) Craft a complete, realistic, prestigious bilingual (ar & en) executive persona CV (full name, compelling title, rich narrative bio, 4+ high-impact case studies with concrete metrics and optional custom SVG/PNG visuals uploaded via upload_portfolio_image, career timeline, skills, and headline KPI metrics) using update_portfolio_content and create_project/update_project. " +
+        "(3) Synthesize an unmistakable bespoke luxury design system (completely distinct from the 7 preset templates) via design_custom_portfolio_theme using heroVariant ('agency-spotlight', 'terminal-bento', or 'asymmetric-editorial'), custom hex palette, dramatic typography pairing, ambientGlow/spotlight effects, rich customSections (cards, testimonials, gallery, FAQ, stats, CTA, or sanitized HTML), and publish=true. " +
+        "(4) Ensure publish_portfolio is executed when requested or implied, then return the live URL https://" + username + ".taqdom.me cleanly.",
     });
   }
   if (body.method === "ping") return wrapOk({});
@@ -2091,9 +2105,7 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
         const key = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
         const cleanDataUrl = `data:${mime};base64,${base64}`;
         const now = Date.now();
-        await env.DB.prepare(
-          "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
-        ).run();
+        await ensureMcpMediaSchema(env);
         if (cleanDataUrl.length <= 900_000) {
           await env.DB.prepare(
             "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
@@ -2101,9 +2113,6 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
             .bind(key, mime, size, cleanDataUrl, now)
             .run();
         } else {
-          await env.DB.prepare(
-            "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
-          ).run();
           const CHUNK_CHARS = 800_000;
           const chunkStmts = [];
           let seq = 0;
