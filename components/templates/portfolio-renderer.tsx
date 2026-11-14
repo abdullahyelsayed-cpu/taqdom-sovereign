@@ -304,7 +304,20 @@ export function PortfolioRenderer({
               {t(activeProject.title.ar, activeProject.title.en)}
             </h3>
             <p className="text-xs text-[#C89D66] font-mono">
-              {activeProject.year} {activeProject.metrics ? `• ${activeProject.metrics}` : ""}
+              <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                {activeProject.year}
+              </span>
+              {activeProject.metrics ? (
+                <>
+                  {" "}
+                  •{" "}
+                  <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                    {activeProject.metrics}
+                  </span>
+                </>
+              ) : (
+                ""
+              )}
             </p>
           </div>
           <button
@@ -541,7 +554,9 @@ export function PortfolioRenderer({
                       className="rounded-2xl border border-[#F4F1EA]/8 bg-[#181815] p-4"
                     >
                       <p className="font-mono text-2xl sm:text-3xl font-extrabold text-[#F4F1EA]">
-                        {m.value}
+                        <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                          {m.value}
+                        </span>
                       </p>
                       <p className="mt-1 text-[11px] text-[#A09C94]">
                         {t(m.label.ar, m.label.en)}
@@ -647,7 +662,11 @@ export function PortfolioRenderer({
                             REPO 0{idx + 1} • {proj.year}
                           </span>
                           {proj.metrics && (
-                            <span className="rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 font-mono text-[10px] font-bold text-emerald-300">
+                            <span
+                              dir="ltr"
+                              style={{ unicodeBidi: "isolate" }}
+                              className="inline-block rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-2.5 py-1 font-mono text-[10px] font-bold text-emerald-300"
+                            >
                               {proj.metrics}
                             </span>
                           )}
@@ -903,7 +922,9 @@ export function PortfolioRenderer({
               {(data.metrics || []).map((m, i) => (
                 <div key={i}>
                   <p className="font-mono text-2xl sm:text-3xl font-black text-[#C89D66]">
-                    {m.value}
+                    <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                      {m.value}
+                    </span>
                   </p>
                   <p className="text-xs text-[#A09C94]">{t(m.label.ar, m.label.en)}</p>
                 </div>
@@ -985,7 +1006,11 @@ export function PortfolioRenderer({
                         <span className="rounded-md bg-black/75 border border-[#C89D66]/40 px-3 py-1 text-[#C89D66]">
                           REEL 0{index + 1} OF 0{data.projects.length} • {proj.year}
                         </span>
-                        <span className="rounded-md bg-black/75 px-3 py-1 text-[#F4F1EA]">
+                        <span
+                          dir="ltr"
+                          style={{ unicodeBidi: "isolate" }}
+                          className="inline-block rounded-md bg-black/75 px-3 py-1 text-[#F4F1EA]"
+                        >
                           {proj.metrics || "2.39:1 ANAMORPHIC"}
                         </span>
                       </div>
@@ -1137,7 +1162,9 @@ export function PortfolioRenderer({
                     className="rounded-2xl bg-[#EFECE6] border border-[#141413]/10 p-6"
                   >
                     <p className="font-mono text-3xl sm:text-4xl font-extrabold text-[#1E3A2F]">
-                      {m.value}
+                      <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                        {m.value}
+                      </span>
                     </p>
                     <p className="mt-1.5 text-xs font-semibold text-[#5E5B55]">
                       {t(m.label.ar, m.label.en)}
@@ -1186,7 +1213,11 @@ export function PortfolioRenderer({
 
                     <div className="lg:col-span-5 p-8 flex flex-col justify-between bg-[#EFECE6]">
                       <div className="space-y-4">
-                        <span className="font-mono text-xs uppercase tracking-widest text-[#9A7B4F]">
+                        <span
+                          dir="ltr"
+                          style={{ unicodeBidi: "isolate" }}
+                          className="inline-block font-mono text-xs uppercase tracking-widest text-[#9A7B4F]"
+                        >
                           {proj.metrics || "ARCHITECTURAL MONOGRAPH"}
                         </span>
                         <h3 className="arabic-diacritics text-2xl sm:text-3xl font-bold text-[#141413]">
@@ -1349,7 +1380,11 @@ export function PortfolioRenderer({
                     key={i}
                     className="p-6 border-b lg:border-b-0 border-e border-[#141413]/20 last:border-e-0"
                   >
-                    <p className="font-mono text-3xl font-black text-[#141413]">{m.value}</p>
+                    <p className="font-mono text-3xl font-black text-[#141413]">
+                      <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                        {m.value}
+                      </span>
+                    </p>
                     <p className="mt-1 text-xs font-semibold text-[#5E5B55]">
                       {t(m.label.ar, m.label.en)}
                     </p>
@@ -1400,7 +1435,13 @@ export function PortfolioRenderer({
                       </div>
                     </div>
                     <div className="px-6 py-4 border-t border-[#141413]/15 flex items-center justify-between font-mono text-xs">
-                      <span className="font-bold text-[#1E3A2F]">{proj.metrics}</span>
+                      <span
+                        dir="ltr"
+                        style={{ unicodeBidi: "isolate" }}
+                        className="inline-block font-bold text-[#1E3A2F]"
+                      >
+                        {proj.metrics}
+                      </span>
                       <span className="underline">{t("قراءة الدراسة", "Read Dossier")}</span>
                     </div>
                   </article>
@@ -1614,7 +1655,11 @@ export function PortfolioRenderer({
                           strokeDasharray={`${ring.stroke}, 100`}
                         />
                       </svg>
-                      <span className="absolute font-mono text-sm font-black text-[#F4F1EA]">
+                      <span
+                        dir="ltr"
+                        style={{ unicodeBidi: "isolate" }}
+                        className="absolute font-mono text-sm font-black text-[#F4F1EA]"
+                      >
                         {ring.pct}
                       </span>
                     </div>
@@ -1754,7 +1799,13 @@ export function PortfolioRenderer({
                     <div key={i} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-medium">{t(f.stageAr, f.stageEn)}</span>
-                        <span className="font-mono font-bold text-[#C89D66]">{f.pct}</span>
+                        <span
+                          dir="ltr"
+                          style={{ unicodeBidi: "isolate" }}
+                          className="inline-block font-mono font-bold text-[#C89D66]"
+                        >
+                          {f.pct}
+                        </span>
                       </div>
                       <div className="h-3 w-full rounded-full bg-[#181815] overflow-hidden">
                         <div
@@ -1803,7 +1854,11 @@ export function PortfolioRenderer({
                       fill
                       className="object-cover"
                     />
-                    <span className="absolute top-3 end-3 rounded-lg bg-emerald-500 px-3 py-1 font-mono text-xs font-extrabold text-[#0A0A09]">
+                    <span
+                      dir="ltr"
+                      style={{ unicodeBidi: "isolate" }}
+                      className="absolute top-3 end-3 rounded-lg bg-emerald-500 px-3 py-1 font-mono text-xs font-extrabold text-[#0A0A09]"
+                    >
                       {proj.metrics}
                     </span>
                   </div>
@@ -1910,7 +1965,9 @@ export function PortfolioRenderer({
                     className="rounded-2xl border border-[#F4F1EA]/12 bg-[#1C1C19] p-4"
                   >
                     <p className="font-mono text-2xl sm:text-3xl font-black text-[#C89D66]">
-                      {m.value}
+                      <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                        {m.value}
+                      </span>
                     </p>
                     <p className="text-[11px] text-[#A09C94] mt-1">
                       {t(m.label.ar, m.label.en)}
@@ -2060,15 +2117,21 @@ export function PortfolioRenderer({
                     </span>
                     <div className="grid grid-cols-3 gap-3 pt-2">
                       <div>
-                        <p className="font-mono text-2xl font-bold text-red-700">1.4%</p>
+                        <p className="font-mono text-2xl font-bold text-red-700">
+                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>1.4%</span>
+                        </p>
                         <p className="text-[11px] text-[#5E5B55]">Conversion Rate</p>
                       </div>
                       <div>
-                        <p className="font-mono text-2xl font-bold text-red-700">2.4x</p>
+                        <p className="font-mono text-2xl font-bold text-red-700">
+                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>2.4x</span>
+                        </p>
                         <p className="text-[11px] text-[#5E5B55]">Reported ROAS</p>
                       </div>
                       <div>
-                        <p className="font-mono text-2xl font-bold text-red-700">42%</p>
+                        <p className="font-mono text-2xl font-bold text-red-700">
+                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>42%</span>
+                        </p>
                         <p className="text-[11px] text-[#5E5B55]">Lost iOS Signals</p>
                       </div>
                     </div>
@@ -2085,15 +2148,25 @@ export function PortfolioRenderer({
                     </span>
                     <div className="grid grid-cols-3 gap-3 pt-2">
                       <div>
-                        <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">3.98%</p>
-                        <p className="text-[11px] text-[#5E5B55]">Conversion (+184%)</p>
+                        <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">
+                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>3.98%</span>
+                        </p>
+                        <p className="text-[11px] text-[#5E5B55]">
+                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                            Conversion (+184%)
+                          </span>
+                        </p>
                       </div>
                       <div>
-                        <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">6.8x</p>
+                        <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">
+                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>6.8x</span>
+                        </p>
                         <p className="text-[11px] text-[#5E5B55]">Verified ROAS</p>
                       </div>
                       <div>
-                        <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">99.2%</p>
+                        <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">
+                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>99.2%</span>
+                        </p>
                         <p className="text-[11px] text-[#5E5B55]">Signal Recovery</p>
                       </div>
                     </div>
@@ -2160,7 +2233,11 @@ export function PortfolioRenderer({
                     />
                   </div>
                   <div className="p-6 space-y-2">
-                    <span className="font-mono text-xs font-bold text-[#1E3A2F]">
+                    <span
+                      dir="ltr"
+                      style={{ unicodeBidi: "isolate" }}
+                      className="inline-block font-mono text-xs font-bold text-[#1E3A2F]"
+                    >
                       {proj.metrics}
                     </span>
                     <h3 className="arabic-diacritics text-xl font-bold">
@@ -2265,7 +2342,9 @@ export function PortfolioRenderer({
                     className="rounded-3xl bg-[#EFECE6] border border-[#141413]/10 p-6 text-center"
                   >
                     <p className="font-mono text-3xl sm:text-4xl font-extrabold text-[#9A7B4F]">
-                      {m.value}
+                      <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                        {m.value}
+                      </span>
                     </p>
                     <p className="mt-1.5 text-xs font-bold text-[#141413]">
                       {t(m.label.ar, m.label.en)}
@@ -2347,7 +2426,11 @@ export function PortfolioRenderer({
                     />
                   </div>
                   <div className="p-6 space-y-2">
-                    <span className="font-mono text-xs font-bold text-[#9A7B4F]">
+                    <span
+                      dir="ltr"
+                      style={{ unicodeBidi: "isolate" }}
+                      className="inline-block font-mono text-xs font-bold text-[#9A7B4F]"
+                    >
                       {proj.metrics}
                     </span>
                     <h3 className="arabic-diacritics text-xl font-bold">

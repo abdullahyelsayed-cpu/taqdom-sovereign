@@ -10,6 +10,7 @@ export interface AuthUser {
   email: string;
   username: string;
   isFlagshipAccount?: boolean;
+  isTestAccount?: boolean;
 }
 
 interface TaqdomStoreState {

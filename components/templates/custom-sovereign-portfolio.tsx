@@ -274,7 +274,9 @@ export function CustomSovereignPortfolio({
                   className="text-3xl sm:text-4xl font-black tracking-tight"
                   style={{ color: accent, fontFamily: headingFont }}
                 >
-                  {metric.value}
+                  <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                    {metric.value}
+                  </span>
                 </p>
                 <p className="mt-2 text-xs sm:text-sm font-semibold" style={{ color: muted }}>
                   {t(metric.label.ar, metric.label.en)}
@@ -408,8 +410,9 @@ export function CustomSovereignPortfolio({
                         </span>
                         {proj.metrics && (
                           <span
-                            className="rounded-full px-3 py-1 text-[11px] font-bold"
-                            style={{ backgroundColor: alphaColor(accent, 0.12), color: accent }}
+                            dir="ltr"
+                            className="inline-block rounded-full px-3 py-1 text-[11px] font-bold"
+                            style={{ backgroundColor: alphaColor(accent, 0.12), color: accent, unicodeBidi: "isolate" }}
                           >
                             {proj.metrics}
                           </span>
@@ -510,7 +513,9 @@ export function CustomSovereignPortfolio({
                             className="rounded-xl px-3 py-2 text-xs font-semibold"
                             style={{ backgroundColor: alphaColor(accent, 0.1), color: accent }}
                           >
-                            {proj.metrics}
+                            <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                              {proj.metrics}
+                            </span>
                           </div>
                         )}
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t" style={{ borderColor: border }}>
@@ -1220,7 +1225,9 @@ export function CustomSovereignPortfolio({
                     {(sec.items || []).map((item, idx) => (
                       <div key={idx} style={cardSurfaceStyle} className={`${radiusClass} ${hoverClass} p-6`}>
                         <p className="text-3xl font-black" style={{ color: accent, fontFamily: headingFont }}>
-                          {item.value || item.badge || "100%"}
+                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                            {item.value || item.badge || "100%"}
+                          </span>
                         </p>
                         <p className="mt-2 font-bold text-sm">{t(item.title.ar, item.title.en)}</p>
                         {item.description && (

@@ -730,13 +730,16 @@ async function handleApiRequest(request, url, env) {
     return jsonResponse({ error: "Cross-origin request rejected" }, 403);
   }
 
+  const session = await parseSessionFromRequest(request, env);
+  const sessionName = normalizeUsername(String(session?.username || ""));
+
   const rateProfiles = {
     "GET:/api/username/check": ["username-check", 80, 60_000],
-    "POST:/api/auth/register": ["register-ip", 5, 60 * 60 * 1000],
+    "POST:/api/auth/register": ["register-ip", 25, 60 * 60 * 1000],
     "POST:/api/auth/login": ["login-ip", 12, 15 * 60 * 1000],
     "POST:/api/auth/test-login": ["demo-login", 12, 15 * 60 * 1000],
     "POST:/api/auth/settings": ["account-settings", 12, 60 * 60 * 1000],
-    "DELETE:/api/auth/settings": ["account-delete", 3, 60 * 60 * 1000],
+    "DELETE:/api/auth/settings": ["account-delete", 25, 60 * 60 * 1000],
     "POST:/api/upload": ["upload", 20, 60 * 60 * 1000],
     "POST:/api/views": ["views", 180, 60_000],
     "POST:/api/portfolio/publish": ["publish", 20, 60 * 60 * 1000],
@@ -748,12 +751,11 @@ async function handleApiRequest(request, url, env) {
   const profile = rateProfiles[`${request.method}:${pathname}`];
   if (profile) {
     const [scope, limit, windowMs] = profile;
-    const rateResponse = await enforceRateLimit(request, env, scope, limit, windowMs);
+    const rateSubject = scope === "account-delete" ? sessionName : "";
+    const rateResponse = await enforceRateLimit(request, env, scope, limit, windowMs, rateSubject);
     if (rateResponse) return rateResponse;
   }
 
-  const session = await parseSessionFromRequest(request, env);
-  const sessionName = normalizeUsername(String(session?.username || ""));
   if (pathname === "/api/mcp/tokens") {
     if (session?.isTestAccount || SEED_PORTFOLIOS[sessionName]) {
       return jsonResponse({ error: "MCP connections are unavailable for showcase accounts." }, 403);
@@ -1146,7 +1148,7 @@ async function handleApiRequest(request, url, env) {
               email: preservedEmail,
             })
           : null;
-        await env.DB.batch([
+        const renameStatements = [
           env.DB.prepare(
             "UPDATE users SET username = ?1, password_hash = ?2, salt = ?3 WHERE username = ?4"
           ).bind(targetUsername, preservedHash, preservedSalt, cur),
@@ -1159,7 +1161,20 @@ async function handleApiRequest(request, url, env) {
             Date.now(),
             cur
           ),
-        ]);
+        ];
+        const mcpTokensTable = await env.DB.prepare(
+          "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'mcp_access_tokens' LIMIT 1"
+        )
+          .first()
+          .catch(() => null);
+        if (mcpTokensTable) {
+          renameStatements.push(
+            env.DB.prepare(
+              "UPDATE mcp_access_tokens SET username = ?1 WHERE username = ?2 OR user_id = ?3"
+            ).bind(targetUsername, cur, preservedUserId)
+          );
+        }
+        await env.DB.batch(renameStatements);
         delete edgeStore.portfolios[cur];
         delete edgeStore.users[cur];
         edgeStore.views[targetUsername] = edgeStore.views[cur] || 1;
@@ -1214,10 +1229,32 @@ async function handleApiRequest(request, url, env) {
       }
       if (!ownsUsername(u)) return forbidden();
 
-      await env.DB.batch([
+      const targetUserRow = await env.DB.prepare("SELECT id FROM users WHERE username = ?1 LIMIT 1")
+        .bind(u)
+        .first()
+        .catch(() => null);
+      const mcpTokensTable = await env.DB.prepare(
+        "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'mcp_access_tokens' LIMIT 1"
+      )
+        .first()
+        .catch(() => null);
+      const deleteStatements = [
         env.DB.prepare("DELETE FROM portfolios WHERE username = ?1").bind(u),
         env.DB.prepare("DELETE FROM users WHERE username = ?1").bind(u),
-      ]);
+      ];
+      if (mcpTokensTable) {
+        const uid = String(targetUserRow?.id || session?.userId || session?.id || "");
+        if (uid) {
+          deleteStatements.unshift(
+            env.DB.prepare("DELETE FROM mcp_access_tokens WHERE username = ?1 OR user_id = ?2").bind(u, uid)
+          );
+        } else {
+          deleteStatements.unshift(
+            env.DB.prepare("DELETE FROM mcp_access_tokens WHERE username = ?1").bind(u)
+          );
+        }
+      }
+      await env.DB.batch(deleteStatements);
       delete edgeStore.portfolios[u];
       delete edgeStore.users[u];
       delete edgeStore.views[u];
@@ -1225,7 +1262,7 @@ async function handleApiRequest(request, url, env) {
       return jsonResponse(
         { ok: true },
         200,
-        { "Set-Cookie": "taqdom_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure" }
+        { "Set-Cookie": `taqdom_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${isSecure ? "; Secure" : ""}` }
       );
     }
   }
