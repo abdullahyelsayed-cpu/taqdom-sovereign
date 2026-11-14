@@ -532,7 +532,30 @@ async function parseSessionFromRequest(request, env) {
   if (!match) return null;
   try {
     const token = decodeURIComponent(match[1].trim());
-    return await verifyEdgeSession(token, env?.AUTH_SECRET);
+    const verified = await verifyEdgeSession(token, env?.AUTH_SECRET);
+    if (!verified || !verified.username) return verified;
+    const uid = verified.userId || verified.id;
+    if (
+      env?.DB &&
+      uid &&
+      !verified.isTestAccount &&
+      !SEED_PORTFOLIOS[normalizeUsername(verified.username)]
+    ) {
+      try {
+        const row = await env.DB.prepare(
+          "SELECT username, email FROM users WHERE id = ?1 LIMIT 1"
+        )
+          .bind(uid)
+          .first();
+        if (row?.username) {
+          verified.username = normalizeUsername(row.username);
+          verified.email = row.email || verified.email;
+        }
+      } catch {
+        // Keep token claims if D1 lookup fails
+      }
+    }
+    return verified;
   } catch {
     return null;
   }
@@ -1523,7 +1546,7 @@ async function handleApiRequest(request, url, env) {
       const parsed = await parseJsonBody(request, 32768);
       if (!parsed.ok) return rateLimitBodyError(parsed);
       const body = parsed.value;
-      const cur = normalizeUsername(String(body.currentUsername || ""));
+      const cur = normalizeUsername(String(session.username || body.currentUsername || ""));
       if (!cur) return jsonResponse({ error: "Missing currentUsername" }, 400);
       if (!ownsUsername(cur)) return forbidden();
 
@@ -1609,10 +1632,14 @@ async function handleApiRequest(request, url, env) {
       if (!ownsUsername(session.username)) return forbidden();
       const parsed = await parseJsonBody(request, 1_500_000);
       if (!parsed.ok) return rateLimitBodyError(parsed);
-      const portfolio = parsed.value?.portfolio;
+      let portfolio = parsed.value?.portfolio;
       if (!portfolio?.username) return jsonResponse({ error: "Invalid payload" }, 400);
-      const requestedUsername = normalizeUsername(String(portfolio.username));
       const curSessionName = normalizeUsername(String(session.username));
+      let requestedUsername = normalizeUsername(String(portfolio.username));
+      if (requestedUsername === "yourname") {
+        portfolio = { ...portfolio, username: curSessionName };
+        requestedUsername = curSessionName;
+      }
       if (requestedUsername === curSessionName) {
         if (!ownsUsername(portfolio.username)) return forbidden();
         const validation = validateUsername(String(portfolio.username));
@@ -1646,10 +1673,14 @@ async function handleApiRequest(request, url, env) {
       if (!ownsUsername(session.username)) return forbidden();
       const parsed = await parseJsonBody(request, 1_500_000);
       if (!parsed.ok) return rateLimitBodyError(parsed);
-      const portfolio = parsed.value?.portfolio;
+      let portfolio = parsed.value?.portfolio;
       if (!portfolio?.username) return jsonResponse({ error: "Missing portfolio" }, 400);
-      const requestedUsername = normalizeUsername(String(portfolio.username));
       const curSessionName = normalizeUsername(String(session.username));
+      let requestedUsername = normalizeUsername(String(portfolio.username));
+      if (requestedUsername === "yourname") {
+        portfolio = { ...portfolio, username: curSessionName };
+        requestedUsername = curSessionName;
+      }
       if (requestedUsername === curSessionName) {
         if (!ownsUsername(portfolio.username)) return forbidden();
         const validation = validateUsername(String(portfolio.username));
