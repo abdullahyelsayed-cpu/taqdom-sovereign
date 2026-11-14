@@ -276,7 +276,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
               <button
                 type="button"
                 onClick={() => void copyText(oauthEndpointUrl, "oauth-ep")}
-                className="rounded-lg border border-border bg-background p-1.5 hover:border-[#C99750] cursor-pointer"
+                className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border bg-background p-2 hover:border-[#C99750] cursor-pointer"
                 aria-label="Copy OAuth MCP URL"
               >
                 {copiedKey === "oauth-ep" ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
@@ -384,14 +384,14 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
                           <button
                             type="button"
                             onClick={() => void revoke(tok.id)}
-                            className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white cursor-pointer"
+                            className="min-h-[44px] inline-flex items-center justify-center rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white cursor-pointer"
                           >
                             {t("تأكيد الإلغاء", "Confirm")}
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirmRevokeId(null)}
-                            className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold cursor-pointer"
+                            className="min-h-[44px] inline-flex items-center justify-center rounded-lg border border-border px-3 py-2 text-xs font-semibold cursor-pointer"
                           >
                             {t("تراجع", "Cancel")}
                           </button>
@@ -483,7 +483,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
             <button
               type="button"
               onClick={() => setCreated(null)}
-              className="text-sm font-bold text-muted-foreground underline cursor-pointer"
+              className="min-h-[44px] inline-flex items-center text-sm font-bold text-muted-foreground underline cursor-pointer"
             >
               {t("أخفِ المفتاح بعد حفظه بأمان", "Hide token after saving safely")}
             </button>
@@ -511,7 +511,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
                     key={tabId}
                     type="button"
                     onClick={() => setClientTab(tabId)}
-                    className={`rounded-lg px-3 py-1 text-xs font-bold transition cursor-pointer ${
+                    className={`min-h-[46px] inline-flex items-center justify-center rounded-lg px-3.5 py-2.5 text-xs font-bold transition cursor-pointer ${
                       clientTab === tabId
                         ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09]"
                         : "text-muted-foreground hover:text-foreground"
@@ -531,7 +531,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
             <button
               type="button"
               onClick={() => void copyText(activeConfigSnippet, "cfg")}
-              className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2 text-xs font-bold hover:border-[#C99750] cursor-pointer"
+              className="min-h-[44px] inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-bold hover:border-[#C99750] cursor-pointer"
             >
               {copiedKey === "cfg" ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
               <span>{t("نسخ الإعداد", "Copy Configuration")}</span>
@@ -557,7 +557,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
             <button
               type="button"
               onClick={() => void copyText(masterArchitectPrompt, "prompt")}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] px-4 py-2.5 text-xs font-extrabold text-[#F7F5F0] dark:text-[#0A0A09] cursor-pointer"
+              className="min-h-[46px] inline-flex items-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] px-4 py-3 text-xs font-extrabold text-[#F7F5F0] dark:text-[#0A0A09] cursor-pointer"
             >
               {copiedKey === "prompt" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               <span>{t("نسخ البرومبت الأسطوري", "Copy Architect Prompt")}</span>

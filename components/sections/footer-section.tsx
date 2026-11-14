@@ -36,7 +36,7 @@ export function FooterSection() {
               <button
                 type="button"
                 onClick={toggleLang}
-                className="rounded-xl border border-border bg-secondary/70 px-3.5 py-1.5 text-xs font-bold text-foreground hover:border-[#9A7B4F] dark:hover:border-[#C89D66]"
+                className="min-h-[44px] rounded-xl border border-border bg-secondary/70 px-4 py-2 text-xs font-bold text-foreground hover:border-[#9A7B4F] dark:hover:border-[#C89D66] cursor-pointer"
               >
                 {lang === "ar" ? "Switch to English (EN)" : "التبديل إلى العربية"}
               </button>

@@ -1341,13 +1341,13 @@ function StudioContent() {
                                   ...prev,
                                   projects: prev.projects.map((item) =>
                                     item.id === proj.id
-                                      ? { ...item, images: [img, ...item.images.slice(1)] }
+                                      ? { ...item, images: [img, ...(item.images || []).slice(1)] }
                                       : item
                                   ),
                                 }));
                               }}
                               className={`relative h-10 w-14 shrink-0 rounded-lg overflow-hidden border-2 ${
-                                proj.images[0] === img ? "border-[#9A7B4F]" : "border-transparent opacity-60"
+                                proj.images?.[0] === img ? "border-[#9A7B4F]" : "border-transparent opacity-60"
                               }`}
                             >
                               <Image src={img} alt="" fill className="object-cover" />

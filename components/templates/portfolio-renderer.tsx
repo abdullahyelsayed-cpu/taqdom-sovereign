@@ -293,8 +293,14 @@ export function PortfolioRenderer({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-8"
       onClick={() => setActiveProject(null)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setActiveProject(null);
+      }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t(activeProject.title.ar, activeProject.title.en)}
         className="relative max-w-5xl w-full rounded-3xl overflow-hidden bg-[#121210] border border-[#C89D66]/40 text-[#F4F1EA] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -322,8 +328,10 @@ export function PortfolioRenderer({
           </div>
           <button
             type="button"
+            autoFocus
+            aria-label={t("إغلاق", "Close")}
             onClick={() => setActiveProject(null)}
-            className="rounded-xl bg-[#181815] p-2 text-[#F4F1EA] hover:bg-[#C89D66] hover:text-[#0A0A09] transition cursor-pointer"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl bg-[#181815] p-2 text-[#F4F1EA] hover:bg-[#C89D66] hover:text-[#0A0A09] transition cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
@@ -332,8 +340,8 @@ export function PortfolioRenderer({
         <div className="relative h-[340px] sm:h-[480px] w-full bg-[#0A0A09]">
           <Image
             src={
-              activeProject.images[activeImageIdx] ||
-              activeProject.images[0] ||
+              activeProject.images?.[activeImageIdx] ||
+              activeProject.images?.[0] ||
               data.cover
             }
             alt={t(activeProject.title.ar, activeProject.title.en)}
@@ -346,9 +354,9 @@ export function PortfolioRenderer({
           <p className="text-sm text-[#A09C94] max-w-2xl">
             {t(activeProject.desc.ar, activeProject.desc.en)}
           </p>
-          {activeProject.images.length > 1 && (
+          {(activeProject.images?.length || 0) > 1 && (
             <div className="flex gap-2 shrink-0">
-              {activeProject.images.map((img, idx) => (
+              {(activeProject.images || []).map((img, idx) => (
                 <button
                   key={idx}
                   type="button"
@@ -651,7 +659,7 @@ export function PortfolioRenderer({
                     <div>
                       <div className="relative h-56 w-full overflow-hidden bg-[#181815]">
                         <Image
-                          src={proj.images[0] || data.cover}
+                          src={proj.images?.[0] || data.cover}
                           alt={t(proj.title.ar, proj.title.en)}
                           fill
                           className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -827,7 +835,7 @@ export function PortfolioRenderer({
           {/* Pinned Scrollytelling Cinema Stage */}
           <section data-canvas-section="hero" className="portfolio-canvas-section relative min-h-[82vh] flex flex-col justify-between p-6 sm:p-12 border-b border-[#F4F1EA]/10 overflow-hidden" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
             <Image
-              src={data.projects[0]?.images[0] || data.cover}
+              src={data.projects?.[0]?.images?.[0] || data.cover}
               alt={t(data.name.ar, data.name.en)}
               fill
               className={`object-cover transition-all duration-700 ${
@@ -994,7 +1002,7 @@ export function PortfolioRenderer({
                       } min-h-[300px] sm:min-h-[380px]`}
                     >
                       <Image
-                        src={proj.images[0] || data.cover}
+                        src={proj.images?.[0] || data.cover}
                         alt={t(proj.title.ar, proj.title.en)}
                         fill
                         className={`object-cover transition-transform duration-700 group-hover:scale-105 ${
@@ -1201,7 +1209,7 @@ export function PortfolioRenderer({
                   >
                     <div className="lg:col-span-7 relative min-h-[340px] overflow-hidden">
                       <Image
-                        src={proj.images[0] || data.cover}
+                        src={proj.images?.[0] || data.cover}
                         alt={t(proj.title.ar, proj.title.en)}
                         fill
                         className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -1415,7 +1423,7 @@ export function PortfolioRenderer({
                     <div>
                       <div className="relative h-56 w-full overflow-hidden border-b border-[#141413]/20">
                         <Image
-                          src={proj.images[0] || data.cover}
+                          src={proj.images?.[0] || data.cover}
                           alt={t(proj.title.ar, proj.title.en)}
                           fill
                           className="object-cover"
@@ -1853,7 +1861,7 @@ export function PortfolioRenderer({
                 >
                   <div className="relative h-52 w-full">
                     <Image
-                      src={proj.images[0] || data.cover}
+                      src={proj.images?.[0] || data.cover}
                       alt={t(proj.title.ar, proj.title.en)}
                       fill
                       className="object-cover"
@@ -2232,7 +2240,7 @@ export function PortfolioRenderer({
                 >
                   <div className="relative h-56 w-full">
                     <Image
-                      src={proj.images[0] || data.cover}
+                      src={proj.images?.[0] || data.cover}
                       alt={t(proj.title.ar, proj.title.en)}
                       fill
                       className="object-cover"
@@ -2425,7 +2433,7 @@ export function PortfolioRenderer({
                 >
                   <div className="relative h-52 w-full">
                     <Image
-                      src={proj.images[0] || data.cover}
+                      src={proj.images?.[0] || data.cover}
                       alt={t(proj.title.ar, proj.title.en)}
                       fill
                       className="object-cover"

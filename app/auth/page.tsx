@@ -102,7 +102,12 @@ export default function AuthPage() {
     let active = true;
     consumeGoogleRedirectResult()
       .then(async (outcome) => {
-        if (!active || !outcome || outcome.status !== "ok") return;
+        if (!active || !outcome) return;
+        if (outcome.status === "error") {
+          toast.error(outcome.message);
+          return;
+        }
+        if (outcome.status !== "ok") return;
         setGoogleLoading(true);
         try {
           await exchangeFirebaseToken(outcome.idToken);
@@ -122,7 +127,11 @@ export default function AuthPage() {
     setGoogleLoading(true);
     try {
       const outcome = await signInWithGoogleFirebase();
-      if (outcome.status === "cancelled" || outcome.status === "redirected") {
+      if (outcome.status === "error") {
+        toast.error(outcome.message);
+        return;
+      }
+      if (outcome.status !== "ok") {
         return;
       }
       const cleanOptional = mode === "register" ? normalizeUsername(username) : "";
@@ -387,7 +396,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => setMode("register")}
-                  className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
+                  className={`flex-1 min-h-[44px] flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
                     mode === "register"
                       ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09] shadow"
                       : "text-muted-foreground"
@@ -399,7 +408,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   onClick={() => setMode("login")}
-                  className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
+                  className={`flex-1 min-h-[44px] flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition cursor-pointer ${
                     mode === "login"
                       ? "bg-[#9A7B4F] dark:bg-[#C89D66] text-[#F7F5F0] dark:text-[#0A0A09] shadow"
                       : "text-muted-foreground"
@@ -577,7 +586,7 @@ export default function AuthPage() {
                           key={tmpl.id}
                           type="button"
                           onClick={() => setTemplate(tmpl.id)}
-                          className={`rounded-xl border px-2.5 py-2 text-xs font-bold transition cursor-pointer ${
+                          className={`min-h-[44px] rounded-xl border px-2.5 py-2 text-xs font-bold transition cursor-pointer ${
                             template === tmpl.id
                               ? "border-[#9A7B4F] dark:border-[#C89D66] bg-[#9A7B4F]/20"
                               : "border-border bg-background hover:border-[#9A7B4F]/50"

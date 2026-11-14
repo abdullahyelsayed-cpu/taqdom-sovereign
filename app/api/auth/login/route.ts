@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const user = await findUserByUsernameOrEmail(identifier);
     if (!user) {
       return NextResponse.json(
-        { error: "الحساب غير موجود. يمكنك إنشاء حساب جديد أو استخدام حساب الاختبار الفوري." },
+        { error: "الحساب غير موجود. يمكنك إنشاء حساب جديد أو المتابعة بحساب Google." },
         { status: 401 }
       );
     }

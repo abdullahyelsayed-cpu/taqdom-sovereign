@@ -54,7 +54,7 @@ export async function generateMetadata({
       description,
       images: [
         {
-          url: portfolio.projects[0]?.images[0] || portfolio.cover || "/images/ultra/haven-hero.webp",
+          url: portfolio.projects?.[0]?.images?.[0] || portfolio.cover || "/images/ultra/haven-hero.webp",
           width: 1200,
           height: 630,
           alt: portfolio.name.en,
@@ -65,7 +65,7 @@ export async function generateMetadata({
       card: "summary_large_image",
       title,
       description,
-      images: [portfolio.projects[0]?.images[0] || portfolio.cover || "/images/ultra/haven-hero.webp"],
+      images: [portfolio.projects?.[0]?.images?.[0] || portfolio.cover || "/images/ultra/haven-hero.webp"],
     },
   };
 }
@@ -90,7 +90,9 @@ export default async function PortfolioSubdomainPage({
           alternateName: portfolio.name.ar,
           jobTitle: portfolio.title.en,
           description: portfolio.bio.en,
-          image: `https://taqdom.me${portfolio.avatar}`,
+          image: /^https?:\/\//i.test(portfolio.avatar || "")
+            ? safePortfolioUrl(portfolio.avatar)
+            : `https://taqdom.me${portfolio.avatar || "/images/creators/layla.jpg"}`,
           url: `https://${clean}.taqdom.me`,
           address: {
             "@type": "PostalAddress",

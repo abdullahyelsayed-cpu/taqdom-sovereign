@@ -123,7 +123,7 @@ export default function ExplorePage() {
                 >
                   <div className="relative h-48 w-full overflow-hidden bg-[#0F172A]">
                     <Image
-                      src={creator.projects[0]?.images[0] || creator.cover}
+                      src={creator.projects?.[0]?.images?.[0] || creator.cover}
                       alt={t(creator.name.ar, creator.name.en)}
                       fill
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

@@ -193,7 +193,8 @@ export function isMatchingRedirectUri(registeredUri, requestedUri) {
       req.protocol === "http:" &&
       isLoopbackHost(reg.hostname) &&
       reg.hostname.toLowerCase() === req.hostname.toLowerCase() &&
-      reg.pathname === req.pathname
+      reg.pathname === req.pathname &&
+      (!reg.search || reg.search === req.search)
     ) {
       return !reg.port || reg.port === req.port || isLoopbackHost(reg.hostname);
     }
@@ -301,6 +302,10 @@ export function isOAuthRoute(pathname) {
     pathname.startsWith("/.well-known/oauth-protected-resource") ||
     pathname.startsWith("/.well-known/oauth-authorization-server") ||
     pathname === "/.well-known/openid-configuration" ||
+    pathname.startsWith("/.well-known/openid-configuration/") ||
+    /^\/mcp(?:\/[a-z0-9-]{3,30})?\/\.well-known\/oauth-(?:protected-resource|authorization-server)\/?$/i.test(
+      pathname
+    ) ||
     pathname === "/oauth/register" ||
     pathname === "/oauth/token" ||
     pathname === "/oauth/revoke" ||
@@ -311,42 +316,99 @@ export function isOAuthRoute(pathname) {
 }
 
 function isSameOriginRequest(request, url) {
+  const secFetchSite = (request.headers.get("sec-fetch-site") || "").trim().toLowerCase();
+  if (secFetchSite === "cross-site") return false;
+
+  const expectedHost = (request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const expectedProto = (request.headers.get("x-forwarded-proto") || url.protocol.replace(":", ""))
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+
+  const matchesExpected = (rawCandidate) => {
+    try {
+      const candidate = new URL(rawCandidate);
+      return (
+        Boolean(expectedHost) &&
+        candidate.host.toLowerCase() === expectedHost &&
+        candidate.protocol === `${expectedProto}:`
+      );
+    } catch {
+      return false;
+    }
+  };
+
   const reqOrigin = request.headers.get("origin");
-  if (!reqOrigin) return true;
-  if (reqOrigin === url.origin) return true;
-  try {
-    const originUrl = new URL(reqOrigin);
-    const rawHost = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "")
-      .split(",")[0]
-      .trim()
-      .toLowerCase();
-    const proto = (request.headers.get("x-forwarded-proto") || url.protocol.replace(":", ""))
-      .split(",")[0]
-      .trim()
-      .toLowerCase();
-    return Boolean(rawHost) && originUrl.host.toLowerCase() === rawHost && originUrl.protocol === `${proto}:`;
-  } catch {
-    return false;
+  if (reqOrigin) {
+    if (reqOrigin === url.origin) return true;
+    return matchesExpected(reqOrigin);
   }
+
+  const referer = request.headers.get("referer");
+  if (referer) {
+    return matchesExpected(referer);
+  }
+  return true;
+}
+
+function stripCorsHeaders(response) {
+  const headers = new Headers(response.headers);
+  for (const key of [
+    "access-control-allow-origin",
+    "access-control-allow-methods",
+    "access-control-allow-headers",
+    "access-control-expose-headers",
+  ]) {
+    headers.delete(key);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 export async function handleOAuthRequest(request, url, env, opts = {}) {
+  const isInternalApi = url.pathname.startsWith("/api/oauth/");
+  const res = await handleOAuthRequestInner(request, url, env, opts);
+  return isInternalApi && res ? stripCorsHeaders(res) : res;
+}
+
+async function handleOAuthRequestInner(request, url, env, opts = {}) {
   const { pathname, origin } = url;
   const { parseSessionFn } = opts;
 
   if (request.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: oauthCorsHeaders() });
+    return new Response(null, {
+      status: 204,
+      headers: pathname.startsWith("/api/oauth/") ? {} : oauthCorsHeaders(),
+    });
   }
 
-  // 1. OAuth Protected Resource Metadata (RFC 9728)
-  if (pathname.startsWith("/.well-known/oauth-protected-resource") && request.method === "GET") {
-    const suffix = pathname.slice("/.well-known/oauth-protected-resource".length);
+  // 1. OAuth Protected Resource Metadata (RFC 9728 — root & path-prefixed /mcp/.well-known/oauth-protected-resource)
+  const prefixedResourceMatch = pathname.match(
+    /^\/mcp(?:\/([a-z0-9-]{3,30}))?\/\.well-known\/oauth-protected-resource\/?$/i
+  );
+  if (
+    (pathname.startsWith("/.well-known/oauth-protected-resource") || Boolean(prefixedResourceMatch)) &&
+    request.method === "GET"
+  ) {
     let resourcePath = "/mcp";
-    if (suffix && suffix !== "/") {
-      const cleanSuffix = suffix.startsWith("/") ? suffix : `/${suffix}`;
-      const match = cleanSuffix.match(/^\/mcp(?:\/([a-z0-9-]{3,30}))?\/?$/i);
-      if (match) {
-        resourcePath = match[1] ? `/mcp/${normalizeUsername(match[1])}` : "/mcp";
+    if (prefixedResourceMatch) {
+      resourcePath = prefixedResourceMatch[1]
+        ? `/mcp/${normalizeUsername(prefixedResourceMatch[1])}`
+        : "/mcp";
+    } else {
+      const suffix = pathname.slice("/.well-known/oauth-protected-resource".length);
+      if (suffix && suffix !== "/") {
+        const cleanSuffix = suffix.startsWith("/") ? suffix : `/${suffix}`;
+        const match = cleanSuffix.match(/^\/mcp(?:\/([a-z0-9-]{3,30}))?\/?$/i);
+        if (match) {
+          resourcePath = match[1] ? `/mcp/${normalizeUsername(match[1])}` : "/mcp";
+        }
       }
     }
     return json({
@@ -362,7 +424,9 @@ export async function handleOAuthRequest(request, url, env, opts = {}) {
   // 2. OAuth Authorization Server Metadata (RFC 8414) + OIDC Discovery compatibility
   if (
     (pathname.startsWith("/.well-known/oauth-authorization-server") ||
-      pathname === "/.well-known/openid-configuration") &&
+      pathname === "/.well-known/openid-configuration" ||
+      pathname.startsWith("/.well-known/openid-configuration/") ||
+      /^\/mcp(?:\/[a-z0-9-]{3,30})?\/\.well-known\/oauth-authorization-server\/?$/i.test(pathname)) &&
     request.method === "GET"
   ) {
     return json({

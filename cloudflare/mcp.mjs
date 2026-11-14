@@ -441,10 +441,34 @@ function toolError(message) {
 }
 
 function bilingual(value, fieldName) {
-  if (typeof value === "string") {
-    return { ar: value.slice(0, 12000), en: value.slice(0, 12000) };
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const str = String(value).slice(0, 12000);
+    return { ar: str, en: str };
   }
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (Array.isArray(value)) {
+    const arParts = [];
+    const enParts = [];
+    for (const entry of value.slice(0, 40)) {
+      if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean") {
+        const s = String(entry);
+        arParts.push(s);
+        enParts.push(s);
+      } else if (entry && typeof entry === "object" && !Array.isArray(entry)) {
+        const arVal = entry.ar ?? entry.arabic ?? entry.text ?? entry.title ?? entry.en ?? entry.english;
+        const enVal = entry.en ?? entry.english ?? entry.text ?? entry.title ?? entry.ar ?? entry.arabic;
+        if (arVal !== undefined) arParts.push(String(arVal));
+        if (enVal !== undefined) enParts.push(String(enVal));
+      }
+    }
+    if (arParts.length > 0 || enParts.length > 0) {
+      return {
+        ar: arParts.join("\n").slice(0, 12000),
+        en: enParts.join("\n").slice(0, 12000),
+      };
+    }
+    return { ar: "", en: "" };
+  }
+  if (!value || typeof value !== "object") {
     throw new Error(`Invalid ${fieldName}: expected text or {ar,en}.`);
   }
   const ar = value.ar ?? value.arabic ?? value.text ?? value.title ?? value.en ?? value.english ?? "";
@@ -650,6 +674,47 @@ function mapSectionKind(raw) {
   return "cards";
 }
 
+const THEME_PRESET_PALETTES = {
+  "midnight-gold": { background: "#0B0D14", surface: "#141824", text: "#F5F2EB", muted: "#A6AFC2", accent: "#E3B76B" },
+  "emerald-noir": { background: "#07110D", surface: "#0E1F18", text: "#ECF6F0", muted: "#92B4A3", accent: "#2FD48B" },
+  "ivory-editorial": { background: "#F6F3EC", surface: "#FFFFFF", text: "#141619", muted: "#5D626B", accent: "#9A7B4F" },
+  "obsidian-crimson": { background: "#09090D", surface: "#14141C", text: "#F6F4F2", muted: "#A69FA8", accent: "#E5484D" },
+  "cyber-slate": { background: "#080B12", surface: "#111726", text: "#EEF2FF", muted: "#94A3B8", accent: "#38BDF8" },
+  "desert-sand": { background: "#F5EFE6", surface: "#FCF9F4", text: "#1F1A14", muted: "#6D6255", accent: "#B45309" },
+  "oceanic-blue": { background: "#06101B", surface: "#0E1D2F", text: "#EFF6FF", muted: "#93B2D4", accent: "#60A5FA" },
+};
+
+function hasPaletteColorKeys(obj) {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false;
+  return Boolean(
+    obj.background ||
+      obj.backgroundColor ||
+      obj.bg ||
+      obj.bgColor ||
+      obj.surface ||
+      obj.surfaceColor ||
+      obj.cardColor ||
+      obj.text ||
+      obj.textColor ||
+      obj.foreground ||
+      obj.foregroundColor ||
+      obj.accent ||
+      obj.accentColor ||
+      obj.primary ||
+      obj.primaryColor
+  );
+}
+
+function resolveNamedThemePalette(rawTheme) {
+  if (typeof rawTheme !== "string") return null;
+  const key = rawTheme.trim().toLowerCase().replace(/[\s_]+/g, "-");
+  if (THEME_PRESET_PALETTES[key]) return THEME_PRESET_PALETTES[key];
+  for (const [presetName, palette] of Object.entries(THEME_PRESET_PALETTES)) {
+    if (key.includes(presetName.split("-")[0])) return palette;
+  }
+  return null;
+}
+
 function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
   const args =
     rawArgs && typeof rawArgs === "object"
@@ -664,14 +729,16 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     return { enabled: false };
   }
 
+  const namedThemePalette =
+    resolveNamedThemePalette(args.theme) || resolveNamedThemePalette(args.palette);
+
   const rawPalette =
-    args.palette ||
+    (args.palette && typeof args.palette === "object" ? args.palette : null) ||
     args.colors ||
     args.theme?.palette ||
     args.theme?.colors ||
-    (args.theme && (args.theme.background || args.theme.bg || args.theme.accent || args.theme.primary)
-      ? args.theme
-      : null) ||
+    (hasPaletteColorKeys(args.theme) ? args.theme : null) ||
+    namedThemePalette ||
     existingDesign?.palette ||
     null;
 
@@ -683,13 +750,17 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     !args.sections &&
     !args.typography &&
     !args.fonts &&
+    !args.font &&
     !args.hero &&
+    !args.heroStyle &&
+    !args.heroVariant &&
     !args.effects &&
     !args.heroCta &&
     !args.cta &&
     !args.tokens &&
     !args.designName &&
-    !args.name
+    !args.name &&
+    !args.theme
   ) {
     throw new Error(
       "Provide palette/colors, layout, typography, hero, or customSections when designing a custom theme."
@@ -704,24 +775,39 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     accent: "#E3B76B",
   };
 
-  const bgRaw = paletteSrc.background ?? paletteSrc.bg ?? existingDesign?.palette?.background ?? "#0B0D14";
+  const bgRaw =
+    paletteSrc.background ??
+    paletteSrc.backgroundColor ??
+    paletteSrc.bg ??
+    paletteSrc.bgColor ??
+    existingDesign?.palette?.background ??
+    "#0B0D14";
   const background = safeColorValue(bgRaw, "palette.background");
   const isLightBg = parseHexLuminance(background) > 0.4;
 
   const surfaceRaw =
     paletteSrc.surface ??
+    paletteSrc.surfaceColor ??
     paletteSrc.card ??
+    paletteSrc.cardColor ??
     paletteSrc.cardBg ??
+    paletteSrc.cardBackground ??
     existingDesign?.palette?.surface ??
     (isLightBg ? "#FFFFFF" : "#141824");
   const surface = safeColorValue(surfaceRaw, "palette.surface");
 
-  const surfaceAltRaw = paletteSrc.surfaceAlt ?? paletteSrc.surfaceSecondary ?? existingDesign?.palette?.surfaceAlt;
+  const surfaceAltRaw =
+    paletteSrc.surfaceAlt ??
+    paletteSrc.surfaceSecondary ??
+    paletteSrc.secondaryBackground ??
+    existingDesign?.palette?.surfaceAlt;
   const surfaceAlt = surfaceAltRaw ? safeColorValue(surfaceAltRaw, "palette.surfaceAlt") : undefined;
 
   const textRaw =
     paletteSrc.text ??
+    paletteSrc.textColor ??
     paletteSrc.foreground ??
+    paletteSrc.foregroundColor ??
     paletteSrc.fg ??
     existingDesign?.palette?.text ??
     (isLightBg ? "#111318" : "#F5F2EB");
@@ -729,6 +815,7 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
 
   const mutedRaw =
     paletteSrc.muted ??
+    paletteSrc.mutedColor ??
     paletteSrc.secondaryText ??
     paletteSrc.subtle ??
     existingDesign?.palette?.muted ??
@@ -737,21 +824,30 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
 
   const accentRaw =
     paletteSrc.accent ??
+    paletteSrc.accentColor ??
     paletteSrc.primary ??
+    paletteSrc.primaryColor ??
     existingDesign?.palette?.accent ??
     "#C89D66";
   const accent = safeColorValue(accentRaw, "palette.accent");
 
   const accentSecondaryRaw =
-    paletteSrc.accentSecondary ?? paletteSrc.secondary ?? existingDesign?.palette?.accentSecondary;
+    paletteSrc.accentSecondary ??
+    paletteSrc.secondary ??
+    paletteSrc.secondaryColor ??
+    existingDesign?.palette?.accentSecondary;
   const accentSecondary = accentSecondaryRaw
     ? safeColorValue(accentSecondaryRaw, "palette.accentSecondary")
     : undefined;
 
-  const accentTextRaw = paletteSrc.accentText ?? paletteSrc.onPrimary ?? existingDesign?.palette?.accentText;
+  const accentTextRaw =
+    paletteSrc.accentText ??
+    paletteSrc.onPrimary ??
+    paletteSrc.onPrimaryColor ??
+    existingDesign?.palette?.accentText;
   const accentText = accentTextRaw ? safeColorValue(accentTextRaw, "palette.accentText") : undefined;
 
-  const borderRaw = paletteSrc.border ?? existingDesign?.palette?.border;
+  const borderRaw = paletteSrc.border ?? paletteSrc.borderColor ?? existingDesign?.palette?.border;
   const heroGradientRaw = paletteSrc.heroGradient ?? paletteSrc.gradient ?? existingDesign?.palette?.heroGradient;
 
   const cleanPalette = {
@@ -767,7 +863,12 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     ...(heroGradientRaw ? { heroGradient: safeCssGradient(heroGradientRaw) } : {}),
   };
 
-  const typographySrc = args.typography || args.fonts || existingDesign?.typography || { headingStyle: "display" };
+  const typographySrc =
+    args.typography ||
+    args.fonts ||
+    (typeof args.font === "string" ? { headingStyle: args.font } : args.font) ||
+    existingDesign?.typography ||
+    { headingStyle: "display" };
   const bodyVal = String(typographySrc.bodyStyle || typographySrc.body || "sans").toLowerCase();
   const scaleVal = String(typographySrc.scale || typographySrc.size || "balanced").toLowerCase();
   const cleanTypography = {
@@ -792,6 +893,7 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     ...(existingDesign?.layout || {}),
     ...baseLayout,
     ...(args.heroVariant ? { heroVariant: args.heroVariant } : {}),
+    ...(args.heroStyle ? { heroVariant: args.heroStyle } : {}),
     ...(typeof args.hero === "string"
       ? { heroVariant: args.hero }
       : args.hero && typeof args.hero === "object" && (args.hero.variant || args.hero.heroVariant)
@@ -952,18 +1054,49 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
                   if (!item || typeof item !== "object") {
                     return { title: bilingual(`Item ${itemIdx + 1}`, "customSection.item.title") };
                   }
-                  const itemTitle = item.title ?? item.name ?? item.question ?? item.label ?? `Item ${itemIdx + 1}`;
-                  const itemDesc = item.description ?? item.desc ?? item.answer ?? item.summary ?? item.text;
+                  const itemTitle =
+                    item.title ??
+                    item.name ??
+                    item.author ??
+                    item.role ??
+                    item.question ??
+                    item.label ??
+                    `Item ${itemIdx + 1}`;
+                  const itemDesc =
+                    item.description ??
+                    item.desc ??
+                    item.quote ??
+                    item.answer ??
+                    item.summary ??
+                    item.text ??
+                    item.caption;
+                  const itemBadge =
+                    item.badge ??
+                    item.tag ??
+                    item.year ??
+                    item.period ??
+                    item.date ??
+                    (item.author && item.role ? String(item.role) : undefined) ??
+                    (item.org || item.company ? String(item.org || item.company) : undefined);
+                  const itemValue =
+                    item.value ??
+                    item.metric ??
+                    (itemBadge && item.role && itemBadge !== item.role && item.author
+                      ? String(item.role)
+                      : undefined) ??
+                    (itemBadge && (item.org || item.company) && itemBadge !== (item.org || item.company)
+                      ? String(item.org || item.company)
+                      : undefined);
                   return {
                     title: bilingual(itemTitle, "customSection.item.title"),
                     ...(itemDesc
                       ? { description: bilingual(itemDesc, "customSection.item.description") }
                       : {}),
-                    ...(item.badge || item.tag
-                      ? { badge: String(item.badge || item.tag).slice(0, 60) }
+                    ...(itemBadge
+                      ? { badge: String(itemBadge).slice(0, 60) }
                       : {}),
-                    ...(item.value || item.metric
-                      ? { value: String(item.value || item.metric).slice(0, 60) }
+                    ...(itemValue
+                      ? { value: String(itemValue).slice(0, 60) }
                       : {}),
                     ...(item.url || item.href
                       ? {
@@ -1388,6 +1521,16 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
       }
 
       if (name === "update_profile") {
+        const normalizedArgs = { ...args };
+        if (!("title" in normalizedArgs) && (normalizedArgs.headline || normalizedArgs.role || normalizedArgs.tagline)) {
+          normalizedArgs.title = normalizedArgs.headline ?? normalizedArgs.role ?? normalizedArgs.tagline;
+        }
+        if (!("city" in normalizedArgs) && normalizedArgs.location) {
+          normalizedArgs.city = normalizedArgs.location;
+        }
+        if (!("bio" in normalizedArgs) && (normalizedArgs.about || normalizedArgs.summary)) {
+          normalizedArgs.bio = normalizedArgs.about ?? normalizedArgs.summary;
+        }
         const allowed = new Set([
           "name",
           "title",
@@ -1399,40 +1542,42 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
           "cover",
           "theme",
         ]);
-        const keys = Object.keys(args);
-        if (!keys.length || keys.some((key) => !allowed.has(key))) {
+        const supportedKeys = Object.keys(normalizedArgs).filter((key) => allowed.has(key));
+        if (!supportedKeys.length) {
           throw new Error("Provide at least one supported profile field.");
         }
         for (const key of ["name", "title", "bio", "city"]) {
-          if (key in args) portfolio[key] = bilingual(args[key], key);
+          if (key in normalizedArgs) portfolio[key] = bilingual(normalizedArgs[key], key);
         }
-        if ("skills" in args) {
-          portfolio.skills = Array.isArray(args.skills)
-            ? args.skills.slice(0, 100).map((skill) => String(skill).slice(0, 80))
+        if ("skills" in normalizedArgs) {
+          portfolio.skills = Array.isArray(normalizedArgs.skills)
+            ? normalizedArgs.skills.slice(0, 100).map((skill) => String(skill).slice(0, 80))
             : [];
         }
-        if ("links" in args) {
-          if (!Array.isArray(args.links) || args.links.length > 50) {
+        if ("links" in normalizedArgs) {
+          if (!Array.isArray(normalizedArgs.links) || normalizedArgs.links.length > 50) {
             throw new Error("Links must be an array with at most 50 entries.");
           }
-          portfolio.links = args.links.map((link) => ({
+          portfolio.links = normalizedArgs.links.map((link) => ({
             label: String(link.label || "").slice(0, 100),
             url: safeUrl(link.url, { allowMail: true }),
           }));
         }
         for (const key of ["avatar", "cover"]) {
-          if (key in args) portfolio[key] = args[key] ? safeUrl(args[key], { allowLocal: true }) : "";
+          if (key in normalizedArgs) {
+            portfolio[key] = normalizedArgs[key] ? safeUrl(normalizedArgs[key], { allowLocal: true }) : "";
+          }
         }
-        if ("theme" in args) {
-          if (!args.theme || typeof args.theme !== "object" || Array.isArray(args.theme)) {
+        if ("theme" in normalizedArgs) {
+          if (!normalizedArgs.theme || typeof normalizedArgs.theme !== "object" || Array.isArray(normalizedArgs.theme)) {
             throw new Error("Theme must be an object.");
           }
           portfolio.theme = {
-            mode: ["light", "dark", "auto"].includes(args.theme.mode)
-              ? args.theme.mode
+            mode: ["light", "dark", "auto"].includes(normalizedArgs.theme.mode)
+              ? normalizedArgs.theme.mode
               : portfolio.theme?.mode || "auto",
-            accent: /^#[0-9a-f]{6}$/i.test(String(args.theme.accent || ""))
-              ? args.theme.accent
+            accent: /^#[0-9a-f]{6}$/i.test(String(normalizedArgs.theme.accent || ""))
+              ? normalizedArgs.theme.accent
               : portfolio.theme?.accent || "#315BFF",
           };
         }
@@ -1448,6 +1593,16 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
       }
 
       if (name === "update_portfolio_content") {
+        const normalizedArgs = { ...args };
+        if (!("title" in normalizedArgs) && (normalizedArgs.headline || normalizedArgs.role || normalizedArgs.tagline)) {
+          normalizedArgs.title = normalizedArgs.headline ?? normalizedArgs.role ?? normalizedArgs.tagline;
+        }
+        if (!("city" in normalizedArgs) && normalizedArgs.location) {
+          normalizedArgs.city = normalizedArgs.location;
+        }
+        if (!("bio" in normalizedArgs) && (normalizedArgs.about || normalizedArgs.summary)) {
+          normalizedArgs.bio = normalizedArgs.about ?? normalizedArgs.summary;
+        }
         const allowed = new Set([
           "template",
           "defaultLang",
@@ -1467,83 +1622,86 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
           "cover",
           "theme",
         ]);
-        const keys = Object.keys(args);
-        if (!keys.length || keys.some((key) => !allowed.has(key))) {
+        const supportedKeys = Object.keys(normalizedArgs).filter((key) => allowed.has(key));
+        if (!supportedKeys.length) {
           throw new Error("Provide at least one supported portfolio content field.");
         }
-        if ("template" in args) {
-          const tpl = String(args.template || "").toLowerCase();
+        if ("template" in normalizedArgs) {
+          const tpl = String(normalizedArgs.template || "").toLowerCase();
           if (!TEMPLATE_IDS.includes(tpl)) throw new Error("Invalid template ID.");
           portfolio.template = tpl;
         }
-        if ("defaultLang" in args) portfolio.defaultLang = args.defaultLang === "en" ? "en" : "ar";
-        if ("discoverable" in args) portfolio.discoverable = Boolean(args.discoverable);
+        if ("defaultLang" in normalizedArgs) portfolio.defaultLang = normalizedArgs.defaultLang === "en" ? "en" : "ar";
+        if ("discoverable" in normalizedArgs) portfolio.discoverable = Boolean(normalizedArgs.discoverable);
         for (const key of ["name", "title", "bio", "city", "badge"]) {
-          if (key in args) portfolio[key] = bilingual(args[key], key);
+          if (key in normalizedArgs) portfolio[key] = bilingual(normalizedArgs[key], key);
         }
-        if ("skills" in args) {
-          portfolio.skills = Array.isArray(args.skills)
-            ? args.skills.slice(0, 100).map((s) => String(s).slice(0, 80))
+        if ("skills" in normalizedArgs) {
+          portfolio.skills = Array.isArray(normalizedArgs.skills)
+            ? normalizedArgs.skills.slice(0, 100).map((s) => String(s).slice(0, 80))
             : [];
         }
-        if ("links" in args) {
-          portfolio.links = (args.links || []).slice(0, 50).map((link) => ({
+        if ("links" in normalizedArgs) {
+          portfolio.links = (normalizedArgs.links || []).slice(0, 50).map((link) => ({
             label: String(link.label || "").slice(0, 100),
             url: safeUrl(link.url, { allowMail: true }),
           }));
         }
-        if ("metrics" in args) {
-          portfolio.metrics = (args.metrics || []).slice(0, 12).map((m) => ({
+        if ("metrics" in normalizedArgs) {
+          portfolio.metrics = (normalizedArgs.metrics || []).slice(0, 12).map((m) => ({
             label: bilingual(m?.label || "", "metric.label"),
             value: String(m?.value || "").slice(0, 80),
           }));
         }
-        if ("timeline" in args) {
-          portfolio.timeline = (args.timeline || []).slice(0, 25).map((item) => ({
+        if ("timeline" in normalizedArgs) {
+          portfolio.timeline = (normalizedArgs.timeline || []).slice(0, 25).map((item) => ({
             year: String(item?.year || "").slice(0, 32),
             role: bilingual(item?.role || "", "timeline.role"),
             org: bilingual(item?.org || item?.organization || "", "timeline.org"),
             summary: bilingual(item?.summary || "", "timeline.summary"),
           }));
         }
-        if ("seo" in args && args.seo && typeof args.seo === "object") {
+        if ("seo" in normalizedArgs && normalizedArgs.seo && typeof normalizedArgs.seo === "object") {
           portfolio.seo = {
             ...(portfolio.seo || {}),
-            ...(typeof args.seo.title === "string" ? { title: args.seo.title.slice(0, 180) } : {}),
-            ...(typeof args.seo.description === "string"
-              ? { description: args.seo.description.slice(0, 400) }
+            ...(typeof normalizedArgs.seo.title === "string" ? { title: normalizedArgs.seo.title.slice(0, 180) } : {}),
+            ...(typeof normalizedArgs.seo.description === "string"
+              ? { description: normalizedArgs.seo.description.slice(0, 400) }
               : {}),
-            ...(Array.isArray(args.seo.keywords)
-              ? { keywords: args.seo.keywords.slice(0, 30).map((k) => String(k).slice(0, 60)) }
+            ...(Array.isArray(normalizedArgs.seo.keywords)
+              ? { keywords: normalizedArgs.seo.keywords.slice(0, 30).map((k) => String(k).slice(0, 60)) }
               : {}),
-            ...("noindex" in args.seo ? { noindex: Boolean(args.seo.noindex) } : {}),
+            ...("noindex" in normalizedArgs.seo ? { noindex: Boolean(normalizedArgs.seo.noindex) } : {}),
           };
         }
         for (const key of ["avatar", "cover"]) {
-          if (key in args) portfolio[key] = args[key] ? safeUrl(args[key], { allowLocal: true }) : "";
+          if (key in normalizedArgs) {
+            portfolio[key] = normalizedArgs[key] ? safeUrl(normalizedArgs[key], { allowLocal: true }) : "";
+          }
         }
-        if ("theme" in args && args.theme && typeof args.theme === "object") {
-          const accentCandidate = args.theme.accent || args.theme.primary;
+        if ("theme" in normalizedArgs && normalizedArgs.theme && typeof normalizedArgs.theme === "object") {
+          const accentCandidate =
+            normalizedArgs.theme.accent || normalizedArgs.theme.primary || normalizedArgs.theme.primaryColor;
           let accentColor = portfolio.theme?.accent || "#315BFF";
           if (accentCandidate) {
             accentColor = safeColorValue(accentCandidate, "theme.accent");
           }
           portfolio.theme = {
             ...(portfolio.theme || {}),
-            mode: ["light", "dark", "auto"].includes(args.theme.mode)
-              ? args.theme.mode
+            mode: ["light", "dark", "auto"].includes(normalizedArgs.theme.mode)
+              ? normalizedArgs.theme.mode
               : portfolio.theme?.mode || "auto",
             accent: accentColor,
           };
         }
-        const saved = args.publish === true
+        const saved = normalizedArgs.publish === true
           ? await publishOwnedDraft(env, username, tokenRow.user_id, portfolio)
           : await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
         return wrapOk(
           toolResult({
             ok: true,
-            savedTo: args.publish === true ? "published" : "draft",
-            published: Boolean(args.publish === true),
+            savedTo: normalizedArgs.publish === true ? "published" : "draft",
+            published: Boolean(normalizedArgs.publish === true),
             portfolio: safePortfolio(saved, username),
           })
         );
@@ -1755,8 +1913,16 @@ export async function handleMcpRequest(
 
   if (request.method === "GET") {
     const accept = (request.headers.get("accept") || "").toLowerCase();
+    const hasQueryToken = Boolean(
+      reqUrl.searchParams.get("token") || reqUrl.searchParams.get("access_token")
+    );
+    const sseEndpoint = directTokenFromPath
+      ? `${reqUrl.origin}/mcp/${resolvedUsername}/${encodeURIComponent(directTokenFromPath)}`
+      : hasQueryToken
+      ? `${reqUrl.origin}/mcp/${resolvedUsername}?token=${encodeURIComponent(rawToken)}`
+      : `${reqUrl.origin}/mcp/${resolvedUsername}`;
     if (accept.includes("text/event-stream")) {
-      const ssePayload = `event: endpoint\ndata: ${reqUrl.origin}/mcp/${resolvedUsername}\n\n: taqdom mcp stream ready\n\n`;
+      const ssePayload = `event: endpoint\ndata: ${sseEndpoint}\n\n: taqdom mcp stream ready\n\n`;
       return new Response(ssePayload, {
         status: 200,
         headers: {
@@ -1775,7 +1941,7 @@ export async function handleMcpRequest(
         version: "2.0.0",
         username: resolvedUsername,
         protocolVersion,
-        endpoint: `${reqUrl.origin}/mcp/${resolvedUsername}`,
+        endpoint: sseEndpoint,
         capabilities: ["tools", "resources", "prompts"],
       },
       200,

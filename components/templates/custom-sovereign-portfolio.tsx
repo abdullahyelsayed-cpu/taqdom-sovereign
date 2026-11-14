@@ -270,7 +270,7 @@ export function CustomSovereignPortfolio({
   const showNav = layout.showNav !== false;
   const heroVariant = layout.heroVariant || "split-showcase";
   const projectGrid = layout.projectGrid || "showcase-cards";
-  const heroImageSrc = data.cover || data.projects[0]?.images?.[0] || "/images/ultra/haven-hero.webp";
+  const heroImageSrc = data.cover || data.projects?.[0]?.images?.[0] || "/images/ultra/haven-hero.webp";
   const avatarSrc = data.avatar || "/images/taqdom-avatar-placeholder.svg";
 
   const renderSectionContent = (sectionId: CanvasSectionId) => {
@@ -404,9 +404,17 @@ export function CustomSovereignPortfolio({
               {data.projects.map((proj, idx) => (
                 <article
                   key={proj.id}
+                  role="button"
+                  tabIndex={0}
                   style={cardSurfaceStyle}
                   onClick={() => onSelectProject(proj)}
-                  className={`${radiusClass} ${hoverClass} overflow-hidden grid grid-cols-1 lg:grid-cols-12 cursor-pointer`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelectProject(proj);
+                    }
+                  }}
+                  className={`${radiusClass} ${hoverClass} overflow-hidden grid grid-cols-1 lg:grid-cols-12 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`}
                 >
                   <div className="lg:col-span-5 relative min-h-[240px] sm:min-h-[290px] overflow-hidden">
                     <Image
@@ -484,9 +492,17 @@ export function CustomSovereignPortfolio({
                 return (
                   <article
                     key={proj.id}
+                    role="button"
+                    tabIndex={0}
                     style={cardSurfaceStyle}
                     onClick={() => onSelectProject(proj)}
-                    className={`group ${radiusClass} ${hoverClass} ${bentoSpan} overflow-hidden flex flex-col justify-between cursor-pointer ${
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectProject(proj);
+                      }
+                    }}
+                    className={`group ${radiusClass} ${hoverClass} ${bentoSpan} overflow-hidden flex flex-col justify-between cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
                       effects.glassBlur ? "backdrop-blur-xl" : ""
                     }`}
                   >
@@ -1262,7 +1278,7 @@ export function CustomSovereignPortfolio({
                   </p>
                   {sec.subtitle && (
                     <footer className="text-xs sm:text-sm font-semibold" style={{ color: muted }}>
-                      — {t(sec.subtitle.ar, sec.subtitle.en)}
+                      <span aria-hidden="true">• </span>{t(sec.subtitle.ar, sec.subtitle.en)}
                     </footer>
                   )}
                 </blockquote>
@@ -1394,14 +1410,23 @@ export function CustomSovereignPortfolio({
                         className={`${radiusClass} ${hoverClass} p-6 flex flex-col justify-between gap-4`}
                       >
                         <div>
-                          {item.badge && (
-                            <span
-                              dir="ltr"
-                              className="inline-block rounded-full px-3 py-0.5 text-[10px] font-mono font-bold mb-3"
-                              style={{ backgroundColor: alphaColor(accent, 0.12), color: accent, unicodeBidi: "isolate" }}
-                            >
-                              {item.badge}
-                            </span>
+                          {(item.badge || item.value) && (
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              {item.badge && (
+                                <span
+                                  dir="ltr"
+                                  className="inline-block rounded-full px-3 py-0.5 text-[10px] font-mono font-bold"
+                                  style={{ backgroundColor: alphaColor(accent, 0.12), color: accent, unicodeBidi: "isolate" }}
+                                >
+                                  {item.badge}
+                                </span>
+                              )}
+                              {item.value && (
+                                <span className="text-xs font-semibold" style={{ color: muted }}>
+                                  {item.value}
+                                </span>
+                              )}
+                            </div>
                           )}
                           <h3 className="text-lg font-extrabold" style={{ fontFamily: headingFont }}>
                             {t(item.title.ar, item.title.en)}

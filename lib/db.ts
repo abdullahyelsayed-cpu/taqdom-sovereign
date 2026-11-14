@@ -1,5 +1,6 @@
 import { PortfolioData, RESERVED_USERNAMES, normalizeUsername, safePortfolioUrl } from "./types";
 import { SEED_PORTFOLIOS, createStarterPortfolio } from "./seed-data";
+import { purgeLocalOAuthUser, syncLocalOAuthUsername } from "./local-d1";
 
 export interface StoredUser {
   id: string;
@@ -442,6 +443,9 @@ export async function updateUserSettingsInDb(params: {
   db.users[targetUsername] = user;
   db.portfolios[targetUsername] = pf;
   await writeDiskAndMemoryDb(db);
+  if (targetUsername !== cur) {
+    syncLocalOAuthUsername(cur, targetUsername, user.id);
+  }
   return { user, portfolio: pf.draft };
 }
 
@@ -449,10 +453,12 @@ export async function deleteUserInDb(username: string): Promise<boolean> {
   const clean = normalizeUsername(username);
   if (!clean || SEED_PORTFOLIOS[clean]) return false;
   const db = await readDiskOrMemoryDb();
+  const uid = db.users[clean]?.id;
   delete db.users[clean];
   delete db.portfolios[clean];
   delete db.views[clean];
   await writeDiskAndMemoryDb(db);
+  purgeLocalOAuthUser(clean, uid);
   return true;
 }
 

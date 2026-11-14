@@ -63,6 +63,7 @@ export default function OAuthAuthorizePage() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -101,14 +102,33 @@ export default function OAuthAuthorizePage() {
       try {
         const redirectOutcome = await consumeGoogleRedirectResult();
         if (redirectOutcome?.status === "ok") {
-          await fetch("/api/auth/firebase", {
+          const authRes = await fetch("/api/auth/firebase", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ idToken: redirectOutcome.idToken }),
           });
+          if (!authRes.ok) {
+            const authData = await authRes.json().catch(() => null);
+            setAuthError(
+              authData?.error ||
+                t(
+                  "تعذّر إكمال تسجيل الدخول عبر Google. حاول مرة أخرى.",
+                  "Could not finish Google sign-in. Please try again."
+                )
+            );
+          }
+        } else if (redirectOutcome?.status === "error") {
+          setAuthError(redirectOutcome.message);
         }
-      } catch {
-        // Ignore redirect failure
+      } catch (err) {
+        setAuthError(
+          err instanceof Error
+            ? err.message
+            : t(
+                "تعذّر إكمال تسجيل الدخول عبر Google.",
+                "Could not complete Google sign-in."
+              )
+        );
       }
 
       const mePromise = refreshSession();
@@ -137,9 +157,15 @@ export default function OAuthAuthorizePage() {
 
   const handleGoogleLogin = async () => {
     setBusy(true);
+    setAuthError(null);
     try {
       const outcome = await signInWithGoogleFirebase();
-      if (outcome.status === "cancelled" || outcome.status === "redirected") return;
+      if (outcome.status === "error") {
+        setAuthError(outcome.message);
+        toast.error(outcome.message);
+        return;
+      }
+      if (outcome.status !== "ok") return;
       const res = await fetch("/api/auth/firebase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -340,6 +366,14 @@ export default function OAuthAuthorizePage() {
                       )}
                     </span>
                   </div>
+                  {authError && (
+                    <div
+                      role="alert"
+                      className="rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-2.5 text-xs font-semibold text-destructive"
+                    >
+                      {authError}
+                    </div>
+                  )}
 
                   <button
                     type="button"

@@ -696,7 +696,7 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
 
 async function handleApiRequest(request, url, env) {
   const { pathname, searchParams } = url;
-  if (pathname === "/api/health" && request.method === "GET") {
+  if (pathname === "/api/health" && (request.method === "GET" || request.method === "HEAD")) {
     try {
       const hasDb = Boolean(env?.DB);
       const hasAuthSecret =
@@ -716,6 +716,16 @@ async function handleApiRequest(request, url, env) {
           probe?.salt?.startsWith(PBKDF2_SALT_PREFIX + PBKDF2_CURRENT_ITERATIONS + "$")
       );
       const ok = hasDb && dbOk && hasAuthSecret && pbkdf2Ok;
+      const status = ok ? 200 : 503;
+      if (request.method === "HEAD") {
+        return new Response(null, {
+          status,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "no-store",
+          },
+        });
+      }
       return jsonResponse(
         {
           ok,
@@ -726,13 +736,16 @@ async function handleApiRequest(request, url, env) {
             pbkdf2: pbkdf2Ok,
           },
         },
-        ok ? 200 : 503
+        status
       );
     } catch (err) {
       console.error(
         "Taqdom health check failed:",
         err instanceof Error ? err.stack || err.message : err
       );
+      if (request.method === "HEAD") {
+        return new Response(null, { status: 503, headers: { "Cache-Control": "no-store" } });
+      }
       return jsonResponse({ ok: false, status: "error" }, 503);
     }
   }
@@ -1742,7 +1755,11 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       alternateName: customData.name?.ar || targetUser,
       jobTitle: customData.title?.en || "",
       description: customData.bio?.en || customData.bio?.ar || "",
-      image: `https://taqdom.me${customData.avatar || "/images/creators/layla.jpg"}`,
+      image: (() => {
+        const av = String(customData.avatar || "").trim();
+        if (/^https?:\/\//i.test(av)) return safePortfolioUrl(av);
+        return `https://taqdom.me${av || "/images/creators/layla.jpg"}`;
+      })(),
       url: canonicalUrl,
       address: {
         "@type": "PostalAddress",
@@ -1805,14 +1822,15 @@ export default {
 
     // 0. OAuth 2.1 Discovery, Dynamic Client Registration, Consent API & Token Exchange
     if (isOAuthRoute(pathname)) {
+      const allowCrossOrigin = !pathname.startsWith("/api/oauth/");
       if (["POST:/oauth/register", "POST:/oauth/token", "POST:/api/oauth/approve"].includes(`${request.method}:${pathname}`)) {
         const rateRes = await enforceRateLimit(request, env, `oauth:${pathname}`, 30, 15 * 60 * 1000);
-        if (rateRes) return applySecurityHeaders(rateRes, true);
+        if (rateRes) return applySecurityHeaders(rateRes, allowCrossOrigin);
       }
       try {
         return applySecurityHeaders(
           await handleOAuthRequest(request, url, env, { parseSessionFn: parseSessionFromRequest }),
-          true
+          allowCrossOrigin
         );
       } catch (error) {
         console.error(

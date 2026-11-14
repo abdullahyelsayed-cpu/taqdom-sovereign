@@ -49,7 +49,7 @@ export function GallerySection() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7">
           {creators.map((creator) => {
             const subUrl = getSubdomainUrl(creator.username, host);
-            const firstProject = creator.projects[0];
+            const firstProject = creator.projects?.[0];
 
             return (
               <div
@@ -59,7 +59,7 @@ export function GallerySection() {
                 {/* Cover Image */}
                 <div className="relative h-52 w-full overflow-hidden">
                   <Image
-                    src={firstProject?.images[0] || creator.cover}
+                    src={firstProject?.images?.[0] || creator.cover}
                     alt={t(creator.name.ar, creator.name.en)}
                     fill
                     className="object-cover transition-transform duration-700 group-hover:scale-105"

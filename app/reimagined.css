@@ -944,7 +944,7 @@ main:not(.home-experience) a[class*="bg-[#9A7B4F]"],
 main:not(.home-experience) button[class*="bg-[#9A7B4F]"],
 main:not(.home-experience) a[class*="bg-[#C89D66]"],
 main:not(.home-experience) button[class*="bg-[#C89D66]"] {
-  min-height: 42px;
+  min-height: 44px;
   font-weight: 850;
   box-shadow: 0 9px 20px rgba(49,91,255,.18);
 }

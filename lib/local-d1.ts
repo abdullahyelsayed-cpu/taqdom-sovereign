@@ -404,6 +404,65 @@ function createLocalD1() {
   };
 }
 
+const normUsername = (value: string): string => String(value || "").trim().toLowerCase();
+
+export function syncLocalOAuthUsername(
+  oldUsername: string,
+  newUsername: string,
+  userId?: string
+): void {
+  const prev = normUsername(oldUsername);
+  const next = normUsername(newUsername);
+  if (!prev || !next || prev === next) return;
+  const state = readOAuthState();
+  let changed = false;
+  for (const row of Object.values(state.mcpTokens)) {
+    if (row.username === prev || (userId && row.user_id === userId)) {
+      row.username = next;
+      changed = true;
+    }
+  }
+  for (const row of Object.values(state.codes)) {
+    if (row.username === prev || (userId && row.user_id === userId)) {
+      row.username = next;
+      changed = true;
+    }
+  }
+  for (const row of Object.values(state.refreshTokens)) {
+    if (row.username === prev || (userId && row.user_id === userId)) {
+      row.username = next;
+      changed = true;
+    }
+  }
+  if (changed) writeOAuthState(state);
+}
+
+export function purgeLocalOAuthUser(username: string, userId?: string): void {
+  const clean = normUsername(username);
+  if (!clean && !userId) return;
+  const state = readOAuthState();
+  let changed = false;
+  for (const [id, row] of Object.entries(state.mcpTokens)) {
+    if (row.username === clean || (userId && row.user_id === userId)) {
+      delete state.mcpTokens[id];
+      changed = true;
+    }
+  }
+  for (const [hash, row] of Object.entries(state.codes)) {
+    if (row.username === clean || (userId && row.user_id === userId)) {
+      delete state.codes[hash];
+      changed = true;
+    }
+  }
+  for (const [hash, row] of Object.entries(state.refreshTokens)) {
+    if (row.username === clean || (userId && row.user_id === userId)) {
+      delete state.refreshTokens[hash];
+      changed = true;
+    }
+  }
+  if (changed) writeOAuthState(state);
+}
+
 export function getLocalEnv() {
   return {
     DB: createLocalD1(),

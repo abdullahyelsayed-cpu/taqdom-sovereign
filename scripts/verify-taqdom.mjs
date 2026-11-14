@@ -80,6 +80,9 @@ async function runTests() {
   console.log(`[PASS] 1b. All ${ultraFiles.length} Ultra-HD 4K WebP assets verified in public/images/ultra/`);
 
   // 2. Health endpoint & all core pages & 7 template routes return 200
+  const headHealthRes = await fetch(`${BASE}/api/health`, { method: "HEAD" });
+  assert.equal(headHealthRes.status, 200, `Expected 200 on HEAD /api/health, got ${headHealthRes.status}`);
+
   const healthRes = await fetch(`${BASE}/api/health`);
   assert.equal(healthRes.status, 200, `Expected 200 on /api/health, got ${healthRes.status}`);
   const healthData = await healthRes.json();
@@ -357,6 +360,16 @@ async function runTests() {
   assert.equal(asMetaRes.status, 200, "OAuth Authorization Server Metadata must return 200");
   const asMetaBody = await asMetaRes.json();
   assert.ok(asMetaBody.code_challenge_methods_supported?.includes("S256"));
+
+  const prefixedPrmRes = await fetch(`${BASE}/mcp/.well-known/oauth-protected-resource`);
+  assert.equal(prefixedPrmRes.status, 200, "Path-prefixed /mcp/.well-known/oauth-protected-resource must return 200");
+  const crossSiteApproveRes = await fetch(`${BASE}/api/oauth/approve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "sec-fetch-site": "cross-site" },
+    body: JSON.stringify({ approve: true }),
+  });
+  assert.equal(crossSiteApproveRes.status, 403, "Cross-site /api/oauth/approve without Origin must be rejected");
+  assert.equal(crossSiteApproveRes.headers.get("access-control-allow-origin"), null, "/api/oauth/approve must never emit wildcard CORS");
 
   const unauthMcpRes = await fetch(`${BASE}/mcp`, {
     method: "POST",

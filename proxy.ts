@@ -59,10 +59,27 @@ export function proxy(req: NextRequest) {
   const url = req.nextUrl;
   const { pathname } = url;
 
+  const prefixedResMatch = pathname.match(
+    /^\/mcp(?:\/([a-z0-9-]{3,30}))?\/\.well-known\/oauth-protected-resource\/?$/i
+  );
+  if (prefixedResMatch) {
+    const rw = req.nextUrl.clone();
+    rw.pathname = prefixedResMatch[1]
+      ? `/api/well-known/oauth-protected-resource/mcp/${prefixedResMatch[1].toLowerCase()}`
+      : "/api/well-known/oauth-protected-resource/mcp";
+    return NextResponse.rewrite(rw);
+  }
+  if (/^\/mcp(?:\/[a-z0-9-]{3,30})?\/\.well-known\/oauth-authorization-server\/?$/i.test(pathname)) {
+    const rw = req.nextUrl.clone();
+    rw.pathname = "/api/well-known/oauth-authorization-server";
+    return NextResponse.rewrite(rw);
+  }
+
   if (
     pathname.startsWith("/.well-known/oauth-protected-resource") ||
     pathname.startsWith("/.well-known/oauth-authorization-server") ||
-    pathname === "/.well-known/openid-configuration"
+    pathname === "/.well-known/openid-configuration" ||
+    pathname.startsWith("/.well-known/openid-configuration/")
   ) {
     const rw = req.nextUrl.clone();
     rw.pathname = "/api/well-known" + pathname.slice("/.well-known".length);

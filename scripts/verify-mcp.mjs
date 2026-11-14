@@ -525,6 +525,11 @@ const queryAuthGet = await handleMcpRequest(
 );
 assert.equal(queryAuthGet.status, 200);
 assert.match(queryAuthGet.headers.get("content-type") || "", /text\/event-stream/);
+const sseReader = queryAuthGet.body.getReader();
+const sseFirstChunk = await sseReader.read();
+await sseReader.cancel();
+const sseFirstText = new TextDecoder().decode(sseFirstChunk.value);
+assert.match(sseFirstText, new RegExp(`/mcp/mcp-owner\\?token=${tokenJson.access_token}`));
 
 const pathAuthDelete = await handleMcpRequest(
   new Request(`https://taqdom.me/mcp/mcp-owner/${tokenJson.access_token}`, { method: "DELETE" }),
@@ -610,6 +615,137 @@ const claudePayload = await claudeRgbHslRes.json();
 assert.equal(claudePayload.result.structuredContent.customDesign.layout.heroVariant, "cards-mosaic");
 assert.equal(claudePayload.result.structuredContent.customDesign.palette.background, "#0f172a");
 assert.match(claudePayload.result.structuredContent.customDesign.palette.accent, /^#[0-9a-f]{6}$/i);
+
+// 7b. Named theme + camelCase *Color keys + heroStyle + font + timeline/testimonials + extra AI metadata keys
+const camelAndNamedRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 205,
+      method: "tools/call",
+      params: {
+        name: "design_custom_portfolio_theme",
+        arguments: {
+          theme: "emerald-noir",
+          heroStyle: "minimal-typographic",
+          font: "Fraunces",
+          palette: { backgroundColor: "#09110e", foregroundColor: "#f0fdf4", primaryColor: "#34d399", cardColor: "#10201a" },
+          customSections: [
+            { type: "timeline", title: "Career", items: [{ title: "Principal", org: "Taqdom", period: "2024-2026", summary: ["Led architecture", "Shipped MCP"] }] },
+            { type: "testimonials", title: "Quotes", items: [{ quote: "Remarkable engineering", author: "Nadia", role: "CTO" }] },
+          ],
+          publish: true,
+          model: "gemini-2.5-pro",
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(camelAndNamedRes.status, 200);
+const camelPayload = await camelAndNamedRes.json();
+assert.equal(camelPayload.result.isError, undefined, JSON.stringify(camelPayload.result));
+assert.equal(camelPayload.result.structuredContent.customDesign.palette.background, "#09110e");
+assert.equal(camelPayload.result.structuredContent.customDesign.palette.accent, "#34d399");
+assert.equal(camelPayload.result.structuredContent.customDesign.layout.heroVariant, "minimal-typographic");
+assert.equal(camelPayload.result.structuredContent.customDesign.customSections[0].kind, "timeline");
+assert.equal(camelPayload.result.structuredContent.customDesign.customSections[0].items[0].description.en, "Led architecture\nShipped MCP");
+assert.equal(camelPayload.result.structuredContent.customDesign.customSections[0].items[0].value, "Taqdom");
+assert.equal(camelPayload.result.structuredContent.customDesign.customSections[1].kind, "testimonials");
+assert.equal(camelPayload.result.structuredContent.customDesign.customSections[1].items[0].title.en, "Nadia");
+assert.equal(camelPayload.result.structuredContent.customDesign.customSections[1].items[0].badge, "CTO");
+
+const aliasProfileRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 206,
+      method: "tools/call",
+      params: {
+        name: "update_profile",
+        arguments: { headline: "Principal Systems Designer", about: ["Architects platforms", "Ships clean code"], notes: "metadata ignored" },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const aliasProfilePayload = await aliasProfileRes.json();
+assert.equal(aliasProfilePayload.result.isError, undefined, JSON.stringify(aliasProfilePayload.result));
+assert.equal(portfolio.title.en, "Principal Systems Designer");
+assert.equal(portfolio.bio.en, "Architects platforms\nShips clean code");
+
+const aliasContentRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 207,
+      method: "tools/call",
+      params: {
+        name: "update_portfolio_content",
+        arguments: { summary: "Updated summary via alias", model: "claude-sonnet-4", publish: true },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const aliasContentPayload = await aliasContentRes.json();
+assert.equal(aliasContentPayload.result.isError, undefined, JSON.stringify(aliasContentPayload.result));
+assert.equal(portfolio.bio.en, "Updated summary via alias");
+
+// 7c. Path-prefixed .well-known discovery, RFC 8252 search mismatch check, and /api/oauth/approve CSRF + CORS stripping
+for (const wkPath of [
+  "/mcp/.well-known/oauth-protected-resource",
+  "/mcp/mcp-owner/.well-known/oauth-protected-resource",
+  "/mcp/.well-known/oauth-authorization-server",
+  "/.well-known/openid-configuration/mcp",
+]) {
+  const wkRes = await oauthCall(wkPath);
+  assert.equal(wkRes.status, 200, `Expected 200 on ${wkPath}, got ${wkRes.status}`);
+}
+
+const approveOptionsRes = await oauthCall("/api/oauth/approve", { method: "OPTIONS" });
+assert.equal(approveOptionsRes.status, 204);
+assert.equal(approveOptionsRes.headers.get("access-control-allow-origin"), null);
+
+const approveCrossSiteRes = await oauthCall("/api/oauth/approve", {
+  method: "POST",
+  headers: { "content-type": "application/json", "sec-fetch-site": "cross-site" },
+  body: JSON.stringify({ approve: true }),
+});
+assert.equal(approveCrossSiteRes.status, 403);
+assert.equal(approveCrossSiteRes.headers.get("access-control-allow-origin"), null);
+
+const dcrQueryRes = await oauthCall("/oauth/register", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ client_name: "QueryLoopClient", redirect_uris: ["http://127.0.0.1/callback?app=cli"] }),
+});
+assert.equal(dcrQueryRes.status, 201);
+const dcrQueryClient = await dcrQueryRes.json();
+const mismatchQueryInfo = await oauthCall(
+  `/api/oauth/client-info?client_id=${encodeURIComponent(dcrQueryClient.client_id)}&redirect_uri=${encodeURIComponent(
+    "http://127.0.0.1:4444/callback?app=evil"
+  )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`
+);
+assert.equal(mismatchQueryInfo.status, 400);
+const matchQueryInfo = await oauthCall(
+  `/api/oauth/client-info?client_id=${encodeURIComponent(dcrQueryClient.client_id)}&redirect_uri=${encodeURIComponent(
+    "http://127.0.0.1:4444/callback?app=cli"
+  )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`
+);
+assert.equal(matchQueryInfo.status, 200);
 
 // 8. Refresh token rotation & revocation
 const rotatedRes = await oauthCall("/oauth/token", {

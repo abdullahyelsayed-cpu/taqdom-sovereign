@@ -37,7 +37,8 @@ export type GoogleSignInOutcome =
       photoURL: string;
     }
   | { status: "redirected" }
-  | { status: "cancelled" };
+  | { status: "cancelled" }
+  | { status: "error"; message: string };
 
 export async function signInWithGoogleFirebase(): Promise<GoogleSignInOutcome> {
   const auth = getFirebaseAuthInstance();
@@ -88,8 +89,18 @@ export async function consumeGoogleRedirectResult(): Promise<GoogleSignInOutcome
       displayName: result.user.displayName || "",
       photoURL: result.user.photoURL || "",
     };
-  } catch {
-    return null;
+  } catch (err: unknown) {
+    const code = (err as { code?: string })?.code || "";
+    if (
+      code === "auth/popup-closed-by-user" ||
+      code === "auth/cancelled-popup-request"
+    ) {
+      return { status: "cancelled" };
+    }
+    return {
+      status: "error",
+      message: err instanceof Error ? err.message : "Google redirect sign-in failed",
+    };
   }
 }
 
