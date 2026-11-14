@@ -1,7 +1,12 @@
 import React from "react";
 import type { Metadata } from "next";
 import { getPublishedPortfolio } from "@/lib/db";
-import { formatStandalonePortfolioTitle, normalizeUsername, safePortfolioUrl } from "@/lib/types";
+import {
+  formatStandalonePortfolioDescription,
+  formatStandalonePortfolioTitle,
+  normalizeUsername,
+  safePortfolioUrl,
+} from "@/lib/types";
 import { PublishedPortfolioClient } from "@/components/templates/published-portfolio-client";
 
 export const dynamic = "force-dynamic";
@@ -28,9 +33,7 @@ export async function generateMetadata({
   }
 
   const title = formatStandalonePortfolioTitle(portfolio, clean);
-  const description =
-    portfolio.seo?.description ||
-    `${portfolio.bio.ar} — ${portfolio.bio.en}`;
+  const description = formatStandalonePortfolioDescription(portfolio);
 
   return {
     title: { absolute: title },

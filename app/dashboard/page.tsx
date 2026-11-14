@@ -142,11 +142,21 @@ export default function DashboardPage() {
 
             <div className="glass-panel rounded-3xl p-6 space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{t("القالب المفعل حالياً", "Active Template Archetype")}</span>
+                <span>
+                  {draft.customDesign?.enabled
+                    ? t("التصميم السيادي المخصص (AI)", "Active AI Custom Theme")
+                    : t("القالب المفعل حالياً", "Active Template Archetype")}
+                </span>
                 <Layers className="h-4 w-4 text-[#9A7B4F] dark:text-[#C89D66]" />
               </div>
-              <p className="font-mono text-3xl font-extrabold uppercase text-[#9A7B4F] dark:text-[#C89D66]">
-                {draft.template}
+              <p
+                className={`font-mono font-extrabold text-[#9A7B4F] dark:text-[#C89D66] truncate ${
+                  draft.customDesign?.enabled ? "text-xl sm:text-2xl" : "text-3xl uppercase"
+                }`}
+              >
+                {draft.customDesign?.enabled
+                  ? draft.customDesign.designName || t("تصميم مخصص", "CUSTOM AI")
+                  : draft.template}
               </p>
             </div>
 

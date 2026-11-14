@@ -35,7 +35,7 @@ type Token = {
 
 type Created = {
   token: string;
-  connection: { endpoint: string; label: string };
+  connection: { id?: string; endpoint: string; label: string };
   warning: string;
 };
 
@@ -55,6 +55,7 @@ export default function McpConnectionsPage() {
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
   const [clientTab, setClientTab] = useState<ClientTab>("gemini");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [isDemoSession, setIsDemoSession] = useState(false);
 
   const activeUsername = user?.username || draft?.username || "yourname";
   const endpointUrl = created?.connection?.endpoint || `https://taqdom.me/mcp/${activeUsername}`;
@@ -70,13 +71,19 @@ export default function McpConnectionsPage() {
           router.replace("/auth");
           return;
         }
+        if (meData?.user?.isTestAccount) {
+          setIsDemoSession(true);
+          setTokens([]);
+          return;
+        }
       }
+      setIsDemoSession(false);
       const response = await fetch("/api/mcp/tokens", { cache: "no-store" });
       if (response.status === 401) {
         router.replace("/auth");
         return;
       }
-      if (response.status === 404) {
+      if (response.status === 403 || response.status === 404) {
         setTokens([]);
         return;
       }
@@ -121,7 +128,7 @@ export default function McpConnectionsPage() {
       return;
     }
     setConfirmRevokeId(null);
-    if (created && tokens.find((tok) => tok.id === id)) setCreated(null);
+    setCreated((prev) => (prev && prev.connection?.id === id ? null : prev));
     toast.success(t("تم إلغاء الاتصال", "Connection revoked"));
     await load();
   };
@@ -283,18 +290,30 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
               type="button"
               data-testid="mcp-create-token-btn"
               onClick={create}
-              disabled={busy || !label.trim()}
+              disabled={busy || !label.trim() || isDemoSession}
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] px-5 py-3 text-sm font-extrabold text-[#F7F5F0] dark:text-[#0A0A09] shadow-lg transition hover:opacity-95 disabled:opacity-50 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>{busy ? t("جارٍ الإنشاء...", "Creating...") : t("إنشاء مفتاح MCP", "Generate MCP Token")}</span>
             </button>
-            <p className="mt-3 text-xs leading-6 text-muted-foreground">
-              {t(
-                "يمكنك إنشاء حتى 10 مفاتيح نشطة، لكل أداة ذكاء اصطناعي مفتاحها المستقل.",
-                "Up to 10 active connections per account so you can isolate Gemini, Claude, and custom agents."
-              )}
-            </p>
+            {isDemoSession ? (
+              <div className="mt-3 rounded-xl border border-amber-500/35 bg-amber-500/10 p-3 text-xs leading-6 text-foreground">
+                {t(
+                  "حساب المعاينة للعرض فقط ولا يصدر مفاتيح MCP. أنشئ حسابك السيادي المجاني لتوليد مفاتيح حقيقية والربط مع Gemini و Claude.",
+                  "Demo accounts are read-only. Create your free sovereign account to issue real MCP keys for Gemini & Claude."
+                )}{" "}
+                <Link href="/auth" className="font-bold underline text-[#9A7B4F] dark:text-[#E4B66F]">
+                  {t("أنشئ حسابك الآن", "Create account")}
+                </Link>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs leading-6 text-muted-foreground">
+                {t(
+                  "يمكنك إنشاء حتى 10 مفاتيح نشطة، لكل أداة ذكاء اصطناعي مفتاحها المستقل.",
+                  "Up to 10 active connections per account so you can isolate Gemini, Claude, and custom agents."
+                )}
+              </p>
+            )}
           </div>
 
           <div className="glass-panel rounded-3xl border border-border bg-card p-6 sm:p-7 shadow-sm">

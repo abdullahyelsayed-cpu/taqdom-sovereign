@@ -356,9 +356,9 @@ function validateAndSanitizeCustomDesign(args, existingDesign = null) {
   const cleanHeroCta = heroCtaSrc
     ? {
         ...(heroCtaSrc.primaryLabel ? { primaryLabel: bilingual(heroCtaSrc.primaryLabel, "heroCta.primaryLabel") } : {}),
-        ...(heroCtaSrc.primaryUrl ? { primaryUrl: safeUrl(heroCtaSrc.primaryUrl, { allowMail: true, allowHash: true }) } : {}),
+        ...(heroCtaSrc.primaryUrl ? { primaryUrl: safeUrl(heroCtaSrc.primaryUrl, { allowMail: true, allowHash: true, allowLocal: true }) } : {}),
         ...(heroCtaSrc.secondaryLabel ? { secondaryLabel: bilingual(heroCtaSrc.secondaryLabel, "heroCta.secondaryLabel") } : {}),
-        ...(heroCtaSrc.secondaryUrl ? { secondaryUrl: safeUrl(heroCtaSrc.secondaryUrl, { allowMail: true, allowHash: true }) } : {}),
+        ...(heroCtaSrc.secondaryUrl ? { secondaryUrl: safeUrl(heroCtaSrc.secondaryUrl, { allowMail: true, allowHash: true, allowLocal: true }) } : {}),
       }
     : undefined;
 
@@ -367,8 +367,12 @@ function validateAndSanitizeCustomDesign(args, existingDesign = null) {
     ? sectionsSrc.slice(0, 8).map((sec, idx) => {
         if (!sec || typeof sec !== "object") throw new Error("Each customSection must be an object.");
         const kind = CUSTOM_SECTION_KINDS.includes(sec.kind) ? sec.kind : "cards";
+        const sanitizedId = String(sec.id || `custom-${idx + 1}`)
+          .replace(/[^a-z0-9_-]+/gi, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 60);
         return {
-          id: String(sec.id || `custom-${idx + 1}`).replace(/[^a-z0-9_-]/gi, "-").slice(0, 60),
+          id: sanitizedId || `custom-${idx + 1}`,
           kind,
           title: bilingual(sec.title || "", "customSection.title"),
           ...(sec.subtitle ? { subtitle: bilingual(sec.subtitle, "customSection.subtitle") } : {}),
@@ -380,7 +384,7 @@ function validateAndSanitizeCustomDesign(args, existingDesign = null) {
                   ...(item?.description ? { description: bilingual(item.description, "customSection.item.description") } : {}),
                   ...(item?.badge ? { badge: String(item.badge).slice(0, 60) } : {}),
                   ...(item?.value ? { value: String(item.value).slice(0, 60) } : {}),
-                  ...(item?.url ? { url: safeUrl(item.url, { allowMail: true, allowHash: true }) } : {}),
+                  ...(item?.url ? { url: safeUrl(item.url, { allowMail: true, allowHash: true, allowLocal: true }) } : {}),
                 })),
               }
             : {}),

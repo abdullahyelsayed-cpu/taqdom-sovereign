@@ -223,6 +223,10 @@ function StudioContent() {
               const loaded = {
                 ...data.portfolio,
                 template: validTpl || data.portfolio.template,
+                customDesign:
+                  validTpl && data.portfolio.customDesign
+                    ? { ...data.portfolio.customDesign, enabled: false }
+                    : data.portfolio.customDesign,
               };
               setDraft(loaded, false);
             } else if (SEED_PORTFOLIOS[clean]) {
@@ -821,7 +825,7 @@ function StudioContent() {
       <div className="studio-workspace-grid flex-1 grid grid-cols-1 min-h-[calc(100vh-64px)]">
         {/* Editor Control Panel */}
         <aside className="studio-sidebar border-e border-border bg-card/90 flex flex-col h-full lg:max-h-[calc(100vh-64px)] overflow-y-auto">
-          <div className="studio-side-intro">
+          <div className="studio-side-intro shrink-0">
             <div className="studio-side-intro-top">
               <div className="studio-side-avatar">
                 <Image
@@ -851,7 +855,7 @@ function StudioContent() {
             </div>
           </div>
           {/* Studio Navigation Tabs */}
-          <div className="studio-tab-list grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-1.5 p-3 border-b border-border bg-secondary/40">
+          <div className="studio-tab-list shrink-0 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-1.5 p-3 border-b border-border bg-secondary/40">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -1106,6 +1110,39 @@ function StudioContent() {
             {/* TAB 2: 7 TEMPLATES SWITCHER */}
             {activeTab === "template" && (
               <div className="space-y-4">
+                {draft.customDesign?.enabled && (
+                  <div className="rounded-2xl border border-[#C89D66]/45 bg-[#C89D66]/10 p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold text-[#9A7B4F] dark:text-[#E4B66F]">
+                        {t("تصميم ذكي مخصص مفعّل", "AI Custom Theme Active")}
+                      </span>
+                      <span className="rounded-full bg-[#9A7B4F] dark:bg-[#C89D66] px-2 py-0.5 text-[10px] font-bold text-[#F7F5F0] dark:text-[#0A0A09]">
+                        {draft.customDesign.designName || "CUSTOM AI"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] leading-5 text-muted-foreground">
+                      {t(
+                        "تم تصميم هذه الصفحة عبر خادم MCP. اختيار أي قالب أدناه أو الضغط هنا يعيد التبديل إلى القوالب السبعة:",
+                        "This site uses a bespoke MCP-designed layout. Pick any template below or reset to built-in presets:"
+                      )}
+                    </p>
+                    <button
+                      type="button"
+                      data-testid="studio-disable-custom-design-btn"
+                      onClick={() =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          customDesign: prev.customDesign
+                            ? { ...prev.customDesign, enabled: false }
+                            : undefined,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-[#9A7B4F]/40 bg-background px-3 py-2 text-xs font-bold text-foreground hover:border-[#9A7B4F] transition cursor-pointer"
+                    >
+                      {t("إلغاء التصميم المخصص والعودة للقالب", "Switch Back to Built-in Template")}
+                    </button>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">
                   {t(
                     "بدّل بين القوالب السبعة فوراً مع الاحتفاظ بجميع مشاريعك وبياناتك:",
@@ -1113,7 +1150,7 @@ function StudioContent() {
                   )}
                 </p>
                 {TEMPLATES_CATALOG.map((tpl) => {
-                  const selected = draft.template === tpl.id;
+                  const selected = !draft.customDesign?.enabled && draft.template === tpl.id;
                   return (
                     <button
                       key={tpl.id}
@@ -1525,7 +1562,7 @@ function StudioContent() {
                   </label>
                   <input
                     type="text"
-                    value={draft.seo.title || `${draft.name.ar} | ${draft.name.en} — تَقَدُّم`}
+                    value={draft.seo.title || `${draft.name.ar} | ${draft.name.en} — ${draft.title.ar}`}
                     onChange={(e) => {
                       setHasInteracted(true);
                       setDraft((prev) => ({
@@ -1561,7 +1598,7 @@ function StudioContent() {
                   </label>
                   <input
                     type="text"
-                    value={(draft.seo.keywords || [draft.name.ar, draft.name.en, "Taqdom"]).join(", ")}
+                    value={(draft.seo.keywords || [draft.name.ar, draft.name.en, "Portfolio"]).join(", ")}
                     onChange={(e) => {
                       setHasInteracted(true);
                       const kw = e.target.value

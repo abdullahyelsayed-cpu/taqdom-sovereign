@@ -1484,9 +1484,15 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
     `${customData.name?.ar || targetUser} — ${
       customData.title?.ar || customData.name?.en || targetUser
     }`;
+  const fallbackDesc = [customData.bio?.ar, customData.bio?.en].filter(Boolean).join(" — ");
+  const rawDesc = String(customData.seo?.description || "").trim();
   const description =
-    customData.seo?.description ||
-    `${customData.bio?.ar || ""} — ${customData.bio?.en || ""}`;
+    !rawDesc || /بقالب\s+.*على\s+منصة\s+تَقَدُّم|على\s+منصة\s+تَقَدُّم|\bon\s+Taqdom\b/i.test(rawDesc)
+      ? fallbackDesc ||
+        rawDesc
+          .replace(/\s*(?:بقالب\s+[^.]*\s*)?(?:على\s+منصة\s+تَقَدُّم|on\s+Taqdom)\.?\s*$/gi, "")
+          .trim()
+      : rawDesc;
 
   const personJsonLd = {
     "@context": "https://schema.org",

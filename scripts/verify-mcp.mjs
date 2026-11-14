@@ -208,6 +208,37 @@ response = await rpc({ jsonrpc: "2.0", id: 92, method: "tools/call", params: {
   name: "design_custom_portfolio_theme",
   arguments: {
     designName: "Obsidian Gold Custom",
+    palette: { background: "#faf", surface: "#131824EE", text: "#111", muted: "#555", accent: "#c89d66" },
+    typography: { headingStyle: "editorial-serif", bodyStyle: "sans", scale: "bold" },
+    layout: { heroVariant: "terminal-bento", projectGrid: "bento", cardRadius: "lg", navStyle: "floating-glass" },
+    effects: { ambientGlow: true, glassBlur: true, gridPattern: "dots", hoverLift: "magnetic", borderStyle: "glow" },
+    heroCta: { primaryLabel: { ar: "المشاريع", en: "Projects" }, primaryUrl: "#work" },
+    customSections: [
+      { id: "---", kind: "cards", title: { ar: "المبادئ", en: "Principles" }, items: [{ title: { ar: "السرعة", en: "Speed" }, badge: "GPU" }] },
+    ],
+  },
+} });
+payload = await response.json();
+assert.equal(payload.result.structuredContent.ok, true);
+assert.equal(portfolio.customDesign.enabled, true);
+assert.equal(portfolio.customDesign.designName, "Obsidian Gold Custom");
+assert.equal(portfolio.customDesign.palette.background, "#faf");
+assert.equal(portfolio.customDesign.palette.surface, "#131824EE");
+assert.equal(portfolio.customDesign.customSections[0].id, "custom-1", "Empty sanitized section IDs must fall back cleanly");
+
+response = await rpc({ jsonrpc: "2.0", id: 94, method: "tools/call", params: {
+  name: "design_custom_portfolio_theme",
+  arguments: { enabled: false, fallbackTemplate: "madar" },
+} });
+payload = await response.json();
+assert.equal(payload.result.structuredContent.ok, true);
+assert.equal(portfolio.customDesign.enabled, false);
+assert.equal(portfolio.template, "madar");
+
+response = await rpc({ jsonrpc: "2.0", id: 95, method: "tools/call", params: {
+  name: "design_custom_portfolio_theme",
+  arguments: {
+    designName: "Obsidian Gold Custom",
     palette: { background: "#0A0C12", surface: "#131824", text: "#F4F1EA", muted: "#9DA7BA", accent: "#E4B66F" },
     typography: { headingStyle: "editorial-serif", bodyStyle: "sans", scale: "bold" },
     layout: { heroVariant: "terminal-bento", projectGrid: "bento", cardRadius: "lg", navStyle: "floating-glass" },
@@ -221,7 +252,6 @@ response = await rpc({ jsonrpc: "2.0", id: 92, method: "tools/call", params: {
 payload = await response.json();
 assert.equal(payload.result.structuredContent.ok, true);
 assert.equal(portfolio.customDesign.enabled, true);
-assert.equal(portfolio.customDesign.designName, "Obsidian Gold Custom");
 
 response = await rpc({ jsonrpc: "2.0", id: 93, method: "tools/call", params: {
   name: "design_custom_portfolio_theme",

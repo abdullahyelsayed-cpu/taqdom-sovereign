@@ -16,5 +16,5 @@
   <circle cx="1180" cy="300" r="210" fill="none" stroke="#C7F36B" stroke-opacity=".5" stroke-width="2"/>
   <circle cx="1180" cy="300" r="270" fill="none" stroke="#8B7CFF" stroke-opacity=".26" stroke-width="2"/>
   <path d="M0 740C290 630 460 870 770 720s480-150 830-20" fill="none" stroke="#53D8E8" stroke-opacity=".55" stroke-width="4"/>
-  <text x="112" y="780" fill="#F5F7F2" font-family="Arial,sans-serif" font-size="42" letter-spacing="10">YOUR WORK, YOUR SPACE</text>
+  <text x="800" y="135" text-anchor="middle" fill="#F5F7F2" fill-opacity=".86" font-family="Arial,sans-serif" font-size="28" letter-spacing="7">YOUR WORK, YOUR SPACE</text>
 </svg>

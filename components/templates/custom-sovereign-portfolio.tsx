@@ -61,6 +61,24 @@ function autoContrastText(bgHex: string): string {
   return getRelativeLuminance(bgHex) > 0.38 ? "#0B0D12" : "#FAF9F6";
 }
 
+function alphaColor(color: string, alpha: number): string {
+  const a = Math.max(0, Math.min(1, alpha));
+  const rgb = parseHexRgb(color);
+  if (rgb) return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${a})`;
+  const clean = String(color || "").trim();
+  if (!clean) return `rgba(128, 128, 128, ${a})`;
+  const pct = Math.round(a * 1000) / 10;
+  return `color-mix(in srgb, ${clean} ${pct}%, transparent)`;
+}
+
+function externalLinkProps(url?: string): { target?: "_blank"; rel?: "noreferrer" } {
+  const u = String(url || "").trim().toLowerCase();
+  if (u.startsWith("http://") || u.startsWith("https://")) {
+    return { target: "_blank", rel: "noreferrer" };
+  }
+  return {};
+}
+
 function sanitizeSafeCssGradient(value?: string): string | undefined {
   if (!value || typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -186,23 +204,21 @@ export function CustomSovereignPortfolio({
     }
     if (effects.gridPattern === "radial") {
       return {
-        backgroundImage: `radial-gradient(ellipse 65% 45% at 15% 0%, ${accent}1F, transparent 60%), radial-gradient(ellipse 55% 40% at 88% 12%, ${accent}14, transparent 62%)`,
+        backgroundImage: `radial-gradient(ellipse 65% 45% at 15% 0%, ${alphaColor(accent, 0.12)}, transparent 60%), radial-gradient(ellipse 55% 40% at 88% 12%, ${alphaColor(accent, 0.08)}, transparent 62%)`,
       };
     }
     return {};
   })();
 
   const cardSurfaceStyle: React.CSSProperties = {
-    backgroundColor: effects.glassBlur
-      ? `${surface}${surface.startsWith("#") && surface.length === 7 ? "D9" : ""}`
-      : surface,
-    borderColor: effects.borderStyle === "glow" ? `${accent}66` : border,
+    backgroundColor: effects.glassBlur ? alphaColor(surface, 0.85) : surface,
+    borderColor: effects.borderStyle === "glow" ? alphaColor(accent, 0.4) : border,
     borderWidth: effects.borderStyle === "none" ? "0px" : effects.borderStyle === "brutalist" ? "2px" : "1px",
     boxShadow:
       effects.borderStyle === "brutalist"
         ? `6px 6px 0 0 ${accent}`
         : effects.borderStyle === "glow"
-        ? `0 20px 55px -24px ${accent}44`
+        ? `0 20px 55px -24px ${alphaColor(accent, 0.27)}`
         : isLightBg
         ? "0 18px 46px -26px rgba(15, 23, 42, 0.14)"
         : "0 22px 54px -28px rgba(0, 0, 0, 0.52)",
@@ -336,7 +352,9 @@ export function CustomSovereignPortfolio({
                   type="button"
                   onClick={() => onSelectProject(proj)}
                   style={{ borderColor: border }}
-                  className="group w-full py-6 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-start transition-colors hover:bg-white/5 cursor-pointer"
+                  className={`group w-full py-6 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-start transition-colors cursor-pointer ${
+                    isLightBg ? "hover:bg-black/[0.04]" : "hover:bg-white/[0.06]"
+                  }`}
                 >
                   <div className="flex items-start sm:items-center gap-5">
                     <span className="font-mono text-xs pt-1 sm:pt-0" style={{ color: accent }}>
@@ -391,7 +409,7 @@ export function CustomSovereignPortfolio({
                         {proj.metrics && (
                           <span
                             className="rounded-full px-3 py-1 text-[11px] font-bold"
-                            style={{ backgroundColor: `${accent}1F`, color: accent }}
+                            style={{ backgroundColor: alphaColor(accent, 0.12), color: accent }}
                           >
                             {proj.metrics}
                           </span>
@@ -490,7 +508,7 @@ export function CustomSovereignPortfolio({
                         {proj.metrics && (
                           <div
                             className="rounded-xl px-3 py-2 text-xs font-semibold"
-                            style={{ backgroundColor: `${accent}18`, color: accent }}
+                            style={{ backgroundColor: alphaColor(accent, 0.1), color: accent }}
                           >
                             {proj.metrics}
                           </div>
@@ -552,7 +570,7 @@ export function CustomSovereignPortfolio({
               >
                 <span
                   className="inline-block rounded-full px-3 py-1 font-mono text-xs font-bold"
-                  style={{ backgroundColor: `${accent}1F`, color: accent }}
+                  style={{ backgroundColor: alphaColor(accent, 0.12), color: accent }}
                 >
                   {item.year}
                 </span>
@@ -596,23 +614,25 @@ export function CustomSovereignPortfolio({
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              {(data.links || []).map((link, idx) => (
-                <a
-                  key={idx}
-                  href={safePortfolioUrl(link.url)}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={
-                    idx === 0
-                      ? { backgroundColor: accent, color: accentText }
-                      : { backgroundColor: surfaceAlt, borderColor: border, color: text }
-                  }
-                  className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full border px-5 py-3 text-xs sm:text-sm font-bold"
-                >
-                  <span>{link.label}</span>
-                  <Arrow className="h-4 w-4" />
-                </a>
-              ))}
+              {(data.links || []).map((link, idx) => {
+                const safeUrl = safePortfolioUrl(link.url);
+                return (
+                  <a
+                    key={idx}
+                    href={safeUrl}
+                    {...externalLinkProps(safeUrl)}
+                    style={
+                      idx === 0
+                        ? { backgroundColor: accent, color: accentText }
+                        : { backgroundColor: surfaceAlt, borderColor: border, color: text }
+                    }
+                    className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full border px-5 py-3 text-xs sm:text-sm font-bold"
+                  >
+                    <span>{link.label}</span>
+                    <Arrow className="h-4 w-4" />
+                  </a>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -632,6 +652,7 @@ export function CustomSovereignPortfolio({
   return (
     <div
       dir={dir}
+      data-testid="custom-sovereign-portfolio"
       data-custom-design="true"
       data-design-name={design.designName || "Bespoke Sovereign"}
       style={{
@@ -649,14 +670,14 @@ export function CustomSovereignPortfolio({
           <div
             className="absolute -top-40 -end-32 h-[28rem] w-[28rem] rounded-full opacity-20"
             style={{
-              background: heroGradient || `radial-gradient(circle, ${accent}55 0%, transparent 70%)`,
+              background: heroGradient || `radial-gradient(circle, ${alphaColor(accent, 0.34)} 0%, transparent 70%)`,
               transform: "translateZ(0)",
             }}
           />
           <div
             className="absolute bottom-0 -start-32 h-[24rem] w-[24rem] rounded-full opacity-15"
             style={{
-              background: `radial-gradient(circle, ${accent}44 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${alphaColor(accent, 0.27)} 0%, transparent 70%)`,
               transform: "translateZ(0)",
             }}
           />
@@ -674,8 +695,8 @@ export function CustomSovereignPortfolio({
             style={{
               backgroundColor:
                 layout.navStyle === "minimal-top"
-                  ? `${bg}E6`
-                  : `${surface}CC`,
+                  ? alphaColor(bg, 0.9)
+                  : alphaColor(surface, 0.8),
               borderColor: border,
             }}
             className={`${maxWidthClass} mx-auto flex items-center justify-between gap-4 px-5 py-3.5 backdrop-blur-xl ${
@@ -744,7 +765,7 @@ export function CustomSovereignPortfolio({
             type="button"
             data-testid="portfolio-lang-switch"
             onClick={() => setLang(lang === "ar" ? "en" : "ar")}
-            style={{ borderColor: border, backgroundColor: `${surface}D9`, color: text }}
+            style={{ borderColor: border, backgroundColor: alphaColor(surface, 0.85), color: text }}
             className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold backdrop-blur-xl shadow-lg cursor-pointer"
           >
             <Globe2 className="h-3.5 w-3.5" style={{ color: accent }} />
@@ -762,7 +783,7 @@ export function CustomSovereignPortfolio({
               {data.badge && (
                 <span
                   className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold"
-                  style={{ borderColor: `${accent}55`, backgroundColor: `${accent}1A`, color: accent }}
+                  style={{ borderColor: alphaColor(accent, 0.34), backgroundColor: alphaColor(accent, 0.1), color: accent }}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
                   <span>{t(data.badge.ar, data.badge.en)}</span>
@@ -783,6 +804,7 @@ export function CustomSovereignPortfolio({
               <div className="flex flex-wrap items-center justify-center gap-4">
                 <a
                   href={primaryCtaUrl}
+                  {...externalLinkProps(primaryCtaUrl)}
                   style={{ backgroundColor: accent, color: accentText }}
                   className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-extrabold shadow-xl"
                 >
@@ -791,6 +813,7 @@ export function CustomSovereignPortfolio({
                 </a>
                 <a
                   href={secondaryCtaUrl}
+                  {...externalLinkProps(secondaryCtaUrl)}
                   style={{ borderColor: border, backgroundColor: surface, color: text }}
                   className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full border px-7 py-3.5 text-sm font-bold"
                 >
@@ -813,14 +836,14 @@ export function CustomSovereignPortfolio({
               <div
                 className="absolute inset-0"
                 style={{
-                  background: `linear-gradient(to top, ${bg}F2 12%, ${bg}AA 55%, ${bg}40 100%)`,
+                  background: `linear-gradient(to top, ${alphaColor(bg, 0.96)} 15%, ${alphaColor(bg, 0.78)} 60%, ${alphaColor(bg, 0.35)} 100%)`,
                 }}
               />
               <div className="relative z-10 max-w-3xl space-y-5">
                 {data.city && (
                   <span
                     className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-xs font-bold border backdrop-blur-md"
-                    style={{ borderColor: `${accent}66`, backgroundColor: `${bg}AA`, color: accent }}
+                    style={{ borderColor: alphaColor(accent, 0.4), backgroundColor: alphaColor(bg, 0.72), color: accent }}
                   >
                     <MapPin className="h-3.5 w-3.5" />
                     <span>{t(data.city.ar, data.city.en)}</span>
@@ -838,6 +861,7 @@ export function CustomSovereignPortfolio({
                 <div className="flex flex-wrap gap-3 pt-2">
                   <a
                     href={primaryCtaUrl}
+                    {...externalLinkProps(primaryCtaUrl)}
                     style={{ backgroundColor: accent, color: accentText }}
                     className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-extrabold"
                   >
@@ -846,7 +870,8 @@ export function CustomSovereignPortfolio({
                   </a>
                   <a
                     href={secondaryCtaUrl}
-                    style={{ borderColor: border, backgroundColor: `${surface}CC`, color: text }}
+                    {...externalLinkProps(secondaryCtaUrl)}
+                    style={{ borderColor: border, backgroundColor: alphaColor(surface, 0.85), color: text }}
                     className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-bold backdrop-blur-md"
                   >
                     <span>{secondaryCtaLabel}</span>
@@ -861,7 +886,7 @@ export function CustomSovereignPortfolio({
                   {data.badge && (
                     <span
                       className="rounded-full px-3.5 py-1 text-xs font-bold uppercase tracking-wider"
-                      style={{ backgroundColor: `${accent}22`, color: accent }}
+                      style={{ backgroundColor: alphaColor(accent, 0.14), color: accent }}
                     >
                       {t(data.badge.ar, data.badge.en)}
                     </span>
@@ -879,6 +904,7 @@ export function CustomSovereignPortfolio({
                 <div className="flex flex-wrap gap-3 pt-2">
                   <a
                     href={primaryCtaUrl}
+                    {...externalLinkProps(primaryCtaUrl)}
                     style={{ backgroundColor: accent, color: accentText }}
                     className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-extrabold"
                   >
@@ -887,6 +913,7 @@ export function CustomSovereignPortfolio({
                   </a>
                   <a
                     href={secondaryCtaUrl}
+                    {...externalLinkProps(secondaryCtaUrl)}
                     style={{ borderColor: border, backgroundColor: surface, color: text }}
                     className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-bold"
                   >
@@ -922,7 +949,7 @@ export function CustomSovereignPortfolio({
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <span
                     className="inline-flex items-center gap-2 rounded-full px-3 py-1 font-mono text-[11px] font-bold"
-                    style={{ backgroundColor: `${accent}1F`, color: accent }}
+                    style={{ backgroundColor: alphaColor(accent, 0.12), color: accent }}
                   >
                     <span className="h-2 w-2 rounded-full animate-pulse" style={{ backgroundColor: accent }} />
                     {design.designName || t("ملف شخصي مخصص", "CUSTOM EDITION")}
@@ -945,6 +972,7 @@ export function CustomSovereignPortfolio({
                 <div className="flex flex-wrap gap-3">
                   <a
                     href={primaryCtaUrl}
+                    {...externalLinkProps(primaryCtaUrl)}
                     style={{ backgroundColor: accent, color: accentText }}
                     className="taqdom-lux-btn inline-flex items-center gap-2 rounded-xl px-5 py-3 text-xs sm:text-sm font-extrabold"
                   >
@@ -953,6 +981,7 @@ export function CustomSovereignPortfolio({
                   </a>
                   <a
                     href={secondaryCtaUrl}
+                    {...externalLinkProps(secondaryCtaUrl)}
                     style={{ borderColor: border, backgroundColor: surfaceAlt, color: text }}
                     className="taqdom-lux-btn inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-xs sm:text-sm font-bold"
                   >
@@ -1000,7 +1029,7 @@ export function CustomSovereignPortfolio({
                   {data.badge && (
                     <span
                       className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-bold"
-                      style={{ borderColor: `${accent}55`, backgroundColor: `${accent}18`, color: accent }}
+                      style={{ borderColor: alphaColor(accent, 0.34), backgroundColor: alphaColor(accent, 0.1), color: accent }}
                     >
                       <Sparkles className="h-3.5 w-3.5" />
                       <span>{t(data.badge.ar, data.badge.en)}</span>
@@ -1023,6 +1052,7 @@ export function CustomSovereignPortfolio({
                 <div className="flex flex-wrap gap-3 pt-2">
                   <a
                     href={primaryCtaUrl}
+                    {...externalLinkProps(primaryCtaUrl)}
                     style={{ backgroundColor: accent, color: accentText }}
                     className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-extrabold shadow-xl"
                   >
@@ -1031,6 +1061,7 @@ export function CustomSovereignPortfolio({
                   </a>
                   <a
                     href={secondaryCtaUrl}
+                    {...externalLinkProps(secondaryCtaUrl)}
                     style={{ borderColor: border, backgroundColor: surface, color: text }}
                     className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full border px-7 py-3.5 text-sm font-bold"
                   >
@@ -1047,7 +1078,7 @@ export function CustomSovereignPortfolio({
                   <div
                     className="absolute inset-0"
                     style={{
-                      background: `linear-gradient(to top, ${bg}E6 0%, transparent 55%)`,
+                      background: `linear-gradient(to top, ${alphaColor(bg, 0.92)} 0%, ${alphaColor(bg, 0.45)} 50%, transparent 100%)`,
                     }}
                   />
                   <div className="absolute bottom-5 inset-x-5 flex items-center gap-3.5">
@@ -1100,7 +1131,7 @@ export function CustomSovereignPortfolio({
                 <div
                   style={{
                     background: heroGradient || `linear-gradient(135deg, ${surface} 0%, ${surfaceAlt} 100%)`,
-                    borderColor: `${accent}55`,
+                    borderColor: alphaColor(accent, 0.34),
                     borderWidth: "1px",
                   }}
                   className={`${radiusClass} p-8 sm:p-12 flex flex-col md:flex-row md:items-center justify-between gap-6`}
@@ -1115,18 +1146,20 @@ export function CustomSovereignPortfolio({
                       </p>
                     )}
                   </div>
-                  {sec.items?.[0] && (
-                    <a
-                      href={safePortfolioUrl(sec.items[0].url)}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ backgroundColor: accent, color: accentText }}
-                      className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-extrabold shrink-0"
-                    >
-                      <span>{t(sec.items[0].title.ar, sec.items[0].title.en)}</span>
-                      <Arrow className="h-4 w-4" />
-                    </a>
-                  )}
+                  {sec.items?.[0] && (() => {
+                    const ctaUrl = safePortfolioUrl(sec.items[0].url);
+                    return (
+                      <a
+                        href={ctaUrl}
+                        {...externalLinkProps(ctaUrl)}
+                        style={{ backgroundColor: accent, color: accentText }}
+                        className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-extrabold shrink-0"
+                      >
+                        <span>{t(sec.items[0].title.ar, sec.items[0].title.en)}</span>
+                        <Arrow className="h-4 w-4" />
+                      </a>
+                    );
+                  })()}
                 </div>
               ) : sec.kind === "faq" ? (
                 <div className="space-y-4">
@@ -1222,7 +1255,7 @@ export function CustomSovereignPortfolio({
                           {item.badge && (
                             <span
                               className="inline-block rounded-full px-3 py-0.5 text-[10px] font-mono font-bold mb-3"
-                              style={{ backgroundColor: `${accent}1E`, color: accent }}
+                              style={{ backgroundColor: alphaColor(accent, 0.12), color: accent }}
                             >
                               {item.badge}
                             </span>
@@ -1236,18 +1269,20 @@ export function CustomSovereignPortfolio({
                             </p>
                           )}
                         </div>
-                        {item.url && (
-                          <a
-                            href={safePortfolioUrl(item.url)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs font-bold"
-                            style={{ color: accent }}
-                          >
-                            <span>{t("استكشف المزيد", "Learn more")}</span>
-                            <Arrow className="h-3.5 w-3.5" />
-                          </a>
-                        )}
+                        {item.url && (() => {
+                          const itemUrl = safePortfolioUrl(item.url);
+                          return (
+                            <a
+                              href={itemUrl}
+                              {...externalLinkProps(itemUrl)}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold"
+                              style={{ color: accent }}
+                            >
+                              <span>{t("استكشف المزيد", "Learn more")}</span>
+                              <Arrow className="h-3.5 w-3.5" />
+                            </a>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -1286,18 +1321,20 @@ export function CustomSovereignPortfolio({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-4">
-            {(data.links || []).slice(0, 4).map((lk, i) => (
-              <a
-                key={i}
-                href={safePortfolioUrl(lk.url)}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold hover:underline"
-                style={{ color: accent }}
-              >
-                {lk.label}
-              </a>
-            ))}
+            {(data.links || []).slice(0, 4).map((lk, i) => {
+              const linkUrl = safePortfolioUrl(lk.url);
+              return (
+                <a
+                  key={i}
+                  href={linkUrl}
+                  {...externalLinkProps(linkUrl)}
+                  className="font-semibold hover:underline"
+                  style={{ color: accent }}
+                >
+                  {lk.label}
+                </a>
+              );
+            })}
           </div>
         </div>
       </footer>

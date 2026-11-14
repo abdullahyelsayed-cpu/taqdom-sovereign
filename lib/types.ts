@@ -341,3 +341,15 @@ export function formatStandalonePortfolioTitle(
     .trim();
   return cleaned || fallback;
 }
+
+export function formatStandalonePortfolioDescription(
+  portfolio: Pick<PortfolioData, "bio" | "seo"> | null | undefined
+): string {
+  const fallback = [portfolio?.bio?.ar, portfolio?.bio?.en].filter(Boolean).join(" — ");
+  const raw = String(portfolio?.seo?.description || "").trim();
+  if (!raw) return fallback;
+  if (/بقالب\s+.*على\s+منصة\s+تَقَدُّم|على\s+منصة\s+تَقَدُّم|\bon\s+Taqdom\b/i.test(raw)) {
+    return fallback || raw.replace(/\s*(?:بقالب\s+[^.]*\s*)?(?:على\s+منصة\s+تَقَدُّم|on\s+Taqdom)\.?\s*$/gi, "").trim();
+  }
+  return raw;
+}

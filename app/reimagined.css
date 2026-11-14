@@ -111,22 +111,28 @@ body {
 
 /* Legacy UI colour adapter: internal pages and the Studio now inherit the
    same readable action colours instead of the old low-contrast gold/black. */
-html:not(.dark) [class*="text-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
-html:not(.dark) [class*="text-[#D7B77B]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
-html:not(.dark) [class*="text-[#E2C18D]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
-html:not(.dark) [class*="text-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
-html:not(.dark) [class*="text-[#B68C51]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { color: #315BFF !important; }
-html:not(.dark) [class*="border-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
-html:not(.dark) [class*="border-[#D7B77B]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
-html:not(.dark) [class*="border-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { border-color: rgba(49, 91, 255, .42) !important; }
-:where(html:not(.dark) [class~="bg-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *)),
-:where(html:not(.dark) [class~="bg-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *)) {
+:where(
+  html:not(.dark) [class*="text-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"] *),
+  html:not(.dark) [class*="text-[#D7B77B]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"] *),
+  html:not(.dark) [class*="text-[#E2C18D]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"] *),
+  html:not(.dark) [class*="text-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"] *),
+  html:not(.dark) [class*="text-[#B68C51]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"] *)
+) { color: #315BFF !important; }
+:where(
+  html:not(.dark) [class*="border-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"]):not([class*="bg-[#101315]"] *),
+  html:not(.dark) [class*="border-[#D7B77B]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"]):not([class*="bg-[#101315]"] *),
+  html:not(.dark) [class*="border-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"]):not([class*="bg-[#101315]"] *)
+) { border-color: rgba(49, 91, 255, .42) !important; }
+:where(html:not(.dark) [class~="bg-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"] *)),
+:where(html:not(.dark) [class~="bg-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"] *)) {
   background-color: #315BFF !important;
   color: #FFFFFF !important;
 }
-html:not(.dark) [class*="bg-[#C89D66]/"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
-html:not(.dark) [class*="bg-[#9A7B4F]/"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { background-color: rgba(49, 91, 255, .12) !important; }
-html:not(.dark) [class*="text-[#1E3A2F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { color: #087D66 !important; }
+:where(
+  html:not(.dark) [class*="bg-[#C89D66]/"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"] *),
+  html:not(.dark) [class*="bg-[#9A7B4F]/"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *):not([class*="bg-[#101315]"] *)
+) { background-color: rgba(49, 91, 255, .12) !important; }
+:where(html:not(.dark) [class*="text-[#1E3A2F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *)) { color: #087D66 !important; }
 html:not(.dark) [class~="bg-[#141413]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
 html:not(.dark) [class~="bg-[#0A0A09]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
 html:not(.dark) [class~="bg-[#080807]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) {
@@ -1030,6 +1036,7 @@ main:not(.home-experience) :where(button, a, input, textarea, select):focus-visi
 .dark [data-taqdom-studio] .studio-sidebar { background: #19233D; }
 .studio-side-intro {
   position: relative;
+  flex-shrink: 0;
   overflow: hidden;
   margin: 14px 14px 7px;
   padding: 17px;
@@ -1064,6 +1071,7 @@ main:not(.home-experience) :where(button, a, input, textarea, select):focus-visi
 .studio-completion-track span { display: block; height: 100%; border-radius: inherit; background: #D8FF52; transition: width .45s var(--neo-ease); }
 .studio-completion p { margin: 8px 0 0; color: rgba(255,255,255,.7); font-size: 9px; line-height: 1.7; }
 [data-taqdom-studio] .studio-tab-list {
+  flex-shrink: 0;
   grid-template-columns: repeat(2, minmax(0,1fr));
   gap: 7px;
   margin: 0 14px;

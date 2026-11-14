@@ -83,6 +83,9 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
         get().setDraft((prev) => ({
           ...prev,
           template,
+          customDesign: prev.customDesign
+            ? { ...prev.customDesign, enabled: false }
+            : prev.customDesign,
         }));
       },
 

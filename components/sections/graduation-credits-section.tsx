@@ -135,7 +135,7 @@ export function GraduationCreditsSection() {
                   href={LINKEDIN_URL}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#C89D66]/45 bg-[#C89D66]/10 px-5 py-3 text-sm font-bold text-[#D7B77B] transition hover:-translate-y-0.5 hover:bg-[#C89D66]/15 focus-visible:outline-offset-4"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#9A7B4F]/45 dark:border-[#C89D66]/45 bg-[#C89D66]/12 px-5 py-3 text-sm font-bold text-[#7E521C] dark:text-[#E7C27D] transition hover:-translate-y-0.5 hover:bg-[#C89D66]/18 focus-visible:outline-offset-4"
                 >
                   LinkedIn
                   <Arrow className="h-4 w-4" />

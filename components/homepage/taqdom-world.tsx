@@ -184,7 +184,7 @@ export function TaqdomWorldExperience() {
                 {templateCards.map((item, index) => (
                   <Link href={`/templates/${item.id}`} className="royal-template-card" key={item.id}>
                     <div className="royal-template-art">
-                      <Image src={item.image} alt={t(item.ar, item.en)} fill sizes="(max-width: 680px) 74vw, (max-width: 1080px) 32vw, 19vw" loading="lazy" />
+                      <Image src={item.image} alt={t(item.ar, item.en)} fill sizes="(max-width: 680px) 74vw, (max-width: 1080px) 32vw, 19vw" loading={index < 5 ? "eager" : "lazy"} />
                       <span className="royal-template-index">0{index + 1}</span>
                       <span className="royal-template-open"><Arrow size={17} /></span>
                     </div>

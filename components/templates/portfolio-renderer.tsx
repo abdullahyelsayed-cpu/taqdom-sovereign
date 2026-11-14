@@ -1096,7 +1096,7 @@ export function PortfolioRenderer({
                   {data.links.map((l, i) => (
                     <a
                       key={i}
-                      href={l.url}
+                      href={safePortfolioUrl(l.url)}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-xl border border-[#141413]/15 bg-[#F7F5F0] px-3.5 py-2 text-xs font-bold text-[#141413] hover:border-[#9A7B4F] transition"
@@ -1829,7 +1829,7 @@ export function PortfolioRenderer({
                       {data.links.map((l, i) => (
                         <a
                           key={i}
-                          href={l.url}
+                          href={safePortfolioUrl(l.url)}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-1.5 rounded-xl border border-[#C89D66]/40 bg-[#181815] px-3.5 py-1.5 text-xs font-bold text-[#C89D66]"
@@ -1891,7 +1891,7 @@ export function PortfolioRenderer({
                     {data.links.map((l, i) => (
                       <a
                         key={i}
-                        href={l.url}
+                        href={safePortfolioUrl(l.url)}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-xl border border-[#F4F1EA]/15 bg-[#1C1C19] px-3.5 py-2 text-xs font-bold text-[#F4F1EA] hover:border-[#C89D66]"
@@ -2232,7 +2232,7 @@ export function PortfolioRenderer({
                     {data.links.map((l, i) => (
                       <a
                         key={i}
-                        href={l.url}
+                        href={safePortfolioUrl(l.url)}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-xl border border-[#141413]/15 bg-[#F7F5F0] px-3.5 py-2 text-xs font-bold text-[#141413] hover:border-[#9A7B4F]"
@@ -2402,7 +2402,7 @@ export function PortfolioRenderer({
                     <CheckCircle2 className="h-6 w-6 text-emerald-400 mx-auto" />
                     <p className="font-bold text-sm">
                       {t(
-                        "تم استلام طلبك بنجاح! ستتواصل معك نورا خلال ٢٤ ساعة.",
+                        `تم استلام طلبك بنجاح! سيتواصل معك فريق ${data.name.ar || data.username} خلال ٢٤ ساعة.`,
                         "Your request has been scheduled! We will reach out within 24 hours."
                       )}
                     </p>

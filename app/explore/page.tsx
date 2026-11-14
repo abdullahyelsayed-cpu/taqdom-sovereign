@@ -114,7 +114,7 @@ export default function ExplorePage() {
                   {t("جرّب كلمة مختلفة أو اختر قالبًا آخر. المعارض الشخصية لا تظهر هنا إلا بعد اختيار صاحبها الإدراج في الدليل.", "Try another search or style. Personal portfolios appear here only when their owners opt in.")}
                 </p>
               </div>
-            ) : allCreators.map((creator) => {
+            ) : allCreators.map((creator, idx) => {
               const subUrl = getSubdomainUrl(creator.username, host);
               return (
                 <div
@@ -126,6 +126,9 @@ export default function ExplorePage() {
                       src={creator.projects[0]?.images[0] || creator.cover}
                       alt={t(creator.name.ar, creator.name.en)}
                       fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      priority={idx < 3}
+                      loading={idx < 6 ? "eager" : "lazy"}
                       className="object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A09]/90 via-transparent to-transparent" />
@@ -135,11 +138,14 @@ export default function ExplorePage() {
                       </span>
                     </div>
                     <div className="absolute bottom-3.5 inset-x-4 flex items-center gap-3">
-                      <div className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 border-[#C89D66]">
+                      <div className="relative h-14 w-14 shrink-0 rounded-2xl overflow-hidden border-2 border-[#C89D66] bg-[#141D2E]">
                         <Image
                           src={creator.avatar}
                           alt={t(creator.name.ar, creator.name.en)}
                           fill
+                          sizes="56px"
+                          priority={idx < 3}
+                          loading={idx < 6 ? "eager" : "lazy"}
                           className="object-cover"
                         />
                       </div>
