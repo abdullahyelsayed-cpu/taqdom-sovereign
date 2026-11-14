@@ -326,7 +326,7 @@ export function TaqdomReimagined() {
                 className="neo-owner-photo rounded-full object-cover ring-2 ring-white/80 shadow-lg"
               />
               <div className="neo-owner-meta">
-                <span className="neo-owner-label">{t("صناعة مصرية • مشروع مستقل", "Made in Egypt • Independent project")}</span>
+                <span className="neo-owner-label">{t("مشروع مستقل • تصميم وهندسة متقنة", "Independent project • Crafted digital presence")}</span>
                 <strong>{t(creator.nameAr, creator.nameEn)}</strong>
                 <span>{t(creator.roleAr, creator.roleEn)}</span>
               </div>
@@ -532,7 +532,7 @@ export function TaqdomReimagined() {
                 className="neo-founder-photo"
               />
             </div>
-            <span className="neo-founder-photo-note">{t("صناعة مصرية", "BUILT IN EGYPT")} <b>✳</b> 2026</span>
+            <span className="neo-founder-photo-note">{t("تَقَدُّم", "TAQDOM")} <b>✳</b> 2026</span>
           </div>
           <div className="neo-founder-copy neo-reveal">
             <span className="neo-kicker neo-kicker-light">05 / THE PERSON BEHIND IT</span>
@@ -618,7 +618,7 @@ export function TaqdomReimagined() {
             </div>
           </div>
           <div className="neo-footer-bottom">
-            <span>© 2026 TAQDOM • MADE WITH PURPOSE IN EGYPT</span>
+            <span>© 2026 TAQDOM • SOVEREIGN PORTFOLIO PLATFORM</span>
             <a href="https://www.linkedin.com/in/abdullah-yehia/" target="_blank" rel="noreferrer">ABDULLAH YEHIA ↗</a>
           </div>
         </div>

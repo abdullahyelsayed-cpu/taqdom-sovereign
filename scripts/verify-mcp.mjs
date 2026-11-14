@@ -112,14 +112,42 @@ let response = await rpc({ jsonrpc: "2.0", id: 1, method: "initialize", params: 
 assert.equal(response.status, 200);
 let payload = await response.json();
 assert.equal(payload.result.serverInfo.name, "taqdom-account-mcp");
+assert.equal(payload.result.serverInfo.version, "2.0.0");
 assert.equal(payload.result.protocolVersion, "2025-03-26", "Server must negotiate a protocol version it actually supports");
+assert.ok(payload.result.capabilities.resources, "Server must advertise MCP resources capability");
+assert.ok(payload.result.capabilities.prompts, "Server must advertise MCP prompts capability");
 
 response = await rpc({ jsonrpc: "2.0", id: 2, method: "tools/list" });
 payload = await response.json();
 assert.deepEqual(payload.result.tools.map((tool) => tool.name), [
   "get_portfolio", "get_profile", "list_projects", "update_profile",
   "create_project", "update_project", "delete_project", "publish_portfolio",
+  "get_portfolio_blueprint", "list_templates_and_capabilities",
+  "update_portfolio_content", "design_custom_portfolio_theme",
 ]);
+
+response = await rpc({ jsonrpc: "2.0", id: 21, method: "resources/list" });
+payload = await response.json();
+assert.equal(payload.result.resources.length, 3, "MCP must expose 3 design & blueprint resources");
+
+response = await rpc({ jsonrpc: "2.0", id: 22, method: "resources/read", params: { uri: "taqdom://design-system/capabilities" } });
+payload = await response.json();
+const capabilitiesJson = JSON.parse(payload.result.contents[0].text);
+assert.equal(capabilitiesJson.builtInTemplates.length, 7);
+assert.ok(capabilitiesJson.bespokeCustomDesignEngine.heroVariants.includes("terminal-bento"));
+
+response = await rpc({ jsonrpc: "2.0", id: 23, method: "resources/read", params: { uri: "taqdom://portfolio/mcp-owner/blueprint" } });
+payload = await response.json();
+const blueprintResource = JSON.parse(payload.result.contents[0].text);
+assert.equal("email" in blueprintResource.portfolio, false, "Blueprint resource must not expose email");
+
+response = await rpc({ jsonrpc: "2.0", id: 24, method: "prompts/list" });
+payload = await response.json();
+assert.equal(payload.result.prompts.length, 3, "MCP must expose 3 portfolio designer prompts");
+
+response = await rpc({ jsonrpc: "2.0", id: 25, method: "prompts/get", params: { name: "design-bespoke-portfolio", arguments: { aesthetic_vibe: "Obsidian Swiss Editorial" } } });
+payload = await response.json();
+assert.ok(payload.result.messages[0].content.text.includes("design_custom_portfolio_theme"));
 
 response = await rpc({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "get_profile", arguments: {} } });
 payload = await response.json();
@@ -160,9 +188,56 @@ payload = await response.json();
 assert.equal(payload.result.isError, true, "Unknown/private profile fields must be rejected");
 assert.equal(portfolio.email, "private@example.com", "Private account email must remain unchanged");
 
+response = await rpc({ jsonrpc: "2.0", id: 90, method: "tools/call", params: { name: "get_portfolio_blueprint", arguments: {} } });
+payload = await response.json();
+assert.equal(payload.result.structuredContent.portfolio.username, "mcp-owner");
+assert.equal(payload.result.structuredContent.publicationStatus.publicUrl, "https://mcp-owner.taqdom.me");
+
+response = await rpc({ jsonrpc: "2.0", id: 91, method: "tools/call", params: {
+  name: "update_portfolio_content",
+  arguments: {
+    metrics: [{ label: { ar: "الأنظمة", en: "Systems" }, value: "14+" }],
+    seo: { title: "Abdullah Custom Site", description: "Bespoke portfolio" },
+  },
+} });
+payload = await response.json();
+assert.equal(payload.result.structuredContent.ok, true);
+assert.equal(portfolio.metrics[0].value, "14+");
+
+response = await rpc({ jsonrpc: "2.0", id: 92, method: "tools/call", params: {
+  name: "design_custom_portfolio_theme",
+  arguments: {
+    designName: "Obsidian Gold Custom",
+    palette: { background: "#0A0C12", surface: "#131824", text: "#F4F1EA", muted: "#9DA7BA", accent: "#E4B66F" },
+    typography: { headingStyle: "editorial-serif", bodyStyle: "sans", scale: "bold" },
+    layout: { heroVariant: "terminal-bento", projectGrid: "bento", cardRadius: "lg", navStyle: "floating-glass" },
+    effects: { ambientGlow: true, glassBlur: true, gridPattern: "dots", hoverLift: "magnetic", borderStyle: "glow" },
+    heroCta: { primaryLabel: { ar: "المشاريع", en: "Projects" }, primaryUrl: "#work" },
+    customSections: [
+      { id: "principles", kind: "cards", title: { ar: "المبادئ", en: "Principles" }, items: [{ title: { ar: "السرعة", en: "Speed" }, badge: "GPU" }] },
+    ],
+  },
+} });
+payload = await response.json();
+assert.equal(payload.result.structuredContent.ok, true);
+assert.equal(portfolio.customDesign.enabled, true);
+assert.equal(portfolio.customDesign.designName, "Obsidian Gold Custom");
+
+response = await rpc({ jsonrpc: "2.0", id: 93, method: "tools/call", params: {
+  name: "design_custom_portfolio_theme",
+  arguments: {
+    palette: { background: "javascript:alert(1)", surface: "#111111", text: "#FFFFFF", muted: "#999999", accent: "#C89D66" },
+    typography: { headingStyle: "display" },
+    layout: { heroVariant: "split-showcase", projectGrid: "showcase-cards" },
+  },
+} });
+payload = await response.json();
+assert.equal(payload.result.isError, true, "Unsafe non-hex color must be rejected");
+
 response = await rpc({ jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "publish_portfolio", arguments: {} } });
 payload = await response.json();
 assert.equal(payload.result.structuredContent.published, true, "Publishing must be explicit");
+assert.equal(payload.result.structuredContent.customDesignEnabled, true);
 assert.equal(portfolio.publishedAt, payload.result.structuredContent.publishedAt);
 
 response = await rpc({ jsonrpc: "2.0", id: 11, method: "ping" }, created.token, "another-user");

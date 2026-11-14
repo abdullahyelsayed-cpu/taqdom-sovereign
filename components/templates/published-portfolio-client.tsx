@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Sparkles, Globe2 } from "lucide-react";
-import { PortfolioData } from "@/lib/types";
+import { formatStandalonePortfolioTitle, PortfolioData } from "@/lib/types";
 import { PortfolioRenderer } from "./portfolio-renderer";
 import { useTaqdomStore } from "@/lib/store";
 import { TaqdomLogo } from "@/components/brand/taqdom-logo";
@@ -105,12 +105,7 @@ export function PublishedPortfolioClient({
   useEffect(() => {
     if (typeof document === "undefined") return;
     if (portfolio) {
-      const nextTitle =
-        portfolio.seo?.title ||
-        `${portfolio.name?.ar || activeUsername} | ${portfolio.name?.en || activeUsername} — ${
-          portfolio.title?.ar || "تَقَدُّم"
-        } | تَقَدُّم`;
-      document.title = nextTitle;
+      document.title = formatStandalonePortfolioTitle(portfolio, activeUsername);
     } else if (!isLoading && activeUsername) {
       document.title = `${activeUsername}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`;
       document.querySelectorAll('meta[name="robots"]').forEach((el) => {

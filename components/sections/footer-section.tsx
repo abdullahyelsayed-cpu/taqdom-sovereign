@@ -127,8 +127,8 @@ export function FooterSection() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground pt-6 border-t border-border/40">
           <p>
             {t(
-              "© ٢٠٢٦ تَقَدُّم (Taqdom.me) — صُنع بفخر وإتقان في مصر للعالم.",
-              "© 2026 Taqdom.me — Made with care in Egypt."
+              "© ٢٠٢٦ تَقَدُّم (Taqdom.me) — منصة الهويات الرقمية المستقلة.",
+              "© 2026 Taqdom.me — Sovereign personal portfolio platform."
             )}
           </p>
           <div className="flex items-center gap-6">

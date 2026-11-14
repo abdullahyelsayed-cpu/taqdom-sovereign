@@ -159,7 +159,7 @@ export default function RootLayout({
         >
           <LanguageProvider initialLang="ar">
             <SmoothScrollAndAura>{children}</SmoothScrollAndAura>
-            <Toaster position="top-center" richColors />
+            <Toaster position="bottom-center" richColors />
           </LanguageProvider>
         </ThemeProvider>
       </body>

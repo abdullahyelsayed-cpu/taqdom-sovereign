@@ -8,8 +8,7 @@ Taqdom is an Arabic-first platform where anyone can create, customize, and publi
 - Arabic RTL and English LTR experiences.
 - A visual Studio for editing identity, projects, appearance, page sections, SEO, previews, and publishing.
 - Day and night modes share one champagne-gold visual identity: pearl-blue / silver daylight and midnight-navy / warm-gold night.
-- Personal subdomains on `*.taqdom.me`; a published portfolio is a complete independent page for its owner.
-- Every published portfolio carries a discreet footer credit: **مدعوم بواسطة تقدّم**.
+- Personal subdomains on `*.taqdom.me`; a published portfolio is a 100% standalone bespoke website for its owner with zero platform chrome or footer branding.
 - Portfolio creation and publishing are free for everyone, with no trial period or subscription.
 - Explore directory is opt-in. Publishing a direct URL does not automatically list it in Explore.
 - New accounts start with a blank profile; demonstration portfolios are illustrative samples, not real customer claims.

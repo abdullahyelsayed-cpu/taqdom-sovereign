@@ -121,7 +121,7 @@ export default function ExplorePage() {
                   key={creator.username}
                   className="glass-panel rounded-3xl overflow-hidden flex flex-col justify-between border border-border hover:border-[#9A7B4F] dark:hover:border-[#C89D66] transition-all duration-300 shadow-xl"
                 >
-                  <div className="relative h-48 w-full overflow-hidden">
+                  <div className="relative h-48 w-full overflow-hidden bg-[#0F172A]">
                     <Image
                       src={creator.projects[0]?.images[0] || creator.cover}
                       alt={t(creator.name.ar, creator.name.en)}

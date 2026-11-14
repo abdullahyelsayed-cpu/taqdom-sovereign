@@ -1604,7 +1604,7 @@ function StudioContent() {
                     https://{draft.username}.taqdom.me
                   </p>
                   <p className="text-sm font-bold text-foreground">
-                    {draft.seo.title || `${draft.name.ar} — ${draft.title.ar} | تَقَدُّم`}
+                    {draft.seo.title || `${draft.name.ar} — ${draft.title.ar}`}
                   </p>
                   <p className="text-xs text-muted-foreground line-clamp-2">
                     {draft.seo.description || draft.bio.ar}

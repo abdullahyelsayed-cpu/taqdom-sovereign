@@ -160,7 +160,11 @@ assert.match(studioText, /handleCanvasPointerDown/, "Canvas sections must be dir
 assert.match(studioText, /updateCanvasSection/, "Canvas sections must have non-drag slider controls.");
 assert.match(studioText, /backgroundOverlay/, "Studio must allow background overlay tuning.");
 assert.match(rendererText, /backgroundImage: canvasBackgroundImage/, "Portfolio backgrounds must be applied to the rendered canvas.");
-assert.match(rendererText, /مدعوم بواسطة تقدّم/, "Published portfolio pages must carry the discreet Taqdom credit.");
+assert.doesNotMatch(rendererText, /مدعوم بواسطة تقدّم|Powered by Taqdom|تخصيص في الاستوديو|Customize in Studio/, "Published portfolio pages must be 100% standalone personal websites with zero Taqdom chrome.");
+assert.match(rendererText, /CustomSovereignPortfolio/, "Portfolio renderer must support full custom AI-designed themes beyond built-in templates.");
+assert.doesNotMatch(worldText, /مدعوم من شغف|صُنع في مصر/, "Homepage must not contain the removed slogan.");
+const footerText = read("../components/sections/footer-section.tsx");
+assert.doesNotMatch(footerText, /صُنع بفخر وإتقان في مصر|Made with care in Egypt/, "Shared footer must not contain the removed slogan.");
 assert.match(rendererText, /data-canvas-section="hero"/, "Portfolio sections must expose editable canvas regions.");
 
 
@@ -179,6 +183,9 @@ assert.match(mcpServerText, /create_project/, "MCP must expose project creation.
 assert.match(mcpServerText, /update_project/, "MCP must expose project editing.");
 assert.match(mcpServerText, /delete_project/, "MCP must expose project deletion.");
 assert.match(mcpServerText, /publish_portfolio/, "MCP must expose explicit portfolio publishing.");
+assert.match(mcpServerText, /design_custom_portfolio_theme/, "MCP must expose custom bespoke portfolio theme designing.");
+assert.match(mcpServerText, /resources\/list/, "MCP must expose MCP resources.");
+assert.match(mcpServerText, /prompts\/list/, "MCP must expose MCP prompts.");
 assert.match(mcpServerText, /WHERE username = \?1 AND user_id = \?2/, "MCP reads must enforce both username and account ID.");
 assert.match(mcpServerText, /UPDATE portfolios SET draft_json/, "MCP writes must persist to the account draft.");
 assert.match(mcpServerText, /list_projects/, "MCP must expose project reading.");

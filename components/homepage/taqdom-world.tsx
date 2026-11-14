@@ -230,7 +230,7 @@ export function TaqdomWorldExperience() {
 
         <section className="royal-publish-section" id="pricing">
           <div className="royal-container royal-publish-card">
-            <div><span className="royal-section-kicker">{t("من الاستوديو إلى العالم", "FROM STUDIO TO THE WORLD")}</span><h2>{t("انشر موقعك باسمك.. وشارك شغلك بكل فخر", "Publish under your name. Share your work with pride.")}</h2><p>{t("كل بورتفوليو منشور يظهر كموقع كامل مستقل على رابطك الشخصي، مع عبارة صغيرة: مدعوم بواسطة تقدّم.", "Every published portfolio is a complete standalone website on its own personal link, with a discreet “Powered by Taqdom” credit.")}</p></div>
+            <div><span className="royal-section-kicker">{t("من الاستوديو إلى العالم", "FROM STUDIO TO THE WORLD")}</span><h2>{t("انشر موقعك باسمك.. وشارك شغلك بكل فخر", "Publish under your name. Share your work with pride.")}</h2><p>{t("كل بورتفوليو منشور يظهر كموقع شخصي كامل ومستقل باسمك بالكامل، في بيئة مصممة لتبرز أعمالك وهويتك بأعلى فخامة.", "Every published portfolio launches as a completely independent, luxury personal website under your own name — with zero platform clutter.")}</p></div>
             <div className="royal-publish-domain"><Globe2 size={21} /><strong dir="ltr">yourname.taqdom.me</strong><span><Check size={14} />{t("موقعك جاهز للمشاركة", "Ready to share")}</span><Link href="/auth">{t("ابدأ مجانًا", "Start for free")}<Arrow size={16} /></Link></div>
           </div>
         </section>
@@ -275,7 +275,7 @@ export function TaqdomWorldExperience() {
 
       <footer className="royal-footer">
         <div className="royal-container royal-footer-main"><Link href="/" className="royal-footer-brand"><span>T</span><b>Taqdom</b></Link><p>{t("بورتفوليو مجاني لكل شخص، في أي وقت.", "A free portfolio for everyone, whenever you need it.")}</p><div className="royal-footer-links"><Link href="/templates">{t("القوالب", "Templates")}</Link><Link href="/explore">{t("استكشف", "Explore")}</Link><Link href="/legal/privacy">{t("الخصوصية", "Privacy")}</Link><Link href="/legal/terms">{t("الشروط", "Terms")}</Link></div></div>
-        <div className="royal-container royal-footer-bottom"><span>© {new Date().getFullYear()} TAQDOM</span><span>{t("مشروع تخرج • المؤسس عبدالله يحى", "Graduation project • Founder: Abdullah Yehia")}</span><span>{t("مدعوم من شغف صُنع في مصر", "Built with purpose in Egypt")}</span></div>
+        <div className="royal-container royal-footer-bottom"><span>© {new Date().getFullYear()} TAQDOM</span><span>{t("مشروع تخرج • المؤسس عبدالله يحى", "Graduation project • Founder: Abdullah Yehia")}</span><span>{t("هويتك الرقمية بإتقان واستقلال كامل", "Sovereign digital identity crafted with precision")}</span></div>
       </footer>
     </div>
   );

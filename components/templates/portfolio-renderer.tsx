@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { toast } from "sonner";
 import {
   Globe2,
@@ -45,7 +44,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { CanvasSectionId, PortfolioData, PortfolioProject, getSubdomainUrl, safePortfolioUrl } from "@/lib/types";
-import { TaqdomLogo } from "@/components/brand/taqdom-logo";
+import { CustomSovereignPortfolio } from "@/components/templates/custom-sovereign-portfolio";
 
 interface PortfolioRendererProps {
   data: PortfolioData;
@@ -191,18 +190,34 @@ export function PortfolioRenderer({
       : defaultDarkTemplates.includes(activeTemplate)
       ? "dark"
       : "light";
-  const legacyAccentMap: Record<string, string> = {
-    "#C7F36B": "#D8FF52",
-    "#8B7CFF": "#315BFF",
-    "#E9C991": "#315BFF",
-    "#7AB7FF": "#315BFF",
-    "#FF8BB6": "#F36D5D",
-    "#53D8E8": "#315BFF",
-    "#B7A8FF": "#315BFF",
-    "#C89D66": "#315BFF",
-    "#9A7B4F": "#315BFF",
-    "#1E3A2F": "#087D66",
-  };
+  const legacyAccentMap: Record<string, string> =
+    themeMode === "dark"
+      ? {
+          "#C7F36B": "#D8FF52",
+          "#8B7CFF": "#A8BAFF",
+          "#E9C991": "#E2C18D",
+          "#7AB7FF": "#8CC4FF",
+          "#FF8BB6": "#FF9AA9",
+          "#53D8E8": "#7EE7C4",
+          "#B7A8FF": "#C4B5FD",
+          "#C89D66": "#D8FF52",
+          "#9A7B4F": "#91A7FF",
+          "#1E3A2F": "#7EE7C4",
+          "#315BFF": "#91A7FF",
+          "#087D66": "#7EE7C4",
+        }
+      : {
+          "#C7F36B": "#315BFF",
+          "#8B7CFF": "#315BFF",
+          "#E9C991": "#315BFF",
+          "#7AB7FF": "#315BFF",
+          "#FF8BB6": "#C63628",
+          "#53D8E8": "#315BFF",
+          "#B7A8FF": "#315BFF",
+          "#C89D66": "#315BFF",
+          "#9A7B4F": "#315BFF",
+          "#1E3A2F": "#087D66",
+        };
   const savedAccent = data.theme?.accent || "";
   const accent =
     legacyAccentMap[savedAccent.toUpperCase()] ||
@@ -270,6 +285,96 @@ export function PortfolioRenderer({
     setTimeout(() => setCopiedUrl(false), 2000);
   };
 
+  void isStudioPreview;
+  void isLiveSubdomain;
+  void subdomainHref;
+
+  const projectLightbox = activeProject && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-8"
+      onClick={() => setActiveProject(null)}
+    >
+      <div
+        className="relative max-w-5xl w-full rounded-3xl overflow-hidden bg-[#121210] border border-[#C89D66]/40 text-[#F4F1EA] shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#F4F1EA]/10">
+          <div>
+            <h3 className="arabic-diacritics text-lg sm:text-xl font-bold">
+              {t(activeProject.title.ar, activeProject.title.en)}
+            </h3>
+            <p className="text-xs text-[#C89D66] font-mono">
+              {activeProject.year} {activeProject.metrics ? `• ${activeProject.metrics}` : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveProject(null)}
+            className="rounded-xl bg-[#181815] p-2 text-[#F4F1EA] hover:bg-[#C89D66] hover:text-[#0A0A09] transition cursor-pointer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="relative h-[340px] sm:h-[480px] w-full bg-[#0A0A09]">
+          <Image
+            src={
+              activeProject.images[activeImageIdx] ||
+              activeProject.images[0] ||
+              data.cover
+            }
+            alt={t(activeProject.title.ar, activeProject.title.en)}
+            fill
+            className="object-cover"
+          />
+        </div>
+
+        <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <p className="text-sm text-[#A09C94] max-w-2xl">
+            {t(activeProject.desc.ar, activeProject.desc.en)}
+          </p>
+          {activeProject.images.length > 1 && (
+            <div className="flex gap-2 shrink-0">
+              {activeProject.images.map((img, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveImageIdx(idx)}
+                  className={`relative h-14 w-20 rounded-xl overflow-hidden border-2 ${
+                    idx === activeImageIdx ? "border-[#C89D66]" : "border-transparent opacity-60"
+                  }`}
+                >
+                  <Image src={img} alt="" fill className="object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (data.customDesign?.enabled) {
+    return (
+      <>
+        <CustomSovereignPortfolio
+          data={data}
+          design={data.customDesign}
+          lang={lang}
+          setLang={setLang}
+          canvasSectionStyle={canvasSectionStyle}
+          canvasEditMode={canvasEditMode}
+          selectedCanvasSection={selectedCanvasSection}
+          onSelectProject={(project) => {
+            setActiveProject(project);
+            setActiveImageIdx(0);
+          }}
+        />
+        {projectLightbox}
+      </>
+    );
+  }
+
   return (
     <div
       dir={dir}
@@ -280,7 +385,6 @@ export function PortfolioRenderer({
       style={
         {
           "--portfolio-accent": accent,
-          borderTop: `3px solid ${accent}`,
           backgroundColor: canvasBackground,
           backgroundImage: canvasBackgroundImage,
           backgroundPosition: canvas.backgroundPosition || "center",
@@ -307,84 +411,29 @@ export function PortfolioRenderer({
         }
       `}</style>
 
-      {/* Top Sovereign Identity Bar */}
-      <div
-        className={`sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 px-4 sm:px-8 py-3 backdrop-blur-xl border-b transition-colors ${
-          themeMode === "dark"
-            ? "bg-[#0A0A09]/92 text-[#F4F1EA] border-[#F4F1EA]/10"
-            : "bg-[#F7F5F0]/92 text-[#141413] border-[#141413]/12"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <Link href="https://taqdom.me" className="inline-flex items-center gap-2">
-            <TaqdomLogo size={28} showWordmark={false} />
-            <span
-              className="arabic-diacritics text-xs font-bold portfolio-accent-text"
-              style={{ color: accent }}
-            >
-              تَقَدُّم
-            </span>
-          </Link>
-          <span className="text-xs opacity-30">|</span>
-          <a
-            href={subdomainHref}
-            dir="ltr"
-            data-testid="renderer-subdomain-badge"
-            style={{ borderColor: `${accent}66`, color: accent, backgroundColor: `${accent}1A` }}
-            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 font-mono text-xs transition"
-          >
-            <Globe2 className="h-3 w-3" />
-            <span>https://{subdomainDisplay}</span>
-          </a>
-          <span className="hidden md:inline-flex items-center rounded-md bg-current/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest opacity-75">
-            {activeTemplate} • {themeMode}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {activeTemplate === "madar" && (
-            <button
-              type="button"
-              data-testid="madar-cmdk-trigger"
-              onClick={() => setCmdOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-current/20 bg-current/5 px-2.5 py-1 font-mono text-xs hover:opacity-90"
-            >
-              <Command className="h-3 w-3" style={{ color: accent }} />
-              <span>Cmd+K</span>
-            </button>
-          )}
-          <button
-            type="button"
-            data-testid="portfolio-lang-switch"
-            onClick={() => setLang(lang === "ar" ? "en" : "ar")}
-            style={{ borderColor: `${accent}66` }}
-            className="rounded-lg border px-3 py-1 text-xs font-bold cursor-pointer"
-          >
-            {lang === "ar" ? "English" : "العربية"}
-          </button>
-          {!isStudioPreview && (
-            <Link
-              href={
-                isLiveSubdomain
-                  ? `https://taqdom.me/studio?u=${data.username}&template=${activeTemplate}`
-                  : `/studio?u=${data.username}&template=${activeTemplate}`
-              }
-              prefetch={false}
-              style={{ backgroundColor: accent }}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold text-[#0A0A09] hover:opacity-90"
-            >
-              <Sparkles className="h-3 w-3" />
-              <span>{t("تخصيص في الاستوديو", "Customize in Studio")}</span>
-            </Link>
-          )}
-        </div>
+      {/* Discreet Standalone Language Switch (Zero platform branding or URL bars) */}
+      <div className="sticky top-2.5 z-40 h-0 overflow-visible flex justify-end px-3 sm:px-6 pointer-events-none">
+        <button
+          type="button"
+          data-testid="portfolio-lang-switch"
+          onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+          style={{ borderColor: `${accent}66` }}
+          className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold backdrop-blur-xl shadow-md transition-transform duration-200 hover:scale-105 cursor-pointer ${
+            themeMode === "dark"
+              ? "bg-[#0F131F]/85 text-[#F4F1EA]"
+              : "bg-white/88 text-[#141413]"
+          }`}
+        >
+          <Globe2 className="h-3 w-3" style={{ color: accent }} />
+          <span>{lang === "ar" ? "EN" : "عربي"}</span>
+        </button>
       </div>
 
       {/* =====================================================================
           TEMPLATE 1: MADAR (مَدَار) — Bento Tech & AI Grad Identity
          ===================================================================== */}
       {activeTemplate === "madar" && (
-        <div data-canvas-template-root className="bg-[#0A0A09] text-[#F4F1EA] min-h-screen py-10 px-4 sm:px-8">
+        <div data-canvas-template-root className="bg-[#0A0A09] text-[#F4F1EA] min-h-screen pt-12 pb-10 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl space-y-6">
             {/* Top Status & Command Strip */}
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#F4F1EA]/10 bg-[#121210] px-5 py-3.5">
@@ -406,6 +455,7 @@ export function PortfolioRenderer({
               <div className="flex items-center gap-3">
                 <button
                   type="button"
+                  data-testid="madar-cmdk-trigger"
                   onClick={() => setCmdOpen(true)}
                   className="inline-flex items-center gap-2 rounded-xl border border-[#F4F1EA]/12 bg-[#181815] px-3.5 py-1.5 text-xs text-[#A09C94] hover:border-[#C89D66] hover:text-[#F4F1EA] transition cursor-pointer"
                 >
@@ -2409,83 +2459,32 @@ export function PortfolioRenderer({
       )}
 
       {/* Shared High-Resolution Project Lightbox Modal */}
-      {activeProject && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-8"
-          onClick={() => setActiveProject(null)}
-        >
-          <div
-            className="relative max-w-5xl w-full rounded-3xl overflow-hidden bg-[#121210] border border-[#C89D66]/40 text-[#F4F1EA] shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#F4F1EA]/10">
-              <div>
-                <h3 className="arabic-diacritics text-lg sm:text-xl font-bold">
-                  {t(activeProject.title.ar, activeProject.title.en)}
-                </h3>
-                <p className="text-xs text-[#C89D66] font-mono">
-                  {activeProject.year} {activeProject.metrics ? `• ${activeProject.metrics}` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveProject(null)}
-                className="rounded-xl bg-[#181815] p-2 text-[#F4F1EA] hover:bg-[#C89D66] hover:text-[#0A0A09] transition cursor-pointer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {projectLightbox}
 
-            <div className="relative h-[340px] sm:h-[480px] w-full bg-[#0A0A09]">
-              <Image
-                src={
-                  activeProject.images[activeImageIdx] ||
-                  activeProject.images[0] ||
-                  data.cover
-                }
-                alt={t(activeProject.title.ar, activeProject.title.en)}
-                fill
-                className="object-cover"
-              />
-            </div>
-
-            <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <p className="text-sm text-[#A09C94] max-w-2xl">
-                {t(activeProject.desc.ar, activeProject.desc.en)}
-              </p>
-              {activeProject.images.length > 1 && (
-                <div className="flex gap-2 shrink-0">
-                  {activeProject.images.map((img, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setActiveImageIdx(idx)}
-                      className={`relative h-14 w-20 rounded-xl overflow-hidden border-2 ${
-                        idx === activeImageIdx ? "border-[#C89D66]" : "border-transparent opacity-60"
-                      }`}
-                    >
-                      <Image src={img} alt="" fill className="object-cover" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sovereign Subdomain Footer Stamp */}
-      <footer className="royal-portfolio-credit py-5 px-6 border-t border-current/10 text-center text-[10px] opacity-70">
-        <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <TaqdomLogo size={24} showWordmark={false} />
+      {/* Standalone Creator Footer (Zero platform branding or advertisements) */}
+      <footer className="py-7 px-6 border-t border-current/10 text-xs">
+        <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4 opacity-80">
+          <div className="flex flex-wrap items-center gap-2.5">
             <span className="arabic-diacritics font-bold">
-              {t("مدعوم بواسطة تقدّم", "Powered by Taqdom")}
+              © {new Date().getFullYear()} {t(data.name.ar, data.name.en)}
             </span>
+            <span className="opacity-40">•</span>
+            <span>{t(data.city.ar, data.city.en)}</span>
           </div>
-          <span dir="ltr" className="font-mono text-[#9A7B4F] dark:text-[#C89D66]">
-            https://{subdomainDisplay}
-          </span>
+          <div className="flex flex-wrap items-center gap-4">
+            {(data.links || []).slice(0, 4).map((lk, idx) => (
+              <a
+                key={idx}
+                href={safePortfolioUrl(lk.url)}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold hover:underline"
+                style={{ color: accent }}
+              >
+                {lk.label}
+              </a>
+            ))}
+          </div>
         </div>
       </footer>
     </div>

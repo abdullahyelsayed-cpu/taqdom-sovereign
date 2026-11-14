@@ -86,6 +86,88 @@ export type PortfolioTimelineItem = {
   summary: BilingualText;
 };
 
+export type CustomPortfolioPalette = {
+  background: string;
+  surface: string;
+  surfaceAlt?: string;
+  text: string;
+  muted: string;
+  accent: string;
+  accentText?: string;
+  border?: string;
+  heroGradient?: string;
+};
+
+export type CustomPortfolioTypography = {
+  headingStyle: "display" | "editorial-serif" | "technical-mono" | "geometric";
+  bodyStyle?: "sans" | "serif" | "mono";
+  scale?: "compact" | "balanced" | "bold";
+};
+
+export type CustomPortfolioLayout = {
+  heroVariant:
+    | "split-showcase"
+    | "centered-monolith"
+    | "asymmetric-editorial"
+    | "terminal-bento"
+    | "full-bleed-poster";
+  projectGrid:
+    | "bento"
+    | "masonry"
+    | "editorial-rows"
+    | "showcase-cards"
+    | "minimal-list";
+  cardRadius?: "none" | "sm" | "md" | "lg" | "full";
+  maxWidth?: "narrow" | "standard" | "wide";
+  showNav?: boolean;
+  navStyle?: "floating-glass" | "minimal-top" | "split-editorial";
+  sectionOrder?: CanvasSectionId[];
+};
+
+export type CustomPortfolioEffects = {
+  ambientGlow?: boolean;
+  glassBlur?: boolean;
+  gridPattern?: "none" | "dots" | "lines" | "radial";
+  hoverLift?: "subtle" | "magnetic" | "sharp";
+  borderStyle?: "hairline" | "glow" | "brutalist" | "none";
+};
+
+export type CustomPortfolioCta = {
+  primaryLabel?: BilingualText;
+  primaryUrl?: string;
+  secondaryLabel?: BilingualText;
+  secondaryUrl?: string;
+};
+
+export type CustomPortfolioSectionItem = {
+  title: BilingualText;
+  description?: BilingualText;
+  badge?: string;
+  value?: string;
+  url?: string;
+};
+
+export type CustomPortfolioSection = {
+  id: string;
+  kind: "richtext" | "cards" | "stats" | "faq" | "quote" | "cta";
+  title: BilingualText;
+  subtitle?: BilingualText;
+  content?: BilingualText;
+  items?: CustomPortfolioSectionItem[];
+};
+
+export type CustomPortfolioDesign = {
+  enabled: boolean;
+  designName?: string;
+  concept?: string;
+  palette: CustomPortfolioPalette;
+  typography?: CustomPortfolioTypography;
+  layout?: CustomPortfolioLayout;
+  effects?: CustomPortfolioEffects;
+  heroCta?: CustomPortfolioCta;
+  customSections?: CustomPortfolioSection[];
+};
+
 export type PortfolioData = {
   username: string;
   template: TemplateId;
@@ -108,6 +190,8 @@ export type PortfolioData = {
   theme: PortfolioTheme;
   /** Personal background and section layout controls edited in Studio Canvas. */
   canvas?: PortfolioCanvasSettings;
+  /** Bespoke full-design token & layout architecture applied via MCP or advanced designer. */
+  customDesign?: CustomPortfolioDesign;
   seo: PortfolioSEO;
   defaultLang: "ar" | "en";
   publishedAt?: number;
@@ -242,4 +326,18 @@ export function getSubdomainUrl(username: string, currentHost?: string): string 
     }
   }
   return `https://${clean}.taqdom.me`;
+}
+
+export function formatStandalonePortfolioTitle(
+  portfolio: Pick<PortfolioData, "name" | "title" | "seo" | "username"> | null | undefined,
+  fallbackUsername: string
+): string {
+  const fallback =
+    portfolio?.name?.ar || portfolio?.name?.en || fallbackUsername || "Portfolio";
+  const sub = portfolio?.title?.ar || portfolio?.title?.en || "";
+  const raw = portfolio?.seo?.title || (sub ? `${fallback} — ${sub}` : fallback);
+  const cleaned = raw
+    .replace(/\s*(?:—\s*تَقَدُّم\s*\|\s*Taqdom|\|\s*تَقَدُّم|\|\s*Taqdom|—\s*تَقَدُّم)\s*$/gi, "")
+    .trim();
+  return cleaned || fallback;
 }

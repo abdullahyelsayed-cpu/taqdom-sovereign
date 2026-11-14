@@ -124,11 +124,38 @@ async function writeDiskAndMemoryDb(snapshot: DbSnapshot): Promise<void> {
   }
 }
 
+function sanitizeCustomDesignUrls(customDesign: PortfolioData["customDesign"]): PortfolioData["customDesign"] {
+  if (!customDesign || typeof customDesign !== "object") return customDesign;
+  const next = { ...customDesign };
+  if (next.heroCta && typeof next.heroCta === "object") {
+    next.heroCta = {
+      ...next.heroCta,
+      primaryUrl: next.heroCta.primaryUrl ? safePortfolioUrl(next.heroCta.primaryUrl) : undefined,
+      secondaryUrl: next.heroCta.secondaryUrl ? safePortfolioUrl(next.heroCta.secondaryUrl) : undefined,
+    };
+  }
+  if (Array.isArray(next.customSections)) {
+    next.customSections = next.customSections.map((sec) => ({
+      ...sec,
+      items: Array.isArray(sec.items)
+        ? sec.items.map((item) => ({
+            ...item,
+            url: item.url ? safePortfolioUrl(item.url) : undefined,
+          }))
+        : sec.items,
+    }));
+  }
+  return next;
+}
+
 function sanitizePortfolioLinks(portfolio: PortfolioData): PortfolioData {
   const links = Array.isArray(portfolio.links)
     ? portfolio.links.map((link) => ({ ...link, url: safePortfolioUrl(link.url) }))
     : [];
-  return { ...portfolio, links } as PortfolioData;
+  const customDesign = portfolio.customDesign
+    ? sanitizeCustomDesignUrls(portfolio.customDesign)
+    : undefined;
+  return { ...portfolio, links, ...(customDesign ? { customDesign } : {}) } as PortfolioData;
 }
 
 function stripPrivateAccountEmail(portfolio: PortfolioData): PortfolioData {

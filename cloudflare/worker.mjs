@@ -79,7 +79,7 @@ function applySecurityHeaders(response) {
   headers.set("Cross-Origin-Resource-Policy", "same-site");
   headers.set(
     "Content-Security-Policy-Report-Only",
-    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; upgrade-insecure-requests"
+    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com"
   );
   return new Response(response.body, {
     status: response.status,
@@ -294,6 +294,32 @@ function safeJsonForHtmlScript(value) {
     .replace(/\u2028/g, "\\u2028")
     .replace(/\u2029/g, "\\u2029");
 }
+function sanitizeCustomDesignUrlsEdge(customDesign) {
+  if (!customDesign || typeof customDesign !== "object") return customDesign;
+  const next = { ...customDesign };
+  if (next.heroCta && typeof next.heroCta === "object") {
+    next.heroCta = {
+      ...next.heroCta,
+      ...(next.heroCta.primaryUrl ? { primaryUrl: safePortfolioHref(next.heroCta.primaryUrl) } : {}),
+      ...(next.heroCta.secondaryUrl ? { secondaryUrl: safePortfolioHref(next.heroCta.secondaryUrl) } : {}),
+    };
+  }
+  if (Array.isArray(next.customSections)) {
+    next.customSections = next.customSections.map((sec) => ({
+      ...sec,
+      ...(Array.isArray(sec?.items)
+        ? {
+            items: sec.items.map((item) => ({
+              ...item,
+              ...(item?.url ? { url: safePortfolioHref(item.url) } : {}),
+            })),
+          }
+        : {}),
+    }));
+  }
+  return next;
+}
+
 function toPublicPortfolio(portfolio) {
   if (!portfolio || typeof portfolio !== "object") return null;
   const { email: privateAccountEmail, ...publicPortfolio } = portfolio;
@@ -302,6 +328,9 @@ function toPublicPortfolio(portfolio) {
     publicPortfolio.links = publicPortfolio.links
       .filter((link) => link && typeof link === "object")
       .map((link) => ({ ...link, url: safePortfolioHref(link.url) }));
+  }
+  if (publicPortfolio.customDesign) {
+    publicPortfolio.customDesign = sanitizeCustomDesignUrlsEdge(publicPortfolio.customDesign);
   }
   return publicPortfolio;
 }
@@ -460,7 +489,7 @@ function makeSessionCookie(token, isSecure = true) {
 
 async function getPublishedPortfolioFromD1(env, username) {
   const clean = normalizeUsername(username);
-  if (!clean || edgeStore.unpublished.has(clean)) return null;
+  if (!clean) return null;
 
   if (env.DB) {
     try {
@@ -471,10 +500,13 @@ async function getPublishedPortfolioFromD1(env, username) {
         .first();
       if (row) {
         if (!row.published_json) return null;
+        edgeStore.unpublished.delete(clean);
         return toPublicPortfolio(JSON.parse(row.published_json));
       }
+      if (edgeStore.unpublished.has(clean)) return null;
       return SEED_PORTFOLIOS[clean] ? toPublicPortfolio(SEED_PORTFOLIOS[clean]) : null;
     } catch {
+      if (edgeStore.unpublished.has(clean)) return null;
       const cached = edgeStore.portfolios[clean];
       if (cached?.publishedAt || cached?.isFlagshipShowcase === true) {
         return toPublicPortfolio(cached);
@@ -483,6 +515,7 @@ async function getPublishedPortfolioFromD1(env, username) {
     }
   }
 
+  if (edgeStore.unpublished.has(clean)) return null;
   const cached = edgeStore.portfolios[clean];
   if (cached?.publishedAt || cached?.isFlagshipShowcase === true) {
     return toPublicPortfolio(cached);
@@ -566,6 +599,9 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
     links: Array.isArray(portfolio.links)
       ? portfolio.links.map((link) => ({ ...link, url: safePortfolioHref(link.url) }))
       : [],
+    ...(portfolio.customDesign
+      ? { customDesign: sanitizeCustomDesignUrlsEdge(portfolio.customDesign) }
+      : {}),
     username: clean,
     updatedAt: now,
     publishedAt: isPublish ? now : (edgeStore.unpublished.has(clean) ? null : (portfolio.publishedAt || null)),
@@ -1436,11 +1472,18 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       : `${headHtml}${bootstrapScript}`;
   }
 
-  const title =
+  const rawTitle =
     customData.seo?.title ||
-    `${customData.name?.ar || targetUser} | ${customData.name?.en || targetUser} — ${
-      customData.title?.ar || "تَقَدُّم"
-    } | تَقَدُّم`;
+    `${customData.name?.ar || targetUser} — ${
+      customData.title?.ar || customData.name?.en || targetUser
+    }`;
+  const title =
+    rawTitle
+      .replace(/\s*(?:—\s*تَقَدُّم\s*\|\s*Taqdom|\|\s*تَقَدُّم|\|\s*Taqdom|—\s*تَقَدُّم)\s*$/gi, "")
+      .trim() ||
+    `${customData.name?.ar || targetUser} — ${
+      customData.title?.ar || customData.name?.en || targetUser
+    }`;
   const description =
     customData.seo?.description ||
     `${customData.bio?.ar || ""} — ${customData.bio?.en || ""}`;

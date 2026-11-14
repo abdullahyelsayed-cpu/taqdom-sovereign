@@ -111,43 +111,45 @@ body {
 
 /* Legacy UI colour adapter: internal pages and the Studio now inherit the
    same readable action colours instead of the old low-contrast gold/black. */
-html:not(.dark) [class*="text-[#C89D66]"],
-html:not(.dark) [class*="text-[#D7B77B]"],
-html:not(.dark) [class*="text-[#E2C18D]"],
-html:not(.dark) [class*="text-[#9A7B4F]"],
-html:not(.dark) [class*="text-[#B68C51]"] { color: #315BFF !important; }
-html:not(.dark) [class*="border-[#C89D66]"],
-html:not(.dark) [class*="border-[#D7B77B]"],
-html:not(.dark) [class*="border-[#9A7B4F]"] { border-color: rgba(49, 91, 255, .42) !important; }
-html:not(.dark) [class*="bg-[#C89D66]"]:not([class*="/"]),
-html:not(.dark) [class*="bg-[#9A7B4F]"]:not([class*="/"]) {
+html:not(.dark) [class*="text-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+html:not(.dark) [class*="text-[#D7B77B]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+html:not(.dark) [class*="text-[#E2C18D]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+html:not(.dark) [class*="text-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+html:not(.dark) [class*="text-[#B68C51]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { color: #315BFF !important; }
+html:not(.dark) [class*="border-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+html:not(.dark) [class*="border-[#D7B77B]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+html:not(.dark) [class*="border-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { border-color: rgba(49, 91, 255, .42) !important; }
+:where(html:not(.dark) [class~="bg-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *)),
+:where(html:not(.dark) [class~="bg-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *)) {
   background-color: #315BFF !important;
   color: #FFFFFF !important;
 }
-html:not(.dark) [class*="bg-[#C89D66]/"],
-html:not(.dark) [class*="bg-[#9A7B4F]/"] { background-color: rgba(49, 91, 255, .12) !important; }
-html:not(.dark) [class*="text-[#1E3A2F]"] { color: #087D66 !important; }
-html:not(.dark) [class*="bg-[#141413]"]:not([class*="/"]),
-html:not(.dark) [class*="bg-[#0A0A09]"]:not([class*="/"]),
-html:not(.dark) [class*="bg-[#080807]"]:not([class*="/"]) {
+html:not(.dark) [class*="bg-[#C89D66]/"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+html:not(.dark) [class*="bg-[#9A7B4F]/"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { background-color: rgba(49, 91, 255, .12) !important; }
+html:not(.dark) [class*="text-[#1E3A2F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { color: #087D66 !important; }
+html:not(.dark) [class~="bg-[#141413]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+html:not(.dark) [class~="bg-[#0A0A09]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+html:not(.dark) [class~="bg-[#080807]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) {
   background-color: #171B2B !important;
   color: #FFFFFF !important;
 }
-.dark [class*="text-[#C89D66]"],
-.dark [class*="text-[#D7B77B]"],
-.dark [class*="text-[#E2C18D]"],
-.dark [class*="text-[#9A7B4F]"],
-.dark [class*="text-[#B68C51]"] { color: #D8FF52 !important; }
-.dark [class*="border-[#C89D66]"],
-.dark [class*="border-[#9A7B4F]"] { border-color: rgba(216, 255, 82, .46) !important; }
-.dark [class*="bg-[#C89D66]"]:not([class*="/"]),
-.dark [class*="bg-[#9A7B4F]"]:not([class*="/"]) {
+.dark [class*="text-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+.dark [class*="text-[#D7B77B]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+.dark [class*="text-[#E2C18D]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+.dark [class*="text-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+.dark [class*="text-[#B68C51]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { color: #D8FF52 !important; }
+.dark [class*="border-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+.dark [class*="border-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { border-color: rgba(216, 255, 82, .46) !important; }
+.dark [class~="bg-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+.dark [class~="dark:bg-[#C89D66]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+.dark [class~="bg-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+.dark [class~="dark:bg-[#9A7B4F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) {
   background-color: #D8FF52 !important;
   color: #11192D !important;
 }
-.dark [class*="bg-[#C89D66]/"],
-.dark [class*="bg-[#9A7B4F]/"] { background-color: rgba(216, 255, 82, .12) !important; }
-.dark [class*="text-[#1E3A2F]"] { color: #8DE4C9 !important; }
+.dark [class*="bg-[#C89D66]/"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *),
+.dark [class*="bg-[#9A7B4F]/"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { background-color: rgba(216, 255, 82, .12) !important; }
+.dark [class*="text-[#1E3A2F]"]:not(.portfolio-mode-light *):not(.portfolio-mode-dark *) { color: #8DE4C9 !important; }
 
 /* Shared header */
 .neo-header {
@@ -1321,25 +1323,61 @@ main:not(.home-experience) :where(button, a, input, textarea, select):focus-visi
 
 
 /* Portfolio renderer — coherent palette for all seven editable templates.
-   Deep navy image stages remain dark for text contrast; the surrounding
-   canvas, surfaces and accent controls use the brighter new identity. */
+   Ensures high-contrast harmony across both light-authored and dark-authored
+   templates in Light Mode and Dark Mode alike. */
 .portfolio-mode-light {
   background-color: #F7F8F3 !important;
   color: #171B2B !important;
 }
+.portfolio-mode-light [data-canvas-template-root] {
+  color: #171B2B !important;
+}
+.portfolio-mode-light [class~="bg-[#F7F5F0]"]:not([data-canvas-template-root]) {
+  background-color: #FFFFFF !important;
+  color: #171B2B !important;
+}
+.portfolio-mode-light [class*="bg-[#F7F5F0]/"] {
+  background-color: rgba(255,255,255,.92) !important;
+  color: #171B2B !important;
+}
+.portfolio-mode-light [class*="bg-[#EFECE6]"],
+.portfolio-mode-light [class*="bg-[#E8E4DC]"] {
+  background-color: #EEF2FA !important;
+  color: #171B2B !important;
+}
+.portfolio-mode-light [class*="text-[#141413]"] { color: #171B2B !important; }
+.portfolio-mode-light [class*="text-[#5E5B55]"] { color: #4A5568 !important; }
+.portfolio-mode-light [class*="border-[#141413]"] { border-color: rgba(23,27,43,.16) !important; }
 .portfolio-mode-light [class*="bg-[#0A0A09]"],
-.portfolio-mode-light [class*="bg-[#080807]"],
-.portfolio-mode-light [class*="bg-[#141413]"] {
+.portfolio-mode-light [class~="bg-[#080807]"],
+.portfolio-mode-light [class~="bg-[#141413]"] {
   background-color: #18223B !important;
+  color: #F7F8F3 !important;
+}
+.portfolio-mode-light [class*="bg-[#080807]/"],
+.portfolio-mode-light [class*="bg-[#0A0A09]/"] {
+  background-color: rgba(24,34,59,.92) !important;
+  color: #F7F8F3 !important;
 }
 .portfolio-mode-light [class*="bg-[#121210]"],
 .portfolio-mode-light [class*="bg-[#1C1C19]"],
 .portfolio-mode-light [class*="bg-[#181815]"] {
   background-color: #202B46 !important;
+  color: #F7F8F3 !important;
 }
 .portfolio-mode-light [class*="bg-[#1E1E1A]"],
 .portfolio-mode-light [class*="bg-[#24241F]"] {
   background-color: #273552 !important;
+  color: #F7F8F3 !important;
+}
+.portfolio-mode-light [class*="text-[#F4F1EA]"],
+.portfolio-mode-light [class*="text-[#F7F5F0]"] { color: #F7F8F3 !important; }
+.portfolio-mode-light [data-canvas-template-root] > div > h2,
+.portfolio-mode-light [data-canvas-template-root] [data-canvas-section="projects"] > div:first-child h2 {
+  color: inherit;
+}
+.portfolio-mode-light [data-testid="portfolio-template-athar"] section:first-of-type {
+  color: #F7F8F3 !important;
 }
 .portfolio-mode-light [class*="border-[#F4F1EA]"] { border-color: rgba(255,255,255,.14) !important; }
 .portfolio-mode-light [class*="text-[#C89D66]"],
@@ -1350,26 +1388,61 @@ main:not(.home-experience) :where(button, a, input, textarea, select):focus-visi
 .portfolio-mode-light [class*="border-[#C89D66]"],
 .portfolio-mode-light [class*="border-[#D7B77B]"],
 .portfolio-mode-light [class*="border-[#9A7B4F]"] { border-color: rgba(49,91,255,.5) !important; }
-.portfolio-mode-light [class*="bg-[#C89D66]"]:not([class*="/"]),
-.portfolio-mode-light [class*="bg-[#9A7B4F]"]:not([class*="/"]),
-.portfolio-mode-light [class*="bg-[#D7B77B]"]:not([class*="/"]) {
+.portfolio-mode-light [class~="bg-[#C89D66]"],
+.portfolio-mode-light [class~="bg-[#9A7B4F]"],
+.portfolio-mode-light [class~="bg-[#D7B77B]"] {
   background-color: #315BFF !important;
   color: #FFFFFF !important;
 }
 .portfolio-mode-light [class*="bg-[#C89D66]/"],
 .portfolio-mode-light [class*="bg-[#9A7B4F]/"] { background-color: rgba(49,91,255,.14) !important; }
 .portfolio-mode-light [class*="text-[#1E3A2F]"] { color: #087D66 !important; }
-.portfolio-mode-light [class*="bg-[#1E3A2F]"] { background-color: rgba(8,125,102,.16) !important; }
+.portfolio-mode-light [class~="bg-[#1E3A2F]"] {
+  background-color: #087D66 !important;
+  color: #FFFFFF !important;
+}
 .portfolio-mode-dark {
   background-color: #11192D !important;
+  color: #F7F8F3 !important;
+}
+.portfolio-mode-dark [data-canvas-template-root] {
+  color: #F7F8F3 !important;
+}
+.portfolio-mode-dark [class~="bg-[#F7F5F0]"]:not([data-canvas-template-root]) {
+  background-color: #162038 !important;
+  color: #F7F8F3 !important;
+}
+.portfolio-mode-dark [class*="bg-[#F7F5F0]/"] {
+  background-color: rgba(22,32,56,.92) !important;
+  color: #F7F8F3 !important;
+}
+.portfolio-mode-dark [class*="bg-[#EFECE6]"],
+.portfolio-mode-dark [class*="bg-[#E8E4DC]"] {
+  background-color: #1D2947 !important;
+  color: #F7F8F3 !important;
+}
+.portfolio-mode-dark [class~="bg-[#141413]"] {
+  background-color: #212F52 !important;
+  color: #F7F8F3 !important;
+}
+.portfolio-mode-dark [class*="text-[#141413]"],
+.portfolio-mode-dark [class*="text-[#F7F5F0]"],
+.portfolio-mode-dark [class*="text-[#F4F1EA]"] { color: #F7F8F3 !important; }
+.portfolio-mode-dark [class*="text-[#5E5B55]"],
+.portfolio-mode-dark [class*="text-[#A09C94]"],
+.portfolio-mode-dark [class*="text-[#9FAAB5]"] { color: #B8C4DC !important; }
+.portfolio-mode-dark [class*="border-[#141413]"] { border-color: rgba(247,248,243,.16) !important; }
+.portfolio-mode-dark [class*="text-[#1E3A2F]"] { color: #7EE7C4 !important; }
+.portfolio-mode-dark [class~="bg-[#1E3A2F]"] {
+  background-color: #135447 !important;
   color: #F7F8F3 !important;
 }
 .portfolio-mode-dark [class*="text-[#C89D66]"],
 .portfolio-mode-dark [class*="text-[#D7B77B]"],
 .portfolio-mode-dark [class*="text-[#9A7B4F]"],
 .portfolio-mode-dark [class*="text-[#B68C51]"] { color: #D8FF52 !important; }
-.portfolio-mode-dark [class*="bg-[#C89D66]"]:not([class*="/"]),
-.portfolio-mode-dark [class*="bg-[#9A7B4F]"]:not([class*="/"]) {
+.portfolio-mode-dark [class~="bg-[#C89D66]"],
+.portfolio-mode-dark [class~="bg-[#9A7B4F]"] {
   background-color: #D8FF52 !important;
   color: #11192D !important;
 }
