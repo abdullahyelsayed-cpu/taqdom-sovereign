@@ -101,6 +101,7 @@ assert.match(workerText, /Strict-Transport-Security/, "Worker responses must set
 assert.match(workerText, /Content-Security-Policy-Report-Only/, "Worker responses must ship a CSP report-only policy before enforcement.");
 assert.match(workerText, /safeJsonForHtmlScript/, "User-controlled JSON embedded in HTML scripts must be escaped.");
 assert.match(workerText, /safePortfolioHref/, "Worker-rendered portfolio links must reject scriptable URL schemes.");
+assert.doesNotMatch(workerText, /\bsafePortfolioUrl\b/, "Worker must use safePortfolioHref rather than undefined safePortfolioUrl.");
 assert.match(dbText, /stripPrivateAccountEmail/, "Next.js public portfolio readers must not expose account email.");
 assert.match(dbText, /safePortfolioUrl\(link\.url\)/, "Public portfolio API data must neutralize unsafe link schemes.");
 assert.equal((dbText.match(/sanitizePortfolioLinks\(\{\s*\.\.\.portfolio/g) || []).length, 2, "Draft and publish writes must sanitize portfolio links before persistence.");

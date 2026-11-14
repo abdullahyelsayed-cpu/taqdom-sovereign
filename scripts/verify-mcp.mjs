@@ -704,6 +704,55 @@ const aliasContentPayload = await aliasContentRes.json();
 assert.equal(aliasContentPayload.result.isError, undefined, JSON.stringify(aliasContentPayload.result));
 assert.equal(portfolio.bio.en, "Updated summary via alias");
 
+const inlineBespokeRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 208,
+      method: "tools/call",
+      params: {
+        name: "update_portfolio_content",
+        arguments: {
+          template: "custom-sovereign",
+          projects: [{ id: "inline-p1", name: "Inline Project", summary: "Built cleanly", year: "2026" }],
+          customDesign: { theme: "emerald-noir", heroStyle: "cards-mosaic", font: "Fraunces" },
+          publish: true,
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const inlineBespokePayload = await inlineBespokeRes.json();
+assert.equal(inlineBespokePayload.result.isError, undefined, JSON.stringify(inlineBespokePayload.result));
+assert.equal(portfolio.customDesign?.enabled, true);
+assert.equal(portfolio.customDesign?.layout?.heroVariant, "cards-mosaic");
+assert.equal(portfolio.projects?.[0]?.id, "inline-p1");
+assert.equal(portfolio.projects?.[0]?.desc?.en, "Built cleanly");
+assert.notEqual(portfolio.template, "custom-sovereign");
+
+const invalidTplRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 209,
+      method: "tools/call",
+      params: { name: "update_portfolio_content", arguments: { template: "unknown-gibberish" } },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const invalidTplPayload = await invalidTplRes.json();
+assert.equal(invalidTplPayload.result.isError, true);
+
 // 7c. Path-prefixed .well-known discovery, RFC 8252 search mismatch check, and /api/oauth/approve CSRF + CORS stripping
 for (const wkPath of [
   "/mcp/.well-known/oauth-protected-resource",

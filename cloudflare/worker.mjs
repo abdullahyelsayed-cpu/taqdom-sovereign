@@ -1757,18 +1757,23 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       description: customData.bio?.en || customData.bio?.ar || "",
       image: (() => {
         const av = String(customData.avatar || "").trim();
-        if (/^https?:\/\//i.test(av)) return safePortfolioUrl(av);
-        return `https://taqdom.me${av || "/images/creators/layla.jpg"}`;
+        if (/^https?:\/\//i.test(av)) {
+          const safeAv = safePortfolioHref(av);
+          return safeAv !== "#" ? safeAv : "https://taqdom.me/images/creators/layla.jpg";
+        }
+        return `https://taqdom.me${av.startsWith("/") ? av : "/images/creators/layla.jpg"}`;
       })(),
       url: canonicalUrl,
       address: {
         "@type": "PostalAddress",
         addressLocality: customData.city?.en || "Cairo, Egypt",
       },
-      sameAs: Array.isArray(customData.links) ? customData.links.map((l) => l.url) : [],
+      sameAs: Array.isArray(customData.links)
+        ? customData.links.filter((l) => l && l.url).map((l) => safePortfolioHref(l.url)).filter((u) => u !== "#")
+        : [],
     },
     hasPart: Array.isArray(customData.projects)
-      ? customData.projects.map((p) => ({
+      ? customData.projects.filter(Boolean).map((p) => ({
           "@type": "CreativeWork",
           name: p.title?.en || "",
           headline: p.title?.ar || "",

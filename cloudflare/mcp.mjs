@@ -357,8 +357,11 @@ const TOOLS = [
         avatar: { type: "string", maxLength: 2048 },
         cover: { type: "string", maxLength: 2048 },
         theme: { type: "object", additionalProperties: true },
+        projects: { type: "array", maxItems: 100, items: { type: "object", additionalProperties: true } },
+        customDesign: { type: "object", additionalProperties: true },
+        design: { type: "object", additionalProperties: true },
       },
-      additionalProperties: false,
+      additionalProperties: true,
     },
   },
   {
@@ -1621,15 +1624,26 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
           "avatar",
           "cover",
           "theme",
+          "projects",
+          "customDesign",
+          "design",
         ]);
         const supportedKeys = Object.keys(normalizedArgs).filter((key) => allowed.has(key));
         if (!supportedKeys.length) {
           throw new Error("Provide at least one supported portfolio content field.");
         }
+        let requestedCustomTemplate = false;
         if ("template" in normalizedArgs) {
-          const tpl = String(normalizedArgs.template || "").toLowerCase();
-          if (!TEMPLATE_IDS.includes(tpl)) throw new Error("Invalid template ID.");
-          portfolio.template = tpl;
+          const tpl = String(normalizedArgs.template || "").toLowerCase().trim();
+          if (["custom", "custom-sovereign", "bespoke"].includes(tpl)) {
+            requestedCustomTemplate = true;
+            if (!TEMPLATE_IDS.includes(portfolio.template)) {
+              portfolio.template = "haven";
+            }
+          } else {
+            if (!TEMPLATE_IDS.includes(tpl)) throw new Error("Invalid template ID.");
+            portfolio.template = tpl;
+          }
         }
         if ("defaultLang" in normalizedArgs) portfolio.defaultLang = normalizedArgs.defaultLang === "en" ? "en" : "ar";
         if ("discoverable" in normalizedArgs) portfolio.discoverable = Boolean(normalizedArgs.discoverable);
@@ -1660,6 +1674,19 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
             org: bilingual(item?.org || item?.organization || "", "timeline.org"),
             summary: bilingual(item?.summary || "", "timeline.summary"),
           }));
+        }
+        if ("projects" in normalizedArgs) {
+          if (!Array.isArray(normalizedArgs.projects)) {
+            throw new Error("Projects must be an array.");
+          }
+          portfolio.projects = normalizedArgs.projects.slice(0, 100).map((rawProj) => {
+            const proj = rawProj && typeof rawProj === "object" ? { ...rawProj } : {};
+            if (!("title" in proj) && proj.name) proj.title = proj.name;
+            if (!("desc" in proj)) proj.desc = proj.description ?? proj.summary ?? proj.title ?? "";
+            if (!("title" in proj)) proj.title = proj.desc || "Project";
+            const cleanId = String(proj.id || "").trim().slice(0, 64) || crypto.randomUUID();
+            return { id: cleanId, ...normalizeProjectFields(proj) };
+          });
         }
         if ("seo" in normalizedArgs && normalizedArgs.seo && typeof normalizedArgs.seo === "object") {
           portfolio.seo = {
@@ -1693,6 +1720,31 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
               : portfolio.theme?.mode || "auto",
             accent: accentColor,
           };
+        }
+        const rawDesign =
+          normalizedArgs.customDesign && typeof normalizedArgs.customDesign === "object"
+            ? normalizedArgs.customDesign
+            : normalizedArgs.design && typeof normalizedArgs.design === "object"
+              ? normalizedArgs.design
+              : requestedCustomTemplate
+                ? { enabled: true }
+                : null;
+        if (rawDesign) {
+          const cleanDesign = validateAndSanitizeCustomDesign(rawDesign, portfolio.customDesign || null);
+          if (cleanDesign.enabled === false) {
+            portfolio.customDesign = { ...(portfolio.customDesign || {}), enabled: false };
+          } else {
+            portfolio.customDesign = cleanDesign;
+            if (cleanDesign.palette?.accent) {
+              portfolio.theme = {
+                ...(portfolio.theme || {
+                  mode: "dark",
+                  scene3d: { enabled: true, intensity: 0.7, speed: 0.8, lightAngle: 45 },
+                }),
+                accent: cleanDesign.palette.accent,
+              };
+            }
+          }
         }
         const saved = normalizedArgs.publish === true
           ? await publishOwnedDraft(env, username, tokenRow.user_id, portfolio)
