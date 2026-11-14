@@ -1411,16 +1411,24 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
   if (!customData) {
     const availTitle = `${targetUser}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`;
     const availDesc = `احجز النطاق السيادي ${targetUser}.taqdom.me وأنشئ معرض أعمالك الفاخر على منصة تَقَدُّم.`;
+    const hasRobotsMeta = /<meta name="robots" content="[^"]*"\s*\/?>/i.test(headHtml);
     headHtml = headHtml
       .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(availTitle)}</title>`)
       .replace(
         /<meta name="description" content="[^"]*"\s*\/?>/i,
         `<meta name="description" content="${escapeHtml(availDesc)}"/>`
+      )
+      .replace(
+        /<meta name="robots" content="[^"]*"\s*\/?>/gi,
+        `<meta name="robots" content="noindex, nofollow"/>`
       );
-    headHtml = replaceProfileJsonLd(headHtml, "");
-    bodyHtml = replaceProfileJsonLd(bodyHtml, "");
+    const emptyJsonLdScript = '<script type="application/ld+json">{}</script>';
+    headHtml = replaceProfileJsonLd(headHtml, emptyJsonLdScript);
+    bodyHtml = replaceProfileJsonLd(bodyHtml, emptyJsonLdScript);
 
-    const bootstrapScript = `<meta name="robots" content="noindex, nofollow"/><script>window.__TAQDOM_SUBDOMAIN__=${JSON.stringify(
+    const bootstrapScript = `${
+      hasRobotsMeta ? "" : '<meta name="robots" content="noindex, nofollow"/>'
+    }<script>window.__TAQDOM_SUBDOMAIN__=${JSON.stringify(
       targetUser
     )};window.__TAQDOM_PORTFOLIO__=null;</script>`;
     return headCloseIdx !== -1

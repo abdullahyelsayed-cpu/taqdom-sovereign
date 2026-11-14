@@ -113,6 +113,9 @@ export function PublishedPortfolioClient({
       document.title = nextTitle;
     } else if (!isLoading && activeUsername) {
       document.title = `${activeUsername}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`;
+      document.querySelectorAll('meta[name="robots"]').forEach((el) => {
+        el.setAttribute("content", "noindex, nofollow");
+      });
     }
   }, [portfolio, activeUsername, isLoading]);
 
