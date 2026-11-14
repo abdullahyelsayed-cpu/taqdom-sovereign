@@ -77,6 +77,13 @@ export function proxy(req: NextRequest) {
   if (root && sub && !RESERVED.has(sub)) {
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set("x-taqdom-sub", sub);
+    if (pathname === `/portfolio/${sub}` || pathname.startsWith(`/portfolio/${sub}/`)) {
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      });
+    }
     const rewriteUrl = req.nextUrl.clone();
     rewriteUrl.pathname = `/portfolio/${sub}${pathname === "/" ? "" : pathname}`;
     return NextResponse.rewrite(rewriteUrl, {

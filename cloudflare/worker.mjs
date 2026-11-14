@@ -1390,47 +1390,42 @@ async function handleApiRequest(request, url, env) {
   return jsonResponse({ error: "Not found" }, 404);
 }
 
-function escapeNextFInnerString(str) {
-  const jsonInner = JSON.stringify(String(str || "")).slice(1, -1);
-  return JSON.stringify(jsonInner)
-    .slice(1, -1)
-    .replace(/</g, "\\u003c")
-    .replace(/>/g, "\\u003e")
-    .replace(/&/g, "\\u0026")
-    .replace(/\u2028/g, "\\u2028")
-    .replace(/\u2029/g, "\\u2029");
-}
-
 function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
   const canonicalUrl = `https://${targetUser}.taqdom.me`;
-  let html = baseHtml
+  const headCloseTag = "</head>";
+  const headCloseIdx = baseHtml.indexOf(headCloseTag);
+  let headHtml = headCloseIdx !== -1 ? baseHtml.slice(0, headCloseIdx) : baseHtml;
+  let bodyHtml = headCloseIdx !== -1 ? baseHtml.slice(headCloseIdx) : "";
+
+  headHtml = headHtml
     .replace(/https:\/\/layla\.taqdom\.me/g, canonicalUrl)
     .replace(/layla\.taqdom\.me/g, `${targetUser}.taqdom.me`)
     .replace(/https:\/\/test\.taqdom\.me/g, canonicalUrl)
     .replace(/test\.taqdom\.me/g, `${targetUser}.taqdom.me`);
 
-  const nextFTitleRegex = /(\[\\"\$\\",\\"title\\",\\"0\\",\{\\"children\\":\\")(.*?)(\\"\}\])/g;
+  const replaceProfileJsonLd = (fragment, replacement) =>
+    fragment.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/gi, (match) =>
+      match.includes('"@type":"ProfilePage"') ? replacement : match
+    );
 
   if (!customData) {
     const availTitle = `${targetUser}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`;
     const availDesc = `احجز النطاق السيادي ${targetUser}.taqdom.me وأنشئ معرض أعمالك الفاخر على منصة تَقَدُّم.`;
-    const nextFAvailTitle = escapeNextFInnerString(availTitle);
-    html = html
+    headHtml = headHtml
       .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(availTitle)}</title>`)
-      .replace(nextFTitleRegex, (_, prefix, _oldTitle, suffix) => `${prefix}${nextFAvailTitle}${suffix}`)
       .replace(
         /<meta name="description" content="[^"]*"\s*\/?>/i,
         `<meta name="description" content="${escapeHtml(availDesc)}"/>`
-      )
-      .replace(
-        /<script type="application\/ld\+json">[\s\S]*?<\/script>/gi,
-        (match) => (match.includes('"@type":"ProfilePage"') ? "" : match)
       );
+    headHtml = replaceProfileJsonLd(headHtml, "");
+    bodyHtml = replaceProfileJsonLd(bodyHtml, "");
 
     const bootstrapScript = `<meta name="robots" content="noindex, nofollow"/><script>window.__TAQDOM_SUBDOMAIN__=${JSON.stringify(
       targetUser
     )};window.__TAQDOM_PORTFOLIO__=null;</script>`;
-    return html.replace("</head>", `${bootstrapScript}</head>`);
+    return headCloseIdx !== -1
+      ? `${headHtml}${bootstrapScript}${bodyHtml}`
+      : `${headHtml}${bootstrapScript}`;
   }
 
   const title =
@@ -1441,7 +1436,6 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
   const description =
     customData.seo?.description ||
     `${customData.bio?.ar || ""} — ${customData.bio?.en || ""}`;
-  const nextFTitle = escapeNextFInnerString(title);
 
   const personJsonLd = {
     "@context": "https://schema.org",
@@ -1472,9 +1466,8 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       : [],
   };
 
-  html = html
+  headHtml = headHtml
     .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`)
-    .replace(nextFTitleRegex, (_, prefix, _oldTitle, suffix) => `${prefix}${nextFTitle}${suffix}`)
     .replace(
       /<meta name="description" content="[^"]*"\s*\/?>/i,
       `<meta name="description" content="${escapeHtml(description)}"/>`
@@ -1488,12 +1481,13 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       `<meta property="og:description" content="${escapeHtml(description)}"/>`
     )
     .replace(
-      /<script type="application\/ld\+json">[\s\S]*?<\/script>/gi,
-      (match) =>
-        match.includes('"@type":"ProfilePage"')
-          ? `<script type="application/ld+json">${safeJsonForHtmlScript(personJsonLd)}</script>`
-          : match
+      /<meta property="og:url" content="[^"]*"\s*\/?>/i,
+      `<meta property="og:url" content="${escapeHtml(canonicalUrl)}"/>`
     );
+
+  const jsonLdScript = `<script type="application/ld+json">${safeJsonForHtmlScript(personJsonLd)}</script>`;
+  headHtml = replaceProfileJsonLd(headHtml, jsonLdScript);
+  bodyHtml = replaceProfileJsonLd(bodyHtml, jsonLdScript);
 
   const safeJson = safeJsonForHtmlScript(customData);
   const bootstrapScript = `<meta name="x-taqdom-bio" content="${escapeHtml(
@@ -1502,7 +1496,9 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
     targetUser
   )};window.__TAQDOM_PORTFOLIO__=${safeJson};</script>`;
 
-  return html.replace("</head>", `${bootstrapScript}</head>`);
+  return headCloseIdx !== -1
+    ? `${headHtml}${bootstrapScript}${bodyHtml}`
+    : `${headHtml}${bootstrapScript}`;
 }
 
 export default {
