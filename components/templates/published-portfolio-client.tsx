@@ -38,27 +38,9 @@ export function PublishedPortfolioClient({
 }) {
   const ssrUsername = username.trim().toLowerCase();
 
-  const [activeUsername, setActiveUsername] = useState<string>(() =>
-    detectBrowserSubdomain(ssrUsername)
-  );
-
-  const [portfolio, setPortfolio] = useState<PortfolioData | null>(() => {
-    if (typeof window !== "undefined" && window.__TAQDOM_PORTFOLIO__ !== undefined) {
-      return window.__TAQDOM_PORTFOLIO__;
-    }
-    const detected = detectBrowserSubdomain(ssrUsername);
-    if (detected !== ssrUsername) {
-      return null;
-    }
-    return initialPortfolio;
-  });
-
-  const [isLoading, setIsLoading] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    if (window.__TAQDOM_PORTFOLIO__ !== undefined) return false;
-    const detected = detectBrowserSubdomain(ssrUsername);
-    return detected !== ssrUsername;
-  });
+  const [activeUsername, setActiveUsername] = useState<string>(ssrUsername);
+  const [portfolio, setPortfolio] = useState<PortfolioData | null>(initialPortfolio);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const storePortfolios = useTaqdomStore((s) => s.publishedPortfolios);
 
@@ -66,10 +48,18 @@ export function PublishedPortfolioClient({
     const detected = detectBrowserSubdomain(ssrUsername);
     setActiveUsername(detected);
 
-    // 1. If Edge Worker already injected fresh D1 data, use it immediately
+    // 1. If Edge Worker already injected fresh D1 data, use it immediately after hydration
     if (typeof window !== "undefined" && window.__TAQDOM_PORTFOLIO__ !== undefined) {
       setPortfolio(window.__TAQDOM_PORTFOLIO__);
       setIsLoading(false);
+    } else if (detected !== ssrUsername) {
+      if (storePortfolios[detected]) {
+        setPortfolio(storePortfolios[detected]);
+        setIsLoading(false);
+      } else {
+        setPortfolio(null);
+        setIsLoading(true);
+      }
     } else if (storePortfolios[detected]) {
       const localItem = storePortfolios[detected];
       setPortfolio((prev) => {
@@ -111,6 +101,20 @@ export function PublishedPortfolioClient({
       cancelled = true;
     };
   }, [ssrUsername, storePortfolios]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (portfolio) {
+      const nextTitle =
+        portfolio.seo?.title ||
+        `${portfolio.name?.ar || activeUsername} | ${portfolio.name?.en || activeUsername} — ${
+          portfolio.title?.ar || "تَقَدُّم"
+        } | تَقَدُّم`;
+      document.title = nextTitle;
+    } else if (!isLoading && activeUsername) {
+      document.title = `${activeUsername}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`;
+    }
+  }, [portfolio, activeUsername, isLoading]);
 
   if (isLoading) {
     return (

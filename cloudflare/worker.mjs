@@ -1390,6 +1390,17 @@ async function handleApiRequest(request, url, env) {
   return jsonResponse({ error: "Not found" }, 404);
 }
 
+function escapeNextFInnerString(str) {
+  const jsonInner = JSON.stringify(String(str || "")).slice(1, -1);
+  return JSON.stringify(jsonInner)
+    .slice(1, -1)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
   const canonicalUrl = `https://${targetUser}.taqdom.me`;
   let html = baseHtml
@@ -1398,11 +1409,15 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
     .replace(/https:\/\/test\.taqdom\.me/g, canonicalUrl)
     .replace(/test\.taqdom\.me/g, `${targetUser}.taqdom.me`);
 
+  const nextFTitleRegex = /(\[\\"\$\\",\\"title\\",\\"0\\",\{\\"children\\":\\")(.*?)(\\"\}\])/g;
+
   if (!customData) {
     const availTitle = `${targetUser}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`;
     const availDesc = `احجز النطاق السيادي ${targetUser}.taqdom.me وأنشئ معرض أعمالك الفاخر على منصة تَقَدُّم.`;
+    const nextFAvailTitle = escapeNextFInnerString(availTitle);
     html = html
       .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(availTitle)}</title>`)
+      .replace(nextFTitleRegex, (_, prefix, _oldTitle, suffix) => `${prefix}${nextFAvailTitle}${suffix}`)
       .replace(
         /<meta name="description" content="[^"]*"\s*\/?>/i,
         `<meta name="description" content="${escapeHtml(availDesc)}"/>`
@@ -1426,6 +1441,7 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
   const description =
     customData.seo?.description ||
     `${customData.bio?.ar || ""} — ${customData.bio?.en || ""}`;
+  const nextFTitle = escapeNextFInnerString(title);
 
   const personJsonLd = {
     "@context": "https://schema.org",
@@ -1458,6 +1474,7 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
 
   html = html
     .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`)
+    .replace(nextFTitleRegex, (_, prefix, _oldTitle, suffix) => `${prefix}${nextFTitle}${suffix}`)
     .replace(
       /<meta name="description" content="[^"]*"\s*\/?>/i,
       `<meta name="description" content="${escapeHtml(description)}"/>`
@@ -1580,11 +1597,36 @@ export default {
 
     // 6. Subdomain request: username.taqdom.me -> serve dynamically enriched portfolio
     if (root && sub && !RESERVED_USERNAMES.has(sub)) {
+      if (pathname !== "/") {
+        return applySecurityHeaders(
+          Response.redirect(`https://${root}${pathname}${url.search}`, 308)
+        );
+      }
+
       const targetUser = normalizeUsername(sub);
       const knownStatic = new Set(["layla", "youssef", "farida", "karim", "tariq", "salma", "nora"]);
       const targetPath = knownStatic.has(targetUser)
         ? `/portfolio/${targetUser}`
         : `/portfolio/layla`;
+
+      const isRscRequest = request.headers.get("RSC") === "1" || url.searchParams.has("_rsc");
+      if (isRscRequest) {
+        const rscUrl = new URL(request.url);
+        rscUrl.pathname = `${targetPath}.rsc`;
+        rscUrl.search = "";
+        const rscRes = await env.ASSETS.fetch(new Request(rscUrl.toString()));
+        if (rscRes.ok) {
+          return applySecurityHeaders(
+            new Response(rscRes.body, {
+              status: 200,
+              headers: {
+                "Content-Type": "text/x-component; charset=utf-8",
+                "X-Taqdom-Subdomain": targetUser,
+              },
+            })
+          );
+        }
+      }
 
       const assetUrl = new URL(request.url);
       assetUrl.pathname = targetPath;

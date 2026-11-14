@@ -364,7 +364,12 @@ export function PortfolioRenderer({
           </button>
           {!isStudioPreview && (
             <Link
-              href={`/studio?u=${data.username}&template=${activeTemplate}`}
+              href={
+                isLiveSubdomain
+                  ? `https://taqdom.me/studio?u=${data.username}&template=${activeTemplate}`
+                  : `/studio?u=${data.username}&template=${activeTemplate}`
+              }
+              prefetch={false}
               style={{ backgroundColor: accent }}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold text-[#0A0A09] hover:opacity-90"
             >
