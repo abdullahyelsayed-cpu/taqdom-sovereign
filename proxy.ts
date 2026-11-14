@@ -7,6 +7,10 @@ const RESERVED = new Set([
   "admin",
   "studio",
   "auth",
+  "oauth",
+  "mcp",
+  "firebase",
+  "well-known",
   "mail",
   "cdn",
   "static",
@@ -55,10 +59,23 @@ export function proxy(req: NextRequest) {
   const url = req.nextUrl;
   const { pathname } = url;
 
-  // Skip internal Next.js, API, and static media paths
+  if (
+    pathname.startsWith("/.well-known/oauth-protected-resource") ||
+    pathname.startsWith("/.well-known/oauth-authorization-server") ||
+    pathname === "/.well-known/openid-configuration"
+  ) {
+    const rw = req.nextUrl.clone();
+    rw.pathname = "/api/well-known" + pathname.slice("/.well-known".length);
+    return NextResponse.rewrite(rw);
+  }
+
+  // Skip internal Next.js, API, OAuth, MCP, well-known, and static media paths
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
+    pathname.startsWith("/oauth") ||
+    pathname.startsWith("/mcp") ||
+    pathname.startsWith("/.well-known") ||
     pathname.startsWith("/images") ||
     /\.[a-zA-Z0-9]{2,5}$/.test(pathname)
   ) {

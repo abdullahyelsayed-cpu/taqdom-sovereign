@@ -7,6 +7,8 @@ export interface StoredUser {
   username: string;
   passwordHash: string;
   salt: string;
+  firebaseUid?: string;
+  authProvider?: string;
   createdAt: number;
 }
 
@@ -452,4 +454,90 @@ export async function deleteUserInDb(username: string): Promise<boolean> {
   delete db.views[clean];
   await writeDiskAndMemoryDb(db);
   return true;
+}
+
+export async function findUserByFirebaseOrEmail(
+  uid: string,
+  email: string
+): Promise<StoredUser | null> {
+  const cleanEmail = email.trim().toLowerCase();
+  const db = await readDiskOrMemoryDb();
+  for (const u of Object.values(db.users)) {
+    if (u.firebaseUid && u.firebaseUid === uid) return u;
+  }
+  for (const u of Object.values(db.users)) {
+    if (u.email.toLowerCase() === cleanEmail) return u;
+  }
+  return null;
+}
+
+export async function upsertFirebaseUserInDb(params: {
+  uid: string;
+  email: string;
+  username: string;
+  displayName?: string;
+  picture?: string;
+  provider?: string;
+  template?: PortfolioData["template"];
+}): Promise<{ user: StoredUser; portfolio: PortfolioData; isNewUser: boolean }> {
+  const cleanEmail = params.email.trim().toLowerCase();
+  const db = await readDiskOrMemoryDb();
+
+  let existing: StoredUser | null = null;
+  for (const u of Object.values(db.users)) {
+    if (u.firebaseUid === params.uid || u.email.toLowerCase() === cleanEmail) {
+      existing = u;
+      break;
+    }
+  }
+
+  if (existing) {
+    if (!existing.firebaseUid) {
+      existing.firebaseUid = params.uid;
+      existing.authProvider = params.provider || "google.com";
+      db.users[existing.username] = existing;
+      await writeDiskAndMemoryDb(db);
+    }
+    const existingPortfolio =
+      db.portfolios[existing.username]?.draft ||
+      db.portfolios[existing.username]?.published ||
+      createStarterPortfolio(existing.username, params.template || "madar", params.displayName || existing.username);
+    return { user: existing, portfolio: sanitizePortfolioLinks(existingPortfolio), isNewUser: false };
+  }
+
+  const clean = normalizeUsername(params.username);
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(params.uid))
+  );
+  const uidHex = Array.from(digest, (b) => b.toString(16).padStart(2, "0")).join("");
+
+  const user: StoredUser = {
+    id: `user-${clean}-${Date.now()}`,
+    email: cleanEmail,
+    username: clean,
+    passwordHash: `firebase:${uidHex}`,
+    salt: "firebase-oauth",
+    firebaseUid: params.uid,
+    authProvider: params.provider || "google.com",
+    createdAt: Date.now(),
+  };
+
+  const starter = createStarterPortfolio(
+    clean,
+    params.template || "madar",
+    params.displayName || clean
+  );
+  starter.email = cleanEmail;
+  if (params.picture && /^https:\/\//i.test(params.picture)) {
+    starter.avatar = params.picture;
+  }
+
+  db.users[clean] = user;
+  db.portfolios[clean] = {
+    draft: structuredClone(starter),
+    published: structuredClone(starter),
+  };
+  db.views[clean] = 1;
+  await writeDiskAndMemoryDb(db);
+  return { user, portfolio: starter, isNewUser: true };
 }

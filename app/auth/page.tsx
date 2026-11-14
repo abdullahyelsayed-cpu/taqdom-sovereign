@@ -30,6 +30,10 @@ import {
   TemplateId,
 } from "@/lib/types";
 import { TEMPLATES_CATALOG } from "@/lib/seed-data";
+import {
+  consumeGoogleRedirectResult,
+  signInWithGoogleFirebase,
+} from "@/lib/firebase-client";
 
 export default function AuthPage() {
   const { lang, t } = useLanguage();
@@ -47,6 +51,7 @@ export default function AuthPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [template, setTemplate] = useState<TemplateId>("haven");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [flagshipLoggedIn, setFlagshipLoggedIn] = useState(false);
   const [host, setHost] = useState("taqdom.me");
   const [usernameCheck, setUsernameCheck] = useState<{
@@ -55,11 +60,88 @@ export default function AuthPage() {
     reasonEn?: string;
   }>({ status: "idle" });
 
+  const exchangeFirebaseToken = async (
+    idToken: string,
+    preferredUsername?: string,
+    preferredName?: string,
+    preferredTemplate?: TemplateId
+  ) => {
+    const res = await fetch("/api/auth/firebase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        idToken,
+        ...(preferredUsername ? { username: preferredUsername } : {}),
+        ...(preferredName ? { displayName: preferredName } : {}),
+        ...(preferredTemplate ? { template: preferredTemplate } : {}),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || t("تعذر تسجيل الدخول بحساب Google", "Google sign-in failed"));
+    }
+    setUser(data.user);
+    if (data.portfolio) {
+      setDraft(data.portfolio, false);
+    }
+    toast.success(
+      data.isNewUser
+        ? t(
+            `مرحباً بك في تَقَدُّم! تم تجهيز نطاقك ${data.user.username}.taqdom.me`,
+            `Welcome to Taqdom! Your space ${data.user.username}.taqdom.me is ready`
+          )
+        : t("تم تسجيل الدخول بحساب Google بنجاح!", "Signed in with Google successfully!")
+    );
+    router.push("/dashboard");
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       setHost(window.location.host);
     }
+    let active = true;
+    consumeGoogleRedirectResult()
+      .then(async (outcome) => {
+        if (!active || !outcome || outcome.status !== "ok") return;
+        setGoogleLoading(true);
+        try {
+          await exchangeFirebaseToken(outcome.idToken);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : t("تعذر إتمام تسجيل الدخول", "Could not finish Google sign-in"));
+        } finally {
+          if (active) setGoogleLoading(false);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const outcome = await signInWithGoogleFirebase();
+      if (outcome.status === "cancelled" || outcome.status === "redirected") {
+        return;
+      }
+      const cleanOptional = mode === "register" ? normalizeUsername(username) : "";
+      await exchangeFirebaseToken(
+        outcome.idToken,
+        cleanOptional.length >= 3 ? cleanOptional : undefined,
+        mode === "register" ? displayName.trim() || outcome.displayName : outcome.displayName,
+        mode === "register" ? template : undefined
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("تعذر الاتصال بمصادقة Google", "Could not complete Google authentication")
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (mode !== "register") {
@@ -326,6 +408,48 @@ export default function AuthPage() {
                   <LogIn className="h-4 w-4" />
                   <span>{t("تسجيل الدخول", "Sign In")}</span>
                 </button>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  data-testid="google-signin-btn"
+                  onClick={() => void handleGoogleSignIn()}
+                  disabled={loading || googleLoading}
+                  className="w-full min-h-[48px] flex items-center justify-center gap-3 rounded-2xl border border-border bg-background hover:border-[#9A7B4F] dark:hover:border-[#C89D66] px-5 py-3 text-sm font-extrabold text-foreground shadow-sm transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9A7B4F] cursor-pointer"
+                >
+                  <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      fill="#4285F4"
+                      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.11-6.72-4.96H1.29v3.14C3.26 21.3 7.31 24 12 24Z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.28 14.24c-.24-.72-.38-1.49-.38-2.24s.14-1.52.38-2.24V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.99-3.14Z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.99 3.14c.95-2.85 3.6-4.96 6.72-4.96Z"
+                    />
+                  </svg>
+                  <span>
+                    {googleLoading
+                      ? t("جارٍ الربط بحساب Google...", "Connecting Google...")
+                      : t("المتابعة بحساب Google", "Continue with Google")}
+                  </span>
+                </button>
+
+                <div className="relative flex items-center py-1">
+                  <div className="grow border-t border-border" />
+                  <span className="mx-3 shrink-0 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                    {t("أو عبر البريد الإلكتروني", "or with email")}
+                  </span>
+                  <div className="grow border-t border-border" />
+                </div>
               </div>
 
               {mode === "register" ? (

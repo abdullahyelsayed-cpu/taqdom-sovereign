@@ -11,6 +11,8 @@
     "build:cloudflare": "node scripts/build-cloudflare.mjs"
   },
   "dependencies": {
+    "@firebase/app": "^0.16.6",
+    "@firebase/auth": "^1.13.10",
     "@gsap/react": "^2.1.2",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",

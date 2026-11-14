@@ -9,7 +9,10 @@
     "run_worker_first": [
       "/",
       "/api/*",
+      "/mcp",
       "/mcp/*",
+      "/oauth/*",
+      "/.well-known/*",
       "/portfolio/*",
       "/@*",
       "/robots.txt",

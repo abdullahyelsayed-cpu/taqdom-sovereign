@@ -97,7 +97,9 @@ async function runTests() {
     "/templates/meshwar",
     "/studio",
     "/auth",
+    "/oauth/authorize",
     "/dashboard",
+    "/dashboard/mcp",
     "/dashboard/settings",
     "/explore",
     "/legal/privacy",
@@ -109,7 +111,7 @@ async function runTests() {
   for (const r of routes) {
     const res = await fetch(`${BASE}${r}`, { redirect: "manual" });
     assert.equal(res.status, 200, `Expected 200 on ${r}, got ${res.status}`);
-    if (["/", "/auth", "/dashboard", "/studio", "/templates"].includes(r)) {
+    if (["/", "/auth", "/oauth/authorize", "/dashboard", "/dashboard/mcp", "/studio", "/templates"].includes(r)) {
       const html = await res.text();
       assert.equal(
         html.includes("test.taqdom.me"),
@@ -120,6 +122,11 @@ async function runTests() {
         html.includes("حساب الاختبار"),
         false,
         `Page ${r} must NOT contain 'حساب الاختبار'`
+      );
+      assert.equal(
+        /batch\s*12|الدفعة الثانية عشرة/i.test(html),
+        false,
+        `Page ${r} must NOT contain removed Batch 12 copy`
       );
     }
   }
@@ -339,6 +346,53 @@ async function runTests() {
   const blockedDelete = await fetch(BASE + "/api/auth/settings?u=layla", { method: "DELETE", headers: sessionHeaders() });
   assert.equal(blockedDelete.status, 403, "Demo showcase must reject deletion");
   console.log("[PASS] 7. Demo account is read-only and cannot publish or delete showcase data");
+
+  // 8. Verify live OAuth 2.1 Discovery, DCR, /mcp Auth Challenge & Firebase Endpoint Guards on Next.js Server
+  const prmRes = await fetch(`${BASE}/.well-known/oauth-protected-resource/mcp`);
+  assert.equal(prmRes.status, 200, "OAuth Protected Resource Metadata must return 200");
+  const prmBody = await prmRes.json();
+  assert.ok(prmBody.resource?.endsWith("/mcp"));
+
+  const asMetaRes = await fetch(`${BASE}/.well-known/oauth-authorization-server`);
+  assert.equal(asMetaRes.status, 200, "OAuth Authorization Server Metadata must return 200");
+  const asMetaBody = await asMetaRes.json();
+  assert.ok(asMetaBody.code_challenge_methods_supported?.includes("S256"));
+
+  const unauthMcpRes = await fetch(`${BASE}/mcp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize" }),
+  });
+  assert.equal(unauthMcpRes.status, 401, "Unauthenticated /mcp must challenge with 401");
+  assert.match(unauthMcpRes.headers.get("www-authenticate") || "", /resource_metadata=/);
+
+  const dcrRes = await fetch(`${BASE}/oauth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_name: "Local Integration Client",
+      redirect_uris: ["http://localhost:8765/callback"],
+    }),
+  });
+  assert.equal(dcrRes.status, 201, "Dynamic Client Registration must register loopback client");
+  const dcrData = await dcrRes.json();
+  assert.match(dcrData.client_id, /^tqd_client_/);
+
+  const missingFirebaseToken = await fetch(`${BASE}/api/auth/firebase`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  assert.equal(missingFirebaseToken.status, 400, "Missing Firebase token must return 400");
+
+  const invalidFirebaseToken = await fetch(`${BASE}/api/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken: "tampered.invalid.token" }),
+  });
+  assert.equal(invalidFirebaseToken.status, 401, "Tampered Firebase ID token must return 401");
+
+  console.log("[PASS] 8. Live OAuth 2.1 discovery, DCR, MCP challenge, and Firebase auth validation verified");
   console.log("=== ALL TAQDOM v2 VERIFICATION CHECKS PASSED 100% ===");
 }
 

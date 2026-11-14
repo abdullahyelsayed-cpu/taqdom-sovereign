@@ -1,7 +1,9 @@
 // cloudflare/worker.mjs — Sovereign Edge Worker for taqdom.me & *.taqdom.me backed by Cloudflare D1
 import { SEED_PORTFOLIOS, createStarterPortfolio, TEMPLATES_CATALOG } from "../lib/seed-data.ts";
-import { RESERVED_USERNAMES, normalizeUsername, validateUsername } from "../lib/types.ts";
+import { ALL_TEMPLATE_IDS, RESERVED_USERNAMES, normalizeUsername, validateUsername } from "../lib/types.ts";
 import { handleMcpRequest, handleMcpTokenApi } from "./mcp.mjs";
+import { handleOAuthRequest, isOAuthRoute } from "./oauth.mjs";
+import { DEFAULT_FIREBASE_PROJECT_ID, suggestAvailableUsername, verifyFirebaseIdToken } from "./firebase-auth.mjs";
 
 const APP_ROUTES = new Set([
   ...RESERVED_USERNAMES,
@@ -67,7 +69,7 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
   });
 }
 
-function applySecurityHeaders(response) {
+function applySecurityHeaders(response, allowCrossOrigin = false) {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -75,17 +77,33 @@ function applySecurityHeaders(response) {
   headers.set("X-Frame-Options", "DENY");
   headers.set("X-Permitted-Cross-Domain-Policies", "none");
   headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  headers.set("Cross-Origin-Opener-Policy", "same-origin");
-  headers.set("Cross-Origin-Resource-Policy", "same-site");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  headers.set("Cross-Origin-Resource-Policy", allowCrossOrigin ? "cross-origin" : "same-site");
   headers.set(
     "Content-Security-Policy-Report-Only",
-    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com"
+    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; script-src 'self' 'unsafe-inline' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://www.youtube.com https://www.youtube-nocookie.com"
   );
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
     headers,
   });
+}
+
+let usersFirebaseColumnsReady = false;
+async function ensureUsersFirebaseColumns(env) {
+  if (usersFirebaseColumnsReady || !env?.DB) return;
+  for (const col of [
+    "ALTER TABLE users ADD COLUMN firebase_uid TEXT",
+    "ALTER TABLE users ADD COLUMN auth_provider TEXT",
+  ]) {
+    try {
+      await env.DB.prepare(col).run();
+    } catch {
+      // Column already exists
+    }
+  }
+  usersFirebaseColumnsReady = true;
 }
 
 let rateLimitSchemaPromise = null;
@@ -737,6 +755,8 @@ async function handleApiRequest(request, url, env) {
     "GET:/api/username/check": ["username-check", 80, 60_000],
     "POST:/api/auth/register": ["register-ip", 25, 60 * 60 * 1000],
     "POST:/api/auth/login": ["login-ip", 12, 15 * 60 * 1000],
+    "POST:/api/auth/firebase": ["firebase-auth", 25, 60 * 60 * 1000],
+    "POST:/api/auth/google": ["firebase-auth", 25, 60 * 60 * 1000],
     "POST:/api/auth/test-login": ["demo-login", 12, 15 * 60 * 1000],
     "POST:/api/auth/settings": ["account-settings", 12, 60 * 60 * 1000],
     "DELETE:/api/auth/settings": ["account-delete", 25, 60 * 60 * 1000],
@@ -983,6 +1003,12 @@ async function handleApiRequest(request, url, env) {
         401
       );
     }
+    if (String(dbUser.password_hash || "").startsWith("firebase:")) {
+      return jsonResponse(
+        { error: "هذا الحساب مرتبط بحساب Google. اضغط على زر المتابعة بحساب Google أو أضف كلمة مرور من الإعدادات." },
+        401
+      );
+    }
 
     let passwordMatches = false;
     try {
@@ -1036,6 +1062,176 @@ async function handleApiRequest(request, url, env) {
       {
         "Set-Cookie": makeSessionCookie(token, isSecure),
       }
+    );
+  }
+
+  if (
+    (pathname === "/api/auth/firebase" || pathname === "/api/auth/google") &&
+    request.method === "POST"
+  ) {
+    const parsed = await parseJsonBody(request, 32768);
+    if (!parsed.ok) return rateLimitBodyError(parsed);
+    const body = parsed.value;
+    const idToken = String(body.idToken || "").trim();
+    if (!idToken) {
+      return jsonResponse(
+        { error: "رمز مصادقة Firebase مطلوب / Firebase ID token required" },
+        400
+      );
+    }
+    if (!env.DB) {
+      return jsonResponse({ error: "Account storage is temporarily unavailable." }, 503);
+    }
+
+    await ensureUsersFirebaseColumns(env);
+    const projectId = env?.FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_PROJECT_ID;
+    let verified;
+    try {
+      verified = await verifyFirebaseIdToken(idToken, projectId);
+    } catch (err) {
+      return jsonResponse(
+        {
+          error:
+            err instanceof Error
+              ? err.message
+              : "تعذر التحقق من حساب Google / Google verification failed",
+        },
+        401
+      );
+    }
+
+    const existingRow = await env.DB.prepare(
+      "SELECT id, email, username, firebase_uid, auth_provider FROM users WHERE firebase_uid = ?1 OR LOWER(email) = ?2 LIMIT 1"
+    )
+      .bind(verified.uid, verified.email)
+      .first();
+
+    if (existingRow && SEED_PORTFOLIOS[normalizeUsername(existingRow.username)]) {
+      return jsonResponse(
+        { error: "لا يمكن ربط حسابات العرض الرسمية عبر Google" },
+        403
+      );
+    }
+
+    if (existingRow) {
+      const existingUsername = normalizeUsername(existingRow.username);
+      if (!existingRow.firebase_uid) {
+        await env.DB.prepare(
+          "UPDATE users SET firebase_uid = ?1, auth_provider = ?2 WHERE id = ?3"
+        )
+          .bind(verified.uid, verified.provider, existingRow.id)
+          .run();
+      }
+      const portfolio =
+        (await getDraftPortfolioFromD1(env, existingUsername)) ||
+        createStarterPortfolio(existingUsername, "madar", verified.name || existingUsername);
+      const sessionPayload = {
+        id: existingRow.id,
+        userId: existingRow.id,
+        email: existingRow.email,
+        username: existingUsername,
+        isTestAccount: false,
+      };
+      const token = await signEdgeSession(sessionPayload, env?.AUTH_SECRET);
+      return jsonResponse(
+        {
+          ok: true,
+          isNewUser: false,
+          provider: verified.provider,
+          user: { ...sessionPayload, authProvider: verified.provider },
+          portfolio,
+        },
+        200,
+        { "Set-Cookie": makeSessionCookie(token, isSecure) }
+      );
+    }
+
+    let chosenUsername = "";
+    const requestedRaw = String(body.username || "").trim();
+    if (requestedRaw) {
+      const val = validateUsername(requestedRaw);
+      if (!val.valid) {
+        return jsonResponse({ error: val.reasonAr || val.reasonEn || "Invalid username" }, 400);
+      }
+      if (SEED_PORTFOLIOS[val.normalized] || RESERVED_USERNAMES.has(val.normalized)) {
+        return jsonResponse({ error: "هذا النطاق غير متاح / Username unavailable" }, 409);
+      }
+      const taken = await env.DB.prepare(
+        "SELECT 1 AS taken FROM users WHERE username = ?1 OR EXISTS(SELECT 1 FROM portfolios WHERE username = ?1)"
+      )
+        .bind(val.normalized)
+        .first();
+      if (taken) {
+        return jsonResponse({ error: "هذا الاسم محجوز بالفعل / Username already taken" }, 409);
+      }
+      chosenUsername = val.normalized;
+    } else {
+      chosenUsername = await suggestAvailableUsername(
+        { displayName: verified.name, email: verified.email, uid: verified.uid },
+        async (candidate) => {
+          if (RESERVED_USERNAMES.has(candidate) || SEED_PORTFOLIOS[candidate]) return true;
+          const row = await env.DB.prepare(
+            "SELECT 1 AS taken FROM users WHERE username = ?1"
+          )
+            .bind(candidate)
+            .first();
+          return Boolean(row);
+        }
+      );
+    }
+
+    const rawTemplate = String(body.template || "madar").toLowerCase();
+    const template = ALL_TEMPLATE_IDS.includes(rawTemplate) ? rawTemplate : "madar";
+    const displayName = String(body.displayName || verified.name || chosenUsername)
+      .trim()
+      .slice(0, 80);
+
+    const uidBytes = new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verified.uid))
+    );
+    const uidHex = Array.from(uidBytes, (b) => b.toString(16).padStart(2, "0")).join("");
+
+    const userObj = {
+      id: `user-${crypto.randomUUID()}`,
+      email: verified.email,
+      username: chosenUsername,
+      passwordHash: `firebase:${uidHex}`,
+      salt: "firebase-oauth",
+    };
+
+    const starter = createStarterPortfolio(chosenUsername, template, displayName);
+    starter.email = verified.email;
+    if (verified.picture) {
+      starter.avatar = verified.picture;
+    }
+
+    await savePortfolioToD1AndMemory(env, starter, true, userObj);
+    await env.DB.prepare(
+      "UPDATE users SET firebase_uid = ?1, auth_provider = ?2 WHERE id = ?3"
+    )
+      .bind(verified.uid, verified.provider, userObj.id)
+      .run();
+    edgeStore.users[chosenUsername] = userObj;
+
+    const sessionPayload = {
+      id: userObj.id,
+      userId: userObj.id,
+      email: userObj.email,
+      username: userObj.username,
+      isTestAccount: false,
+    };
+    const token = await signEdgeSession(sessionPayload, env?.AUTH_SECRET);
+
+    return jsonResponse(
+      {
+        ok: true,
+        isNewUser: true,
+        provider: verified.provider,
+        user: { ...sessionPayload, authProvider: verified.provider },
+        portfolio: starter,
+      },
+      200,
+      { "Set-Cookie": makeSessionCookie(token, isSecure) }
     );
   }
 
@@ -1162,17 +1358,20 @@ async function handleApiRequest(request, url, env) {
             cur
           ),
         ];
-        const mcpTokensTable = await env.DB.prepare(
-          "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'mcp_access_tokens' LIMIT 1"
+        const { results: oauthTables = [] } = await env.DB.prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes')"
         )
-          .first()
-          .catch(() => null);
-        if (mcpTokensTable) {
-          renameStatements.push(
-            env.DB.prepare(
-              "UPDATE mcp_access_tokens SET username = ?1 WHERE username = ?2 OR user_id = ?3"
-            ).bind(targetUsername, cur, preservedUserId)
-          );
+          .all()
+          .catch(() => ({ results: [] }));
+        const tableNames = new Set(oauthTables.map((r) => r.name));
+        for (const tbl of ["mcp_access_tokens", "oauth_refresh_tokens", "oauth_codes"]) {
+          if (tableNames.has(tbl)) {
+            renameStatements.push(
+              env.DB.prepare(
+                `UPDATE ${tbl} SET username = ?1 WHERE username = ?2 OR user_id = ?3`
+              ).bind(targetUsername, cur, preservedUserId)
+            );
+          }
         }
         await env.DB.batch(renameStatements);
         delete edgeStore.portfolios[cur];
@@ -1233,24 +1432,26 @@ async function handleApiRequest(request, url, env) {
         .bind(u)
         .first()
         .catch(() => null);
-      const mcpTokensTable = await env.DB.prepare(
-        "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'mcp_access_tokens' LIMIT 1"
+      const { results: oauthTables = [] } = await env.DB.prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes')"
       )
-        .first()
-        .catch(() => null);
+        .all()
+        .catch(() => ({ results: [] }));
+      const tableNames = new Set(oauthTables.map((r) => r.name));
       const deleteStatements = [
         env.DB.prepare("DELETE FROM portfolios WHERE username = ?1").bind(u),
         env.DB.prepare("DELETE FROM users WHERE username = ?1").bind(u),
       ];
-      if (mcpTokensTable) {
-        const uid = String(targetUserRow?.id || session?.userId || session?.id || "");
+      const uid = String(targetUserRow?.id || session?.userId || session?.id || "");
+      for (const tbl of ["mcp_access_tokens", "oauth_refresh_tokens", "oauth_codes"]) {
+        if (!tableNames.has(tbl)) continue;
         if (uid) {
           deleteStatements.unshift(
-            env.DB.prepare("DELETE FROM mcp_access_tokens WHERE username = ?1 OR user_id = ?2").bind(u, uid)
+            env.DB.prepare(`DELETE FROM ${tbl} WHERE username = ?1 OR user_id = ?2`).bind(u, uid)
           );
         } else {
           deleteStatements.unshift(
-            env.DB.prepare("DELETE FROM mcp_access_tokens WHERE username = ?1").bind(u)
+            env.DB.prepare(`DELETE FROM ${tbl} WHERE username = ?1`).bind(u)
           );
         }
       }
@@ -1602,8 +1803,59 @@ export default {
     const { root, sub } = parseHost(rawHost);
     const { pathname } = url;
 
+    // 0. OAuth 2.1 Discovery, Dynamic Client Registration, Consent API & Token Exchange
+    if (isOAuthRoute(pathname)) {
+      if (["POST:/oauth/register", "POST:/oauth/token", "POST:/api/oauth/approve"].includes(`${request.method}:${pathname}`)) {
+        const rateRes = await enforceRateLimit(request, env, `oauth:${pathname}`, 30, 15 * 60 * 1000);
+        if (rateRes) return applySecurityHeaders(rateRes, true);
+      }
+      try {
+        return applySecurityHeaders(
+          await handleOAuthRequest(request, url, env, { parseSessionFn: parseSessionFromRequest }),
+          true
+        );
+      } catch (error) {
+        console.error(
+          "Taqdom OAuth error:",
+          request.method,
+          pathname,
+          error instanceof Error ? error.stack || error.message : error
+        );
+        return applySecurityHeaders(
+          jsonResponse({ error: "server_error", error_description: "OAuth processing failed." }, 500),
+          true
+        );
+      }
+    }
+
+    if (pathname === "/oauth/authorize" || pathname === "/oauth/authorize/") {
+      const assetUrl = new URL(request.url);
+      assetUrl.pathname = "/oauth/authorize";
+      assetUrl.search = "";
+      return applySecurityHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString())));
+    }
+
+    // 0b. Model Context Protocol (MCP) Endpoints:
+    // - /mcp (OAuth 2.1 root endpoint resolving username from token)
+    // - /mcp/<username> (Bearer header, OAuth token, or ?token=...)
+    // - /mcp/<username>/<token> (Zero-header direct URL)
+    if (pathname === "/mcp" || pathname === "/mcp/") {
+      return applySecurityHeaders(await handleMcpRequest(request, env, null, null), true);
+    }
+    const mcpDirectMatch = pathname.match(/^\/mcp\/([a-z0-9-]{3,30})\/(tqd_(?:mcp|oat)_[a-f0-9]{64})\/?$/i);
+    if (mcpDirectMatch) {
+      return applySecurityHeaders(
+        await handleMcpRequest(request, env, normalizeUsername(mcpDirectMatch[1]), mcpDirectMatch[2]),
+        true
+      );
+    }
     const mcpMatch = pathname.match(/^\/mcp\/([a-z0-9-]{3,30})\/?$/i);
-    if (mcpMatch) return applySecurityHeaders(await handleMcpRequest(request, env, normalizeUsername(mcpMatch[1])));
+    if (mcpMatch) {
+      return applySecurityHeaders(
+        await handleMcpRequest(request, env, normalizeUsername(mcpMatch[1]), null),
+        true
+      );
+    }
 
     // 1. Handle API endpoints
     if (pathname.startsWith("/api/")) {

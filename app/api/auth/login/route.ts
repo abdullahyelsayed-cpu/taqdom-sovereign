@@ -35,6 +35,12 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+    if (user.passwordHash.startsWith("firebase:")) {
+      return NextResponse.json(
+        { error: "هذا الحساب مرتبط بتسجيل الدخول عبر Google. اضغط على زر المتابعة بحساب Google أو أضف كلمة مرور من الإعدادات." },
+        { status: 401 }
+      );
+    }
 
     const { hash } = await hashPasswordPBKDF2(password, user.salt);
     if (!password || hash !== user.passwordHash) {

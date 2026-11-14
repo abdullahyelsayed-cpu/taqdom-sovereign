@@ -58,7 +58,10 @@ assert.match(royalCss, /--royal-sky-top/, "Day and night architecture tokens mus
 assert.match(royalCss, /royal-feature-strip/, "Homepage must include the glass feature rail.");
 assert.match(royalCss, /royal-editor-workspace/, "The Studio showcase must use the matching visual system.");
 assert.match(royalCss, /prefers-reduced-motion/, "The design must respect reduced-motion preferences.");
-assert.match(creditsText, /الدفعة الثانية عشرة/, "Batch 12 context must remain documented.");
+assert.doesNotMatch(creditsText, /الدفعة الثانية عشرة|Batch\s*12/i, "Batch 12 references must be removed from credits.");
+assert.doesNotMatch(reimaginedText, /الدفعة الثانية عشرة|Batch\s*12/i, "Batch 12 references must be removed from homepage cards.");
+assert.doesNotMatch(worldText, /الدفعة الثانية عشرة|Batch\s*12/i, "Batch 12 references must be removed from homepage world experience.");
+assert.doesNotMatch(read("../README.md"), /الدفعة الثانية عشرة|Batch\s*12/i, "Batch 12 references must be removed from README.");
 assert.match(testimonialsText, /illustrative demo content/i, "Example testimonials must be disclosed as illustrative demo content.");
 assert.doesNotMatch(workerText, /taqdom-sovereign-royal-secret-key-2026-egypt/, "No hard-coded session signing secret.");
 assert.doesNotMatch(authText, /DEFAULT_SECRET|AUTH_SECRET\s*\|\|/, "Application auth must never fall back to a hard-coded signing secret.");
@@ -206,5 +209,31 @@ assert.ok(royalCss.includes("@media (max-width: 380px)"), "Homepage must include
 assert.ok(royalCss.includes("grid-template-columns: minmax(0,1fr);"), "FAQ cards must stack cleanly on phones.");
 assert.ok(royalCss.includes("overflow-wrap: anywhere"), "Long FAQ and URL text must wrap without horizontal overflow.");
 
+// OAuth 2.1 MCP & Firebase Google Auth checks
+const oauthServerText = read("../cloudflare/oauth.mjs");
+const oauthAuthorizeText = read("../app/oauth/authorize/page.tsx");
+const firebaseAuthEdgeText = read("../cloudflare/firebase-auth.mjs");
+const firebaseClientText = read("../lib/firebase-client.ts");
+const firebaseRouteText = read("../app/api/auth/firebase/route.ts");
+const authPageText = read("../app/auth/page.tsx");
+
+assert.match(oauthServerText, /oauth-protected-resource/, "MCP OAuth must expose RFC 9728 protected resource metadata.");
+assert.match(oauthServerText, /oauth-authorization-server/, "MCP OAuth must expose RFC 8414 authorization server metadata.");
+assert.match(oauthServerText, /oauth\/register/, "MCP OAuth must support RFC 7591 Dynamic Client Registration.");
+assert.match(oauthServerText, /S256/, "MCP OAuth must enforce PKCE S256.");
+assert.match(oauthServerText, /tqd_oat_/, "MCP OAuth access tokens must use a dedicated prefix.");
+assert.match(oauthServerText, /tqd_rt_/, "MCP OAuth refresh tokens must rotate with a dedicated prefix.");
+assert.match(mcpServerText, /www-authenticate/i, "Unauthenticated MCP requests must advertise OAuth resource metadata.");
+assert.match(workerText, /handleOAuthRequest/, "Cloudflare Worker must dispatch MCP OAuth 2.1 routes.");
+assert.match(wranglerText, /"\/\.well-known\/\*"/, "Worker-first routing must intercept OAuth well-known discovery routes.");
+assert.match(wranglerText, /"\/oauth\/\*"/, "Worker-first routing must intercept OAuth endpoints.");
+assert.match(oauthAuthorizeText, /\/api\/oauth\/approve/, "OAuth consent screen must approve PKCE requests server-side.");
+assert.match(oauthAuthorizeText, /signInWithGoogleFirebase/, "OAuth consent screen must support Google sign-in.");
+assert.match(mcpServerText, /safeColorValue/, "MCP custom design engine must accept rich color formats safely.");
+assert.match(mcpServerText, /validateAndSanitizeCustomDesign/, "MCP custom design engine must normalize diverse AI-generated design structures.");
+assert.match(firebaseAuthEdgeText, /verifyFirebaseIdToken/, "Edge worker must cryptographically verify Firebase ID tokens.");
+assert.match(firebaseClientText, /GoogleAuthProvider/, "Client must use Firebase GoogleAuthProvider for Google Sign-In.");
+assert.match(firebaseRouteText, /verifyFirebaseIdToken/, "Next.js API must verify Firebase ID tokens.");
+assert.match(authPageText, /signInWithGoogleFirebase/, "Auth page must provide Firebase Google Sign-In.");
 
 console.log("Taqdom quality guards: PASS");

@@ -35,11 +35,11 @@ type Token = {
 
 type Created = {
   token: string;
-  connection: { id?: string; endpoint: string; label: string };
+  connection: { id?: string; endpoint: string; directUrl?: string; label: string };
   warning: string;
 };
 
-type ClientTab = "gemini" | "claude" | "curl";
+type ClientTab = "oauth" | "gemini" | "claude" | "curl";
 
 export default function McpConnectionsPage() {
   const { lang, t } = useLanguage();
@@ -53,13 +53,17 @@ export default function McpConnectionsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
-  const [clientTab, setClientTab] = useState<ClientTab>("gemini");
+  const [clientTab, setClientTab] = useState<ClientTab>("oauth");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isDemoSession, setIsDemoSession] = useState(false);
+  const [sessionUsername, setSessionUsername] = useState("");
 
-  const activeUsername = user?.username || draft?.username || "yourname";
+  const activeUsername = user?.username || draft?.username || sessionUsername || "yourname";
   const endpointUrl = created?.connection?.endpoint || `https://taqdom.me/mcp/${activeUsername}`;
+  const oauthEndpointUrl = "https://taqdom.me/mcp";
   const tokenDisplay = created?.token || "tqd_mcp_YOUR_GENERATED_TOKEN";
+  const directUrlDisplay =
+    created?.connection?.directUrl || `${endpointUrl}?token=${tokenDisplay}`;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -70,6 +74,9 @@ export default function McpConnectionsPage() {
         if (meData && meData.authenticated === false) {
           router.replace("/auth");
           return;
+        }
+        if (meData?.user?.username) {
+          setSessionUsername(String(meData.user.username));
         }
         if (meData?.user?.isTestAccount) {
           setIsDemoSession(true);
@@ -140,14 +147,24 @@ export default function McpConnectionsPage() {
     setTimeout(() => setCopiedKey(null), 1800);
   };
 
+  const oauthSnippet = JSON.stringify(
+    {
+      mcpServers: {
+        taqdom: {
+          url: oauthEndpointUrl,
+          note: "Triggers OAuth 2.1 browser sign-in automatically (Taqdom or Google Sign-In)",
+        },
+      },
+    },
+    null,
+    2
+  );
+
   const geminiSnippet = JSON.stringify(
     {
       mcpServers: {
         taqdomPortfolio: {
-          httpUrl: endpointUrl,
-          headers: {
-            Authorization: `Bearer ${tokenDisplay}`,
-          },
+          httpUrl: directUrlDisplay,
         },
       },
     },
@@ -160,10 +177,7 @@ export default function McpConnectionsPage() {
       mcpServers: {
         "taqdom-portfolio": {
           type: "http",
-          url: endpointUrl,
-          headers: {
-            Authorization: `Bearer ${tokenDisplay}`,
-          },
+          url: oauthEndpointUrl,
         },
       },
     },
@@ -177,7 +191,13 @@ export default function McpConnectionsPage() {
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_portfolio_blueprint","arguments":{}}}'`;
 
   const activeConfigSnippet =
-    clientTab === "gemini" ? geminiSnippet : clientTab === "claude" ? claudeSnippet : curlSnippet;
+    clientTab === "oauth"
+      ? oauthSnippet
+      : clientTab === "gemini"
+      ? geminiSnippet
+      : clientTab === "claude"
+      ? claudeSnippet
+      : curlSnippet;
 
   const masterArchitectPrompt = t(
     `أنت مصمم مواقع ومخرج فني خبير (Art Director & Frontend Architect). اتصل بمعرضي عبر خادم Taqdom MCP، واقرأ بياناتي عبر get_portfolio_blueprint واكتشف قدرات التصميم المخصص عبر list_templates_and_capabilities.
@@ -238,20 +258,30 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-7 text-muted-foreground">
                 {t(
-                  "اربط معرضك بتطبيقات Gemini أو Claude عبر MCP، ودَع الذكاء الاصطناعي يصمم لك موقعًا شخصيًا متكاملًا بألوان وهوية وتخطيط وأقسام مخصصة بالكامل — حتى لو كان التصميم مختلفًا تمامًا عن القوالب الجاهزة.",
-                  "Connect your portfolio to Gemini, Claude, or any MCP client so AI can architect a completely custom color palette, layout, typography, GPU effects, and bespoke sections — beyond any preset template."
+                  "اربط معرضك بتطبيقات Gemini أو Claude عبر رابط OAuth 2.1 التلقائي ليفتح لك تسجيل الدخول بحسابك أو بحساب Google مباشرة، ودَع الذكاء الاصطناعي يصمم لك موقعًا متكاملًا بألوان وتخطيط وأقسام مخصصة حتى لو كان التصميم مختلفًا تمامًا عن القوالب الجاهزة.",
+                  "Connect your portfolio to Gemini, Claude, or any MCP client via OAuth 2.1 automatic sign-in (with Taqdom or Google) or a one-click direct URL so AI can design a bespoke site beyond any preset template."
                 )}
               </p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-background/85 px-4 py-3 text-xs space-y-1 shrink-0 w-full lg:w-auto">
+          <div className="rounded-2xl border border-border bg-background/85 px-4 py-3 text-xs space-y-2 shrink-0 w-full lg:w-auto">
             <span className="font-mono text-[10px] uppercase tracking-wider text-[#9A7B4F] dark:text-[#E4B66F]">
-              {t("نقطة اتصال حسابك", "YOUR MCP ENDPOINT")}
+              {t("رابط OAuth التلقائي (بدون مفتاح يدوي)", "ZERO-CONFIG OAUTH 2.1 URL")}
             </span>
-            <p dir="ltr" className="font-mono font-bold text-foreground break-all">
-              {endpointUrl}
-            </p>
+            <div className="flex items-center gap-2">
+              <p dir="ltr" className="font-mono font-bold text-foreground break-all">
+                {oauthEndpointUrl}
+              </p>
+              <button
+                type="button"
+                onClick={() => void copyText(oauthEndpointUrl, "oauth-ep")}
+                className="rounded-lg border border-border bg-background p-1.5 hover:border-[#C99750] cursor-pointer"
+                aria-label="Copy OAuth MCP URL"
+              >
+                {copiedKey === "oauth-ep" ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -322,7 +352,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
               <button
                 type="button"
                 onClick={() => void load()}
-                className="rounded-xl border border-border bg-background p-2.5 hover:border-[#C99750] transition cursor-pointer"
+                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-border bg-background p-2.5 hover:border-[#C99750] transition cursor-pointer"
                 aria-label={t("تحديث", "Refresh")}
               >
                 <RefreshCw className="h-4 w-4" />
@@ -370,7 +400,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
                         <button
                           type="button"
                           onClick={() => setConfirmRevokeId(tok.id)}
-                          className="rounded-xl border border-red-500/35 p-2 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition cursor-pointer"
+                          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-red-500/35 p-2 text-red-600 dark:text-red-400 hover:bg-red-500/10 transition cursor-pointer"
                           aria-label={t("إلغاء الاتصال", "Revoke connection")}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -387,7 +417,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
         {created && (
           <div className="rounded-3xl border-2 border-emerald-500/45 bg-emerald-500/8 p-6 sm:p-7 space-y-4">
             <h2 className="text-lg font-black text-emerald-700 dark:text-emerald-300">
-              {t("تم إنشاء مفتاح الاتصال — انسخه الآن", "Token Generated — Copy Now")}
+              {t("تم إنشاء مفتاح الاتصال، انسخه الآن", "Token Generated, Copy Now")}
             </h2>
             <p className="text-sm text-muted-foreground">{created.warning}</p>
             <div>
@@ -402,10 +432,32 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
                 <button
                   type="button"
                   onClick={() => void copyText(created.connection.endpoint, "ep")}
-                  className="rounded-xl border border-border bg-background px-3 py-2 cursor-pointer"
+                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-border bg-background px-3 py-2 cursor-pointer"
                   aria-label="Copy endpoint"
                 >
                   {copiedKey === "ep" ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold mb-1">
+                {t("رابط مباشر جاهز للاستخدام (بدون إعداد Headers)", "Pre-Authenticated Direct URL (Zero-Header)")}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  dir="ltr"
+                  data-testid="mcp-direct-url-input"
+                  value={created.connection.directUrl || directUrlDisplay}
+                  className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => void copyText(created.connection.directUrl || directUrlDisplay, "direct-url")}
+                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-border bg-background px-3 py-2 cursor-pointer"
+                  aria-label="Copy Direct MCP URL"
+                >
+                  {copiedKey === "direct-url" ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
                 </button>
               </div>
             </div>
@@ -421,7 +473,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
                 <button
                   type="button"
                   onClick={() => void copyText(created.token, "tok")}
-                  className="rounded-xl border border-border bg-background px-3 py-2 cursor-pointer"
+                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-xl border border-border bg-background px-3 py-2 cursor-pointer"
                   aria-label="Copy token"
                 >
                   {copiedKey === "tok" ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
@@ -446,9 +498,10 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
                 <Terminal className="h-5 w-5 text-[#9A7B4F] dark:text-[#E4B66F]" />
                 <h2 className="text-lg font-extrabold">{t("إعداد فوري لـ Gemini و Claude", "Instant Gemini & Claude Config")}</h2>
               </div>
-              <div className="flex items-center gap-1.5 rounded-xl border border-border bg-background p-1">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-background p-1">
                 {(
                   [
+                    ["oauth", "OAuth 2.1"],
                     ["gemini", "Gemini"],
                     ["claude", "Claude"],
                     ["curl", "HTTP"],
@@ -568,8 +621,8 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
 
           <p className="text-xs leading-6 text-muted-foreground">
             {t(
-              "تستخدم الاتصالات مفاتيح وصول شخصية عبر HTTPS وMCP Streamable HTTP. التعديلات تحفظ كمسودة خاصة حتى تطلب النشر صراحةً عبر publish_portfolio. دعم OAuth 2.1 وتفويض التطبيقات التلقائي مرحلة لاحقة مستقلة.",
-              "Connections authenticate using per-user HTTPS bearer tokens over MCP Streamable HTTP. Edits stay private in draft until publish_portfolio is explicitly called. OAuth 2.1 interactive consent is a future phase."
+              "يدعم الخادم الآن OAuth 2.1 التفاعلي مع تسجيل الدخول بحساب Google أو تَقَدُّم (PKCE S256)، والروابط المباشرة الجاهزة، ومفاتيح Bearer المشفرة بـ SHA-256 عبر MCP Streamable HTTP. تظل التعديلات محفوظة في مسودتك الخاصة حتى تطلب النشر عبر publish_portfolio.",
+              "Supports interactive OAuth 2.1 browser consent (PKCE S256 with Taqdom or Google Sign-In), pre-authenticated direct URLs, and SHA-256 hashed Bearer tokens over MCP Streamable HTTP. Edits stay private in draft until publish_portfolio is called."
             )}
           </p>
         </div>

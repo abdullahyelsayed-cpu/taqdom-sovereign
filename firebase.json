@@ -1,0 +1,17 @@
+{
+  "auth": {
+    "providers": {
+      "anonymous": false,
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Taqdom",
+        "supportEmail": "abdullah.y.elsayed@gmail.com",
+        "authorizedRedirectUris": [
+          "https://inspirational-terra-rtn3v.firebaseapp.com/__/auth/handler",
+          "https://taqdom.me/__/auth/handler",
+          "http://localhost"
+        ]
+      }
+    }
+  }
+}

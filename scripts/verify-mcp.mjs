@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { handleMcpRequest, handleMcpTokenApi } from "../cloudflare/mcp.mjs";
+import { handleOAuthRequest } from "../cloudflare/oauth.mjs";
 
 const encoder = new TextEncoder();
 const tokens = new Map();
+const oauthClients = new Map();
+const oauthCodes = new Map();
+const oauthRefreshTokens = new Map();
 let portfolio = {
   username: "mcp-owner",
   name: { ar: "عبدالله", en: "Abdullah" },
@@ -37,16 +42,45 @@ const db = {
       bind(...values) { this.values = values; return this; },
       async run() {
         if (sql.includes("INSERT INTO mcp_access_tokens")) {
-          const [id, user_id, username, token_hash, label, created_at] = this.values;
-          tokens.set(id, { id, user_id, username, token_hash, label, created_at, revoked_at: null });
+          const [id, user_id, username, token_hash, label, created_at, client_id, scope, expires_at] = this.values;
+          tokens.set(id, {
+            id, user_id, username, token_hash, label, created_at,
+            revoked_at: null, client_id: client_id ?? null, scope: scope ?? null, expires_at: expires_at ?? null,
+          });
         } else if (sql.includes("UPDATE mcp_access_tokens SET revoked_at")) {
-          const [revoked_at, id, user_id] = this.values;
-          const row = tokens.get(id);
-          if (row?.user_id === user_id) row.revoked_at = revoked_at;
+          if (sql.includes("WHERE token_hash =")) {
+            const [revoked_at, token_hash] = this.values;
+            for (const row of tokens.values()) {
+              if (row.token_hash === token_hash && !row.revoked_at) row.revoked_at = revoked_at;
+            }
+          } else {
+            const [revoked_at, id, user_id] = this.values;
+            const row = tokens.get(id);
+            if (row?.user_id === user_id) row.revoked_at = revoked_at;
+          }
         } else if (sql.includes("UPDATE mcp_access_tokens SET last_used_at")) {
           const [last_used_at, id] = this.values;
           const row = tokens.get(id);
           if (row) row.last_used_at = last_used_at;
+        } else if (sql.includes("INSERT INTO oauth_clients")) {
+          const [client_id, client_secret_hash, client_name, redirect_uris, token_endpoint_auth_method, scope, created_at] = this.values;
+          oauthClients.set(client_id, { client_id, client_secret_hash, client_name, redirect_uris, token_endpoint_auth_method, scope, created_at });
+        } else if (sql.includes("INSERT INTO oauth_codes")) {
+          const [code_hash, client_id, user_id, username, redirect_uri, scope, resource, code_challenge, code_challenge_method, created_at, expires_at] = this.values;
+          oauthCodes.set(code_hash, { code_hash, client_id, user_id, username, redirect_uri, scope, resource, code_challenge, code_challenge_method, created_at, expires_at, used_at: null });
+        } else if (sql.includes("UPDATE oauth_codes SET used_at")) {
+          const [used_at, code_hash] = this.values;
+          const rec = oauthCodes.get(code_hash);
+          if (!rec || rec.used_at !== null) return { success: true, meta: { changes: 0 } };
+          rec.used_at = used_at;
+        } else if (sql.includes("INSERT INTO oauth_refresh_tokens")) {
+          const [token_hash, client_id, user_id, username, scope, created_at, expires_at] = this.values;
+          oauthRefreshTokens.set(token_hash, { token_hash, client_id, user_id, username, scope, created_at, expires_at, revoked_at: null });
+        } else if (sql.includes("UPDATE oauth_refresh_tokens SET revoked_at")) {
+          const [revoked_at, token_hash] = this.values;
+          const rec = oauthRefreshTokens.get(token_hash);
+          if (!rec || rec.revoked_at !== null) return { success: true, meta: { changes: 0 } };
+          rec.revoked_at = revoked_at;
         } else if (sql.includes("UPDATE portfolios SET draft_json = ?1, published_json")) {
           const [draft, publishedAt] = this.values;
           portfolio = JSON.parse(draft);
@@ -66,9 +100,20 @@ const db = {
           const userId = this.values[0];
           return { total: [...tokens.values()].filter((t) => t.user_id === userId && !t.revoked_at).length };
         }
-        if (sql.includes("WHERE token_hash =")) {
-          const row = [...tokens.values()].find((t) => t.token_hash === this.values[0] && !t.revoked_at);
-          return row ? { id: row.id, user_id: row.user_id, username: row.username } : null;
+        if (sql.includes("FROM mcp_access_tokens WHERE token_hash =")) {
+          const row = [...tokens.values()].find((t) => t.token_hash === this.values[0]);
+          if (!row) return null;
+          if (sql.includes("revoked_at IS NULL") && row.revoked_at) return null;
+          return row;
+        }
+        if (sql.includes("FROM oauth_clients WHERE client_id =")) {
+          return oauthClients.get(this.values[0]) || null;
+        }
+        if (sql.includes("FROM oauth_codes WHERE code_hash =")) {
+          return oauthCodes.get(this.values[0]) || null;
+        }
+        if (sql.includes("FROM oauth_refresh_tokens WHERE token_hash =")) {
+          return oauthRefreshTokens.get(this.values[0]) || null;
         }
         if (sql.includes("FROM portfolios")) {
           if (this.values[0] !== "mcp-owner" || this.values[1] !== "user-123") return null;
@@ -284,4 +329,329 @@ assert.equal(revoke.status, 200);
 response = await rpc({ jsonrpc: "2.0", id: 13, method: "ping" });
 assert.equal(response.status, 401, "Revoked tokens must stop working immediately");
 
-console.log("Taqdom MCP integration tests: PASS (token creation, hash-only storage, initialize, tools/list, profile mapping, project allowlist, tenant isolation, invalid token, revocation)");
+// --- OAuth 2.1 Discovery, DCR, PKCE S256 Consent, Root /mcp, Direct URLs, & Flexible AI Designs ---
+const oauthCall = (pathAndQuery, init = {}, activeSession = session) =>
+  handleOAuthRequest(
+    new Request("https://taqdom.me" + pathAndQuery, init),
+    new URL("https://taqdom.me" + pathAndQuery),
+    env,
+    { parseSessionFn: async () => activeSession }
+  );
+
+// 1. Unauthenticated /mcp triggers standard RFC 9728 WWW-Authenticate OAuth challenge + CORS
+const corsPreflight = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", { method: "OPTIONS" }),
+  env,
+  null,
+  null
+);
+assert.equal(corsPreflight.status, 204);
+assert.equal(corsPreflight.headers.get("access-control-allow-origin"), "*");
+
+const unauthMcp = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize" }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(unauthMcp.status, 401);
+assert.match(
+  unauthMcp.headers.get("www-authenticate") || "",
+  /resource_metadata="https:\/\/taqdom\.me\/\.well-known\/oauth-protected-resource\/mcp"/
+);
+
+// 2. OAuth metadata discovery
+const prmRes = await oauthCall("/.well-known/oauth-protected-resource/mcp");
+assert.equal(prmRes.status, 200);
+const prm = await prmRes.json();
+assert.equal(prm.resource, "https://taqdom.me/mcp");
+assert.deepEqual(prm.authorization_servers, ["https://taqdom.me"]);
+
+const asMetaRes = await oauthCall("/.well-known/oauth-authorization-server");
+assert.equal(asMetaRes.status, 200);
+const asMeta = await asMetaRes.json();
+assert.equal(asMeta.registration_endpoint, "https://taqdom.me/oauth/register");
+assert.ok(asMeta.code_challenge_methods_supported.includes("S256"));
+
+// 3. Dynamic Client Registration rejects unsafe schemes, accepts loopback + web callbacks
+const badDcr = await oauthCall("/oauth/register", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ client_name: "Evil", redirect_uris: ["javascript:alert(1)"] }),
+});
+assert.equal(badDcr.status, 400);
+
+const goodDcr = await oauthCall("/oauth/register", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    client_name: "Gemini CLI",
+    redirect_uris: ["http://localhost:9999/oauth2callback", "https://claude.ai/api/mcp/auth_callback"],
+  }),
+});
+assert.equal(goodDcr.status, 201);
+const registeredClient = await goodDcr.json();
+assert.match(registeredClient.client_id, /^tqd_client_/);
+
+// 4. PKCE S256 generation + loopback ephemeral port inspection
+const codeVerifier = crypto.randomBytes(48).toString("base64url");
+const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
+const ephemeralRedirect = "http://localhost:45123/oauth2callback";
+
+const clientInfoRes = await oauthCall(
+  `/api/oauth/client-info?client_id=${encodeURIComponent(registeredClient.client_id)}&redirect_uri=${encodeURIComponent(
+    ephemeralRedirect
+  )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`
+);
+assert.equal(clientInfoRes.status, 200);
+const clientInfo = await clientInfoRes.json();
+assert.equal(clientInfo.client.clientName, "Gemini CLI");
+
+// Demo / unauthenticated accounts cannot approve OAuth
+const deniedShowcase = await oauthCall(
+  "/api/oauth/approve",
+  {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      client_id: registeredClient.client_id,
+      redirect_uri: ephemeralRedirect,
+      code_challenge: codeChallenge,
+      code_challenge_method: "S256",
+    }),
+  },
+  { userId: "layla", username: "layla", isTestAccount: true }
+);
+assert.equal(deniedShowcase.status, 401);
+
+// Valid user approves consent
+const approveRes = await oauthCall("/api/oauth/approve", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    client_id: registeredClient.client_id,
+    redirect_uri: ephemeralRedirect,
+    state: "xyz-state",
+    code_challenge: codeChallenge,
+    code_challenge_method: "S256",
+  }),
+});
+assert.equal(approveRes.status, 200);
+const approveData = await approveRes.json();
+const callbackParsed = new URL(approveData.redirectTo);
+const authCode = callbackParsed.searchParams.get("code");
+assert.ok(authCode && authCode.startsWith("tqd_code_"));
+assert.equal(callbackParsed.searchParams.get("state"), "xyz-state");
+
+// 5. Token exchange rejects invalid code_verifier, succeeds on match, rejects replay
+const badVerifierRes = await oauthCall("/oauth/token", {
+  method: "POST",
+  headers: { "content-type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: registeredClient.client_id,
+    code: authCode,
+    redirect_uri: ephemeralRedirect,
+    code_verifier: "wrong_" + codeVerifier,
+  }).toString(),
+});
+assert.equal(badVerifierRes.status, 400);
+
+const tokenRes = await oauthCall("/oauth/token", {
+  method: "POST",
+  headers: { "content-type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: registeredClient.client_id,
+    code: authCode,
+    redirect_uri: ephemeralRedirect,
+    code_verifier: codeVerifier,
+  }).toString(),
+});
+assert.equal(tokenRes.status, 200);
+const tokenJson = await tokenRes.json();
+assert.match(tokenJson.access_token, /^tqd_oat_[a-f0-9]{64}$/);
+assert.match(tokenJson.refresh_token, /^tqd_rt_[a-f0-9]{64}$/);
+assert.equal(tokenJson.mcp_endpoint, "https://taqdom.me/mcp/mcp-owner");
+
+const replayRes = await oauthCall("/oauth/token", {
+  method: "POST",
+  headers: { "content-type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({
+    grant_type: "authorization_code",
+    client_id: registeredClient.client_id,
+    code: authCode,
+    redirect_uri: ephemeralRedirect,
+    code_verifier: codeVerifier,
+  }).toString(),
+});
+assert.equal(replayRes.status, 400, "Authorization code replay must fail");
+
+// 6. UserInfo + Root /mcp + Direct URLs (?token= & path token) + GET SSE + DELETE
+const userInfoRes = await oauthCall("/oauth/userinfo", {
+  headers: { authorization: `Bearer ${tokenJson.access_token}` },
+});
+assert.equal(userInfoRes.status, 200);
+const userInfo = await userInfoRes.json();
+assert.equal(userInfo.username, "mcp-owner");
+
+const rootMcpRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 201, method: "tools/call", params: { name: "get_profile", arguments: {} } }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(rootMcpRes.status, 200);
+const rootMcpData = await rootMcpRes.json();
+assert.equal(rootMcpData.result.structuredContent.username, "mcp-owner");
+
+// Direct ?token= URL & SSE GET & DELETE
+const queryAuthGet = await handleMcpRequest(
+  new Request(`https://taqdom.me/mcp/mcp-owner?token=${tokenJson.access_token}`, {
+    method: "GET",
+    headers: { accept: "text/event-stream" },
+  }),
+  env,
+  "mcp-owner",
+  null
+);
+assert.equal(queryAuthGet.status, 200);
+assert.match(queryAuthGet.headers.get("content-type") || "", /text\/event-stream/);
+
+const pathAuthDelete = await handleMcpRequest(
+  new Request(`https://taqdom.me/mcp/mcp-owner/${tokenJson.access_token}`, { method: "DELETE" }),
+  env,
+  "mcp-owner",
+  tokenJson.access_token
+);
+assert.equal(pathAuthDelete.status, 200);
+
+// 7. Creative Gemini & Claude Bespoke Design Normalization + publish: true
+const creativeGeminiRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 202,
+      method: "tools/call",
+      params: {
+        name: "design_custom_portfolio_theme",
+        arguments: {
+          design: {
+            name: "Atelier Cobalt",
+            colors: { bg: "ivory", accent: "cobalt", subtle: "slate" },
+            fonts: { heading: "Playfair Display", body: "serif" },
+            hero: "minimal",
+            grid: "editorial-rows",
+            cta: { label: "Email Me", url: "mailto:hi@example.com" },
+            sections: [
+              { type: "timeline", title: "Journey", events: [{ title: "Principal Architect", badge: "2025" }] },
+              { type: "quote", title: "Credo", quote: "Craft over noise." },
+              "Independent systems researcher and founder.",
+            ],
+            tokens: { density: "airy", badUrl: "javascript:alert(1)" },
+          },
+          publish: true,
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(creativeGeminiRes.status, 200);
+const creativeGeminiPayload = await creativeGeminiRes.json();
+assert.equal(creativeGeminiPayload.result.isError, undefined, JSON.stringify(creativeGeminiPayload.result));
+assert.equal(creativeGeminiPayload.result.structuredContent.published, true);
+assert.equal(portfolio.customDesign.designName, "Atelier Cobalt");
+assert.equal(portfolio.customDesign.palette.background, "#FAF8F3");
+assert.equal(portfolio.customDesign.palette.accent, "#315BFF");
+assert.equal(portfolio.customDesign.typography.headingStyle, "editorial-serif");
+assert.equal(portfolio.customDesign.layout.heroVariant, "minimal-typographic");
+assert.equal(portfolio.customDesign.layout.projectGrid, "editorial-rows");
+assert.equal(portfolio.customDesign.customSections.length, 3);
+assert.equal(portfolio.customDesign.customSections[0].kind, "timeline");
+assert.equal(portfolio.customDesign.customSections[1].kind, "quote");
+assert.equal(portfolio.customDesign.tokens.density, "airy");
+assert.equal("badUrl" in (portfolio.customDesign.tokens || {}), false);
+
+const claudeRgbHslRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 203,
+      method: "tools/call",
+      params: {
+        name: "design_custom_portfolio_theme",
+        arguments: {
+          palette: { background: "rgb(15, 23, 42)", accent: "hsl(38, 92%, 50%)" },
+          layout: { heroVariant: "mosaic-collage", projectGrid: "bento" },
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const claudePayload = await claudeRgbHslRes.json();
+assert.equal(claudePayload.result.structuredContent.customDesign.layout.heroVariant, "cards-mosaic");
+assert.equal(claudePayload.result.structuredContent.customDesign.palette.background, "#0f172a");
+assert.match(claudePayload.result.structuredContent.customDesign.palette.accent, /^#[0-9a-f]{6}$/i);
+
+// 8. Refresh token rotation & revocation
+const rotatedRes = await oauthCall("/oauth/token", {
+  method: "POST",
+  headers: { "content-type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: registeredClient.client_id,
+    refresh_token: tokenJson.refresh_token,
+  }).toString(),
+});
+assert.equal(rotatedRes.status, 200);
+const rotatedJson = await rotatedRes.json();
+assert.match(rotatedJson.access_token, /^tqd_oat_/);
+assert.notEqual(rotatedJson.refresh_token, tokenJson.refresh_token);
+
+const staleRefreshRes = await oauthCall("/oauth/token", {
+  method: "POST",
+  headers: { "content-type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: registeredClient.client_id,
+    refresh_token: tokenJson.refresh_token,
+  }).toString(),
+});
+assert.equal(staleRefreshRes.status, 400, "Rotated refresh token must not replay");
+
+await oauthCall("/oauth/revoke", {
+  method: "POST",
+  headers: { "content-type": "application/x-www-form-urlencoded" },
+  body: new URLSearchParams({ token: rotatedJson.access_token }).toString(),
+});
+const postRevokeMcp = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${rotatedJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 204, method: "ping" }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(postRevokeMcp.status, 401);
+
+console.log("Taqdom MCP & OAuth 2.1 integration tests: PASS (DCR, PKCE S256, root /mcp, direct URLs, SSE, rotation, bespoke design normalization, tenant isolation, revocation)");

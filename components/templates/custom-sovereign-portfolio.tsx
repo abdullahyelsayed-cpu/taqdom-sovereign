@@ -61,6 +61,14 @@ function autoContrastText(bgHex: string): string {
   return getRelativeLuminance(bgHex) > 0.38 ? "#0B0D12" : "#FAF9F6";
 }
 
+function contrastRatio(hexA: string, hexB: string): number {
+  const l1 = getRelativeLuminance(hexA);
+  const l2 = getRelativeLuminance(hexB);
+  const bright = Math.max(l1, l2);
+  const dark = Math.min(l1, l2);
+  return (bright + 0.05) / (dark + 0.05);
+}
+
 function alphaColor(color: string, alpha: number): string {
   const a = Math.max(0, Math.min(1, alpha));
   const rgb = parseHexRgb(color);
@@ -116,9 +124,13 @@ export function CustomSovereignPortfolio({
   const bg = palette.background || "#0B0D14";
   const surface = palette.surface || "#141824";
   const surfaceAlt = palette.surfaceAlt || surface;
-  const text = palette.text || autoContrastText(bg);
+  const rawText = palette.text || autoContrastText(bg);
+  const text = parseHexRgb(bg) && parseHexRgb(rawText) && contrastRatio(bg, rawText) < 3.6
+    ? autoContrastText(bg)
+    : rawText;
   const muted = palette.muted || (getRelativeLuminance(bg) > 0.4 ? "#525C70" : "#A6AFC2");
   const accent = palette.accent || "#E3B76B";
+  const accentSecondary = palette.accentSecondary || accent;
   const accentText = palette.accentText || autoContrastText(accent);
   const isLightBg = getRelativeLuminance(bg) > 0.4;
   const border =
@@ -144,17 +156,19 @@ export function CustomSovereignPortfolio({
 
   const headingFont =
     typo.headingStyle === "editorial-serif"
-      ? `var(--font-amiri), Georgia, "Times New Roman", serif`
+      ? `var(--font-instrument), Georgia, "Times New Roman", serif`
       : typo.headingStyle === "technical-mono"
-      ? `var(--font-jetbrains-mono), ui-monospace, monospace`
-      : `var(--font-tajawal), var(--font-jakarta), system-ui, sans-serif`;
+      ? `var(--font-jetbrains), ui-monospace, monospace`
+      : typo.headingStyle === "geometric"
+      ? `var(--font-jakarta), var(--font-readex), system-ui, sans-serif`
+      : `var(--font-readex), var(--font-jakarta), system-ui, sans-serif`;
 
   const bodyFont =
     typo.bodyStyle === "serif"
-      ? `var(--font-amiri), Georgia, serif`
+      ? `var(--font-instrument), var(--font-ibm-arabic), Georgia, serif`
       : typo.bodyStyle === "mono"
-      ? `var(--font-jetbrains-mono), ui-monospace, monospace`
-      : `var(--font-tajawal), var(--font-jakarta), system-ui, sans-serif`;
+      ? `var(--font-jetbrains), ui-monospace, monospace`
+      : `var(--font-ibm-arabic), var(--font-jakarta), system-ui, sans-serif`;
 
   const scaleHeroClass =
     typo.scale === "bold"
@@ -1026,6 +1040,126 @@ export function CustomSovereignPortfolio({
                 </div>
               </div>
             </div>
+          ) : heroVariant === "minimal-typographic" ? (
+            <div className="space-y-8 py-6 border-b" style={{ borderColor: border }}>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative h-12 w-12 overflow-hidden rounded-full border" style={{ borderColor: accent }}>
+                    <Image src={avatarSrc} alt={t(data.name.ar, data.name.en)} fill className="object-cover" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-extrabold" style={{ fontFamily: headingFont }}>
+                      {t(data.name.ar, data.name.en)}
+                    </p>
+                    <p className="text-xs font-mono" style={{ color: muted }}>
+                      {t(data.city.ar, data.city.en)}
+                    </p>
+                  </div>
+                </div>
+                {data.badge && (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-bold"
+                    style={{ borderColor: alphaColor(accentSecondary, 0.36), backgroundColor: alphaColor(accentSecondary, 0.1), color: accent }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>{t(data.badge.ar, data.badge.en)}</span>
+                  </span>
+                )}
+              </div>
+              <h1 className={`${scaleHeroClass} font-black leading-[1.03] tracking-tight`} style={{ fontFamily: headingFont }}>
+                {t(data.title.ar, data.title.en)}
+              </h1>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-end pb-2">
+                <p className="lg:col-span-7 text-base sm:text-xl leading-relaxed" style={{ color: muted }}>
+                  {t(data.bio.ar, data.bio.en)}
+                </p>
+                <div className="lg:col-span-5 flex flex-wrap lg:justify-end gap-3">
+                  <a
+                    href={primaryCtaUrl}
+                    {...externalLinkProps(primaryCtaUrl)}
+                    style={{ backgroundColor: accent, color: accentText }}
+                    className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-extrabold shadow-lg"
+                  >
+                    <span>{primaryCtaLabel}</span>
+                    <Arrow className="h-4 w-4" />
+                  </a>
+                  <a
+                    href={secondaryCtaUrl}
+                    {...externalLinkProps(secondaryCtaUrl)}
+                    style={{ borderColor: border, backgroundColor: surface, color: text }}
+                    className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full border px-7 py-3.5 text-sm font-bold"
+                  >
+                    <span>{secondaryCtaLabel}</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          ) : heroVariant === "cards-mosaic" ? (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+              <div
+                style={cardSurfaceStyle}
+                className={`lg:col-span-6 ${radiusClass} p-7 sm:p-10 flex flex-col justify-between gap-6 ${effects.glassBlur ? "backdrop-blur-xl" : ""}`}
+              >
+                <div className="space-y-4">
+                  {data.badge && (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-bold"
+                      style={{ borderColor: alphaColor(accent, 0.35), color: accent }}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>{t(data.badge.ar, data.badge.en)}</span>
+                    </span>
+                  )}
+                  <h1 className={`${scaleHeroClass} font-black leading-[1.06]`} style={{ fontFamily: headingFont }}>
+                    {t(data.name.ar, data.name.en)}
+                  </h1>
+                  <p className="text-lg sm:text-xl font-bold" style={{ color: accent }}>
+                    {t(data.title.ar, data.title.en)}
+                  </p>
+                  <p className="text-sm sm:text-base leading-relaxed" style={{ color: muted }}>
+                    {t(data.bio.ar, data.bio.en)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <a
+                    href={primaryCtaUrl}
+                    {...externalLinkProps(primaryCtaUrl)}
+                    style={{ backgroundColor: accent, color: accentText }}
+                    className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-extrabold"
+                  >
+                    <span>{primaryCtaLabel}</span>
+                    <Arrow className="h-4 w-4" />
+                  </a>
+                  <a
+                    href={secondaryCtaUrl}
+                    {...externalLinkProps(secondaryCtaUrl)}
+                    style={{ borderColor: border, backgroundColor: surfaceAlt, color: text }}
+                    className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full border px-6 py-3 text-sm font-bold"
+                  >
+                    <span>{secondaryCtaLabel}</span>
+                  </a>
+                </div>
+              </div>
+              <div className="lg:col-span-6 grid grid-cols-2 gap-4">
+                <div style={cardSurfaceStyle} className={`${radiusClass} col-span-2 relative min-h-[210px] overflow-hidden`}>
+                  <Image src={heroImageSrc} alt={t(data.name.ar, data.name.en)} fill priority className="object-cover" />
+                </div>
+                <div style={cardSurfaceStyle} className={`${radiusClass} p-5 flex flex-col justify-between`}>
+                  <span className="font-mono text-[11px] uppercase" style={{ color: accent }}>
+                    {t("المدينة", "BASE")}
+                  </span>
+                  <p className="mt-3 font-extrabold text-sm">{t(data.city.ar, data.city.en) || "MENA / Global"}</p>
+                </div>
+                <div style={cardSurfaceStyle} className={`${radiusClass} p-5 flex flex-col justify-between`}>
+                  <span className="font-mono text-[11px] uppercase" style={{ color: accentSecondary }}>
+                    {t("الأعمال", "ARCHIVE")}
+                  </span>
+                  <p className="mt-3 text-2xl font-black" style={{ fontFamily: headingFont }}>
+                    {String(data.projects.length).padStart(2, "0")}+
+                  </p>
+                </div>
+              </div>
+            </div>
           ) : (
             /* split-showcase default */
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
@@ -1190,8 +1324,9 @@ export function CustomSovereignPortfolio({
                         >
                           <button
                             type="button"
+                            aria-expanded={isOpen}
                             onClick={() => setOpenFaqKey(isOpen ? null : k)}
-                            className="w-full px-6 py-4 flex items-center justify-between gap-4 text-start font-bold text-sm sm:text-base cursor-pointer"
+                            className="w-full min-h-[48px] px-6 py-4 flex items-center justify-between gap-4 text-start font-bold text-sm sm:text-base cursor-pointer"
                           >
                             <span>{t(item.title.ar, item.title.en)}</span>
                             <ChevronDown
@@ -1239,7 +1374,7 @@ export function CustomSovereignPortfolio({
                     ))}
                   </div>
                 </div>
-              ) : sec.kind === "cards" ? (
+              ) : sec.kind === "cards" || sec.kind === "timeline" || sec.kind === "testimonials" || sec.kind === "gallery" || (Array.isArray(sec.items) && sec.items.length > 0) ? (
                 <div className="space-y-5">
                   <div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold" style={{ fontFamily: headingFont }}>

@@ -76,7 +76,7 @@ export function GraduationCreditsSection() {
                 )}
               </p>
               <p className="mt-1 text-sm text-[#C7C3BA]">
-                {t("الدفعة الثانية عشرة • المستوى الأساسي", "Batch 12 • Foundation Level")}
+                {t("مسار الذكاء الاصطناعي • المستوى التأسيسي", "AI Track • Foundation Level")}
               </p>
               <a
                 href="https://www.nti.sci.eg/ai-ambassadors/"
@@ -120,7 +120,7 @@ export function GraduationCreditsSection() {
                     )}
                   </p>
                   <p className="mt-1 text-xs font-mono tracking-wide text-[#C89D66]">
-                    AI AMBASSADORS • BATCH 12
+                    AI AMBASSADORS INITIATIVE
                   </p>
                 </div>
               </div>

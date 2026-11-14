@@ -540,8 +540,8 @@ export function TaqdomReimagined() {
             <h3>{t("وببني تَقَدُّم علشان شغلك ياخد فرصته.", "I'm building Taqdom to give good work a better stage.")}</h3>
             <p>
               {t(
-                "تَقَدُّم مشروع تخرج مستقل في سياق مبادرة سفراء الذكاء الاصطناعي — الدفعة الثانية عشرة. الفكرة بسيطة: كل طالب وصانع ومبدع يستحق مساحة رقمية مرتبة تعرض قدراته وتخلّي الوصول لشغله أسهل.",
-                "Taqdom is an independent graduation project developed in the context of the AI Ambassadors Initiative, Batch 12. The idea is simple: students and creators deserve a thoughtful place to present what they can do."
+                "تَقَدُّم مشروع تخرج مستقل في سياق مبادرة سفراء الذكاء الاصطناعي. الفكرة بسيطة: كل طالب وصانع ومبدع يستحق مساحة رقمية مرتبة تعرض قدراته وتسهل الوصول إلى أعماله.",
+                "Taqdom is an independent graduation project developed in the context of the AI Ambassadors Initiative. The idea is simple: students and creators deserve a thoughtful place to present what they can do."
               )}
             </p>
             <div className="neo-founder-meta">

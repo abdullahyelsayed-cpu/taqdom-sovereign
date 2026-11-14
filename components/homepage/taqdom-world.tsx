@@ -261,7 +261,7 @@ export function TaqdomWorldExperience() {
               <article className="royal-faq-card royal-faq-card-mcp">
                 <span className="royal-faq-tag">SECURITY / ACCESS</span>
                 <h3>{t("أين أجد رابط MCP ومفتاح الاتصال؟ وهل أستطيع إلغاءه؟", "Where do I find my MCP endpoint and token, and can I revoke access?")}</h3>
-                <p>{t("من لوحة التحكم ← اتصالات MCP، أنشئ اتصالًا لعرض رابط الخدمة ومفتاح Bearer مرة واحدة. احفظ المفتاح في مكان آمن؛ لا يمكن عرضه مجددًا. يمكنك إلغاء أي اتصال نشط في أي وقت. يستخدم الاتصال الحالي مفاتيح شخصية عبر HTTPS ولا يدعم OAuth 2.1 حتى الآن.", "Go to Dashboard → MCP Connections and create a connection to reveal its endpoint and one-time Bearer token. Store the token securely; it cannot be shown again. You can revoke any active connection at any time. The current integration uses personal HTTPS bearer tokens and does not yet support OAuth 2.1.")}</p>
+                <p>{t("من لوحة التحكم ← اتصالات MCP، اربط Gemini CLI أو Claude تلقائيًا عبر OAuth 2.1 ليفتح لك تسجيل الدخول بحسابك أو بحساب Google فورًا، أو انسخ رابطًا مباشرًا جاهزًا للاستخدام أو مفتاح Bearer قابلًا للإلغاء في أي وقت، مع تحكم كامل بالقراءة والكتابة وتصميم معرضك ونشره via publish_portfolio.", "Go to Dashboard -> MCP Connections to connect Gemini CLI or Claude seamlessly via OAuth 2.1 automatic browser sign-in (with Taqdom or Google), copy a zero-header direct endpoint URL, or issue a revocable Bearer token with full read, write, custom design, and publish_portfolio permissions.")}</p>
               </article>
             </div>
           </div>

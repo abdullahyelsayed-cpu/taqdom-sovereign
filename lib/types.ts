@@ -93,6 +93,7 @@ export type CustomPortfolioPalette = {
   text: string;
   muted: string;
   accent: string;
+  accentSecondary?: string;
   accentText?: string;
   border?: string;
   heroGradient?: string;
@@ -102,6 +103,8 @@ export type CustomPortfolioTypography = {
   headingStyle: "display" | "editorial-serif" | "technical-mono" | "geometric";
   bodyStyle?: "sans" | "serif" | "mono";
   scale?: "compact" | "balanced" | "bold";
+  headingFontHint?: string;
+  bodyFontHint?: string;
 };
 
 export type CustomPortfolioLayout = {
@@ -110,7 +113,9 @@ export type CustomPortfolioLayout = {
     | "centered-monolith"
     | "asymmetric-editorial"
     | "terminal-bento"
-    | "full-bleed-poster";
+    | "full-bleed-poster"
+    | "minimal-typographic"
+    | "cards-mosaic";
   projectGrid:
     | "bento"
     | "masonry"
@@ -149,7 +154,7 @@ export type CustomPortfolioSectionItem = {
 
 export type CustomPortfolioSection = {
   id: string;
-  kind: "richtext" | "cards" | "stats" | "faq" | "quote" | "cta";
+  kind: "richtext" | "cards" | "stats" | "faq" | "quote" | "cta" | "timeline" | "testimonials" | "gallery";
   title: BilingualText;
   subtitle?: BilingualText;
   content?: BilingualText;
@@ -166,6 +171,7 @@ export type CustomPortfolioDesign = {
   effects?: CustomPortfolioEffects;
   heroCta?: CustomPortfolioCta;
   customSections?: CustomPortfolioSection[];
+  tokens?: Record<string, string | number | boolean>;
 };
 
 export type PortfolioData = {
@@ -220,6 +226,10 @@ export const RESERVED_USERNAMES = new Set([
   "admin",
   "studio",
   "auth",
+  "oauth",
+  "mcp",
+  "firebase",
+  "well-known",
   "mail",
   "cdn",
   "static",

@@ -11,6 +11,7 @@
 
 # local runtime db
 .taqdom-db.json
+.taqdom-*.json
 
 # test artifacts
 /playwright-report/

@@ -17,7 +17,7 @@ Taqdom is an Arabic-first platform where anyone can create, customize, and publi
 
 ## Graduation project
 
-Taqdom is an independent graduation project developed in the context of the AI Ambassadors Initiative, Batch 12. The founder and project creator is **عبدالله يحى (Abdullah Yehia)**. Institutional acknowledgements are contextual credits, not endorsements or certifications.
+Taqdom is an independent graduation project developed in the context of the AI Ambassadors Initiative. The founder and project creator is **عبدالله يحى (Abdullah Yehia)**. Institutional acknowledgements are contextual credits, not endorsements or certifications.
 
 ## Technology
 
