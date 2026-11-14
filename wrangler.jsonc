@@ -13,6 +13,7 @@
       "/mcp/*",
       "/oauth/*",
       "/.well-known/*",
+      "/openapi.json",
       "/portfolio/*",
       "/@*",
       "/robots.txt",

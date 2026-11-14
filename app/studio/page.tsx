@@ -109,6 +109,16 @@ const CANVAS_SECTIONS_BY_TEMPLATE: Record<TemplateId, CanvasSectionId[]> = {
 
 const DEFAULT_CANVAS_LAYOUT: CanvasSectionLayout = { x: 0, y: 0, width: 100, scale: 1 };
 
+const MAX_STUDIO_UPLOAD_BYTES = 20_000_000;
+const ACCEPTED_IMAGE_MIMES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "image/svg+xml",
+]);
+
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -116,6 +126,53 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error("Could not read image"));
     reader.readAsDataURL(file);
   });
+}
+
+async function prepareImageUpload(file: File): Promise<{ dataUrl: string; mime: string }> {
+  const mime = (file.type || "").toLowerCase();
+  if (
+    !["image/jpeg", "image/png", "image/webp"].includes(mime) ||
+    file.size <= 1_100_000 ||
+    typeof window === "undefined"
+  ) {
+    return { dataUrl: await readFileAsDataUrl(file), mime };
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new window.Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Canvas decode failed"));
+      el.src = objectUrl;
+    });
+
+    const maxDim = 2560;
+    const scale = Math.min(1, maxDim / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+    const width = Math.max(1, Math.round((img.naturalWidth || 1) * scale));
+    const height = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return { dataUrl: await readFileAsDataUrl(file), mime };
+    }
+    ctx.drawImage(img, 0, 0, width, height);
+
+    let dataUrl = canvas.toDataURL("image/webp", 0.88);
+    if (dataUrl.length > 1_350_000) {
+      dataUrl = canvas.toDataURL("image/webp", 0.78);
+    }
+    if (dataUrl.startsWith("data:image/webp;base64,")) {
+      return { dataUrl, mime: "image/webp" };
+    }
+    return { dataUrl: await readFileAsDataUrl(file), mime };
+  } catch {
+    return { dataUrl: await readFileAsDataUrl(file), mime };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 type StudioTab = "identity" | "template" | "projects" | "canvas" | "look3d" | "seo" | "domain";
@@ -167,7 +224,46 @@ function StudioContent() {
     if (typeof window !== "undefined") {
       setHost(window.location.host);
     }
-  }, []);
+    let cancelled = false;
+    const uQuery = searchParams.get("u");
+    const tplQuery = searchParams.get("template") as TemplateId | null;
+    const validTplQuery =
+      tplQuery && (ALL_TEMPLATE_IDS as readonly string[]).includes(tplQuery)
+        ? tplQuery
+        : null;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.authenticated || !data?.user) return;
+        const isFlagship = Boolean(data.user.isTestAccount);
+        useTaqdomStore.setState({
+          user: {
+            ...data.user,
+            isFlagshipAccount: isFlagship,
+          },
+        });
+        if (
+          !isFlagship &&
+          data.portfolio &&
+          (!uQuery || normalizeUsername(uQuery) === data.user.username)
+        ) {
+          const syncedPortfolio = validTplQuery
+            ? {
+                ...data.portfolio,
+                template: validTplQuery,
+                customDesign: data.portfolio.customDesign
+                  ? { ...data.portfolio.customDesign, enabled: false }
+                  : data.portfolio.customDesign,
+              }
+            : data.portfolio;
+          setDraft(syncedPortfolio, false);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, setDraft]);
 
   useEffect(() => {
     setSelectedCanvasSection("hero");
@@ -198,7 +294,7 @@ function StudioContent() {
           setDraft(seeded, false);
           return;
         }
-        if (!SEED_PORTFOLIOS[clean] && (isDemoReadOnly || !user || user.username !== clean)) {
+        if (!SEED_PORTFOLIOS[clean] && isDemoReadOnly) {
           const current = useTaqdomStore.getState().draft;
           if (current.username === clean) {
             if (validTpl) switchTemplate(validTpl);
@@ -235,7 +331,7 @@ function StudioContent() {
                 template: validTpl || SEED_PORTFOLIOS[clean].template,
               };
               setDraft(seeded, false);
-            } else {
+            } else if (!user) {
               const current = useTaqdomStore.getState().draft;
               if (current.username === clean) {
                 if (validTpl) switchTemplate(validTpl);
@@ -250,7 +346,7 @@ function StudioContent() {
             }
           })
           .catch(() => {
-            if (!cancelled) {
+            if (!cancelled && !user) {
               setDraft((prev) => ({
                 ...prev,
                 username: clean,
@@ -263,7 +359,7 @@ function StudioContent() {
         };
       }
     }
-  }, [searchParams, switchTemplate, setDraft, isDemoReadOnly, user]);
+  }, [searchParams, switchTemplate, setDraft, isDemoReadOnly, user?.username]);
 
   // Keyboard shortcuts: Ctrl+Z (Undo), Ctrl+S (Save)
   useEffect(() => {
@@ -285,6 +381,16 @@ function StudioContent() {
             const result = await response.json().catch(() => null);
             if (!response.ok || !result?.ok) {
               throw new Error(result?.error || "Could not save this draft.");
+            }
+            if (result?.user && result?.portfolio?.username) {
+              const nextUsername = result.portfolio.username as string;
+              useTaqdomStore.setState((s) => ({
+                user: s.user ? { ...s.user, ...result.user, username: nextUsername, isFlagshipAccount: false } : { ...result.user, isFlagshipAccount: false },
+                draft: { ...s.draft, username: nextUsername },
+              }));
+              if (typeof window !== "undefined") {
+                window.history.replaceState(null, "", `/studio?u=${encodeURIComponent(nextUsername)}`);
+              }
             }
             if (useTaqdomStore.getState().draft.updatedAt === snapshot.updatedAt) {
               useTaqdomStore.setState({ saveStatus: "saved" });
@@ -317,7 +423,21 @@ function StudioContent() {
         });
         const result = await response.json().catch(() => null);
         if (!response.ok || !result?.ok) {
-          throw new Error(result?.error || "Could not save this draft.");
+          const errMsg = result?.error || "Could not save this draft.";
+          if (response.status === 409 || response.status === 403 || response.status === 400) {
+            toast.error(errMsg);
+          }
+          throw new Error(errMsg);
+        }
+        if (result?.user && result?.portfolio?.username) {
+          const nextUsername = result.portfolio.username as string;
+          useTaqdomStore.setState((s) => ({
+            user: s.user ? { ...s.user, ...result.user, username: nextUsername, isFlagshipAccount: false } : { ...result.user, isFlagshipAccount: false },
+            draft: { ...s.draft, username: nextUsername },
+          }));
+          if (typeof window !== "undefined") {
+            window.history.replaceState(null, "", `/studio?u=${encodeURIComponent(nextUsername)}`);
+          }
         }
         if (useTaqdomStore.getState().draft.updatedAt === snapshot.updatedAt) {
           useTaqdomStore.setState({ saveStatus: "saved" });
@@ -339,6 +459,9 @@ function StudioContent() {
     setPublishing(true);
     try {
       const published = await publishCurrentDraft();
+      if (typeof window !== "undefined" && published?.username) {
+        window.history.replaceState(null, "", `/studio?u=${encodeURIComponent(published.username)}`);
+      }
       const targetUrl = getSubdomainUrl(published.username, host);
       setPublishedSuccessUrl(targetUrl);
 
@@ -439,7 +562,7 @@ function StudioContent() {
     });
   };
 
-  const handleFileUpload = (
+  const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     onLoaded: (url: string) => void
   ) => {
@@ -450,52 +573,40 @@ function StudioContent() {
       e.target.value = "";
       return;
     }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast.error(t("استخدم صورة JPG أو PNG أو WebP فقط.", "Choose a JPG, PNG, or WebP image."));
+    if (!ACCEPTED_IMAGE_MIMES.has(file.type.toLowerCase())) {
+      toast.error(t("استخدم صورة JPG أو PNG أو WebP أو GIF أو AVIF أو SVG.", "Choose a JPG, PNG, WebP, GIF, AVIF, or SVG image."));
       e.target.value = "";
       return;
     }
-    if (file.size <= 0 || file.size > 1_400_000) {
-      toast.error(t("الحد الأقصى للصورة 1.4 ميجابايت حتى يتم حفظها بأمان.", "Images must be 1.4 MB or smaller for reliable storage."));
+    if (file.size <= 0 || file.size > MAX_STUDIO_UPLOAD_BYTES) {
+      toast.error(t("الحد الأقصى للصورة 20 ميجابايت.", "Images must be 20 MB or smaller."));
       e.target.value = "";
       return;
     }
 
     setHasInteracted(true);
-    const reader = new FileReader();
-    reader.onerror = () => {
-      toast.error(t("تعذرت قراءة الصورة.", "Could not read the image."));
+    try {
+      const { dataUrl, mime } = await prepareImageUpload(file);
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dataUrl,
+          mime,
+          username: draft.username,
+        }),
+      });
+      const uploaded = await response.json().catch(() => null);
+      if (!response.ok || !uploaded?.url) {
+        throw new Error(uploaded?.error || t("تعذر حفظ الصورة. حاول مرة أخرى.", "Image upload failed. Please try again."));
+      }
+      onLoaded(uploaded.url);
+      toast.success(t("تم رفع الصورة وحفظها.", "Image uploaded and saved."));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("تعذر رفع الصورة.", "Could not upload image."));
+    } finally {
       e.target.value = "";
-    };
-    reader.onload = async () => {
-      if (typeof reader.result !== "string") {
-        toast.error(t("تعذرت قراءة الصورة.", "Could not read the image."));
-        e.target.value = "";
-        return;
-      }
-      try {
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            dataUrl: reader.result,
-            mime: file.type,
-            username: draft.username,
-          }),
-        });
-        const uploaded = await response.json().catch(() => null);
-        if (!response.ok || !uploaded?.url) {
-          throw new Error(uploaded?.error || t("تعذر حفظ الصورة. حاول مرة أخرى.", "Image upload failed. Please try again."));
-        }
-        onLoaded(uploaded.url);
-        toast.success(t("تم رفع الصورة وحفظها.", "Image uploaded and saved."));
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : t("تعذر رفع الصورة.", "Could not upload image."));
-      } finally {
-        e.target.value = "";
-      }
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   const tabs: { id: StudioTab; labelAr: string; labelEn: string; icon: React.ElementType }[] = [
@@ -605,21 +716,25 @@ function StudioContent() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast.error(t("استخدم صورة JPG أو PNG أو WebP.", "Choose a JPG, PNG, or WebP image."));
+    if (isDemoReadOnly) {
+      toast.info(t("حساب المعاينة للعرض فقط.", "The demo account is read-only."));
       return;
     }
-    if (file.size > 1_400_000) {
-      toast.error(t("الحد الأقصى لصورة الخلفية 1.4 ميجابايت.", "Background images must be 1.4 MB or smaller."));
+    if (!ACCEPTED_IMAGE_MIMES.has(file.type.toLowerCase())) {
+      toast.error(t("استخدم صورة JPG أو PNG أو WebP أو GIF أو AVIF أو SVG.", "Choose a JPG, PNG, WebP, GIF, AVIF, or SVG image."));
+      return;
+    }
+    if (file.size <= 0 || file.size > MAX_STUDIO_UPLOAD_BYTES) {
+      toast.error(t("الحد الأقصى لصورة الخلفية 20 ميجابايت.", "Background images must be 20 MB or smaller."));
       return;
     }
     setBackgroundUploading(true);
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      const { dataUrl, mime } = await prepareImageUpload(file);
       const response = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, mime: file.type, username: draft.username }),
+        body: JSON.stringify({ dataUrl, mime, username: draft.username }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.url) throw new Error(payload.error || "Upload failed");
@@ -1400,11 +1515,11 @@ function StudioContent() {
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="text-xs font-bold">{t("صورة خلفية", "Background image")}</p>
-                      <p className="text-[10px] leading-5 text-muted-foreground">{t("JPG / PNG / WebP • حتى 1.5 MB", "JPG / PNG / WebP • up to 1.5 MB")}</p>
+                      <p className="text-[10px] leading-5 text-muted-foreground">{t("JPG / PNG / WebP / GIF / AVIF / SVG • حتى 20 MB", "JPG / PNG / WebP / GIF / AVIF / SVG • up to 20 MB")}</p>
                     </div>
                     <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-[11px] font-bold text-primary-foreground">
                       {backgroundUploading ? <span className="animate-pulse">{t("جارٍ الرفع", "Uploading")}</span> : <><ImagePlus className="h-3.5 w-3.5" />{t("رفع صورة", "Upload image")}</>}
-                      <input type="file" accept="image/jpeg,image/png,image/webp" aria-label={t("رفع صورة خلفية", "Upload a background image")} disabled={backgroundUploading} onChange={handleCanvasBackgroundUpload} className="sr-only" />
+                      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/svg+xml" aria-label={t("رفع صورة خلفية", "Upload a background image")} disabled={backgroundUploading} onChange={handleCanvasBackgroundUpload} className="sr-only" />
                     </label>
                   </div>
                   {draft.canvas?.backgroundImage ? (

@@ -2,8 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveMediaInDb } from "@/lib/db";
 import { getRequestSession, sameOriginWriteAllowed } from "@/lib/api-session";
 
-const MAX_IMAGE_BYTES = 1_400_000;
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_IMAGE_BYTES = 20_000_000;
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "image/svg+xml",
+]);
 
 function matchesRasterSignature(mime: string, bytes: Uint8Array): boolean {
   if (mime === "image/jpeg") {
@@ -18,13 +25,36 @@ function matchesRasterSignature(mime: string, bytes: Uint8Array): boolean {
       String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
       String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
   }
+  if (mime === "image/gif") {
+    const hdr = String.fromCharCode(...bytes.slice(0, 6));
+    return hdr === "GIF87a" || hdr === "GIF89a";
+  }
+  if (mime === "image/avif") {
+    const ftyp = String.fromCharCode(...bytes.slice(4, 8));
+    const brand = String.fromCharCode(...bytes.slice(8, 12));
+    return bytes.length >= 12 && ftyp === "ftyp" && ["avif", "avis", "mif1"].includes(brand);
+  }
   return false;
+}
+
+function sanitizeSvgBuffer(bytes: Uint8Array): Buffer | null {
+  let svgText = Buffer.from(bytes).toString("utf8").trim();
+  if (!/<svg[\s>]/i.test(svgText) || !/<\/svg>/i.test(svgText)) return null;
+  svgText = svgText
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/(?:href|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript):[^"]*"|'\s*(?:javascript|vbscript):[^']*')/gi, "");
+  if (/<script|foreignObject|\bon[a-z]+\s*=|(?:javascript|vbscript):/i.test(svgText)) {
+    return null;
+  }
+  return Buffer.from(svgText, "utf8");
 }
 
 export async function POST(req: NextRequest) {
   try {
     const contentLength = Number(req.headers.get("content-length") || 0);
-    if (contentLength > 1_950_000) {
+    if (contentLength > 28_500_000) {
       return NextResponse.json({ error: "Request body too large" }, { status: 413 });
     }
     if (!sameOriginWriteAllowed(req)) {
@@ -42,56 +72,79 @@ export async function POST(req: NextRequest) {
 
     if (contentType.includes("multipart/form-data")) {
       const formData = await req.formData();
-      const requestedUsername = String(formData.get("username") || "");
-      if (requestedUsername && requestedUsername.toLowerCase() !== session.username.toLowerCase()) {
-        return NextResponse.json({ error: "You can only upload to your own portfolio" }, { status: 403 });
-      }
       const file = formData.get("file");
       if (!(file instanceof File)) {
         return NextResponse.json({ error: "Missing file" }, { status: 400 });
       }
       if (file.size <= 0 || file.size > MAX_IMAGE_BYTES) {
         return NextResponse.json(
-          { error: "حجم الصورة يجب أن يكون بين 1 بايت و1.4 ميجابايت / Max file size is 1.4MB" },
+          { error: "حجم الصورة يجب أن يكون بين 1 بايت و20 ميجابايت / Max file size is 20MB" },
           { status: 413 }
         );
       }
       mime = file.type.toLowerCase();
       if (!ALLOWED_IMAGE_TYPES.has(mime)) {
-        return NextResponse.json({ error: "Only JPG, PNG, and WebP images are allowed" }, { status: 415 });
+        return NextResponse.json(
+          { error: "Only JPG, PNG, WebP, GIF, AVIF, and SVG images are allowed" },
+          { status: 415 }
+        );
       }
-      size = file.size;
       const bytes = new Uint8Array(await file.arrayBuffer());
-      if (!matchesRasterSignature(mime, bytes)) {
-        return NextResponse.json({ error: "Image bytes do not match the declared file type" }, { status: 415 });
+      if (mime === "image/svg+xml") {
+        const cleaned = sanitizeSvgBuffer(bytes);
+        if (!cleaned) {
+          return NextResponse.json({ error: "Unsafe or invalid SVG image" }, { status: 415 });
+        }
+        size = cleaned.byteLength;
+        dataUrl = `data:image/svg+xml;base64,${cleaned.toString("base64")}`;
+      } else {
+        size = file.size;
+        if (!matchesRasterSignature(mime, bytes)) {
+          return NextResponse.json({ error: "Image bytes do not match the declared file type" }, { status: 415 });
+        }
+        dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
       }
-      dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
     } else {
       const body = await req.json();
-      if (body.username && String(body.username).toLowerCase() !== session.username.toLowerCase()) {
-        return NextResponse.json({ error: "You can only upload to your own portfolio" }, { status: 403 });
-      }
       dataUrl = String(body.dataUrl || "");
-      const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
+      const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]+=*)$/i);
       if (!match) {
-        return NextResponse.json({ error: "Only valid JPG, PNG, and WebP data URLs are allowed" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Only valid JPG, PNG, WebP, GIF, AVIF, and SVG data URLs are allowed" },
+          { status: 400 }
+        );
       }
       mime = match[1].toLowerCase();
       const padding = match[2].endsWith("==") ? 2 : match[2].endsWith("=") ? 1 : 0;
       size = Math.floor((match[2].length * 3) / 4) - padding;
       const binary = Buffer.from(match[2], "base64");
-      if (!matchesRasterSignature(mime, binary)) {
+      if (mime === "image/svg+xml") {
+        const cleaned = sanitizeSvgBuffer(binary);
+        if (!cleaned) {
+          return NextResponse.json({ error: "Unsafe or invalid SVG image" }, { status: 415 });
+        }
+        size = cleaned.byteLength;
+        dataUrl = `data:image/svg+xml;base64,${cleaned.toString("base64")}`;
+      } else if (!matchesRasterSignature(mime, binary)) {
         return NextResponse.json({ error: "Image bytes do not match the declared file type" }, { status: 415 });
       }
       if (size <= 0 || size > MAX_IMAGE_BYTES) {
         return NextResponse.json(
-          { error: "حجم الصورة يجب ألا يتجاوز 1.4 ميجابايت / Max file size is 1.4MB" },
+          { error: "حجم الصورة يجب ألا يتجاوز 20 ميجابايت / Max file size is 20MB" },
           { status: 413 }
         );
       }
     }
 
-    const ext = mime === "image/png" ? "png" : mime === "image/jpeg" ? "jpg" : "webp";
+    const extMap: Record<string, string> = {
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "image/avif": "avif",
+      "image/svg+xml": "svg",
+    };
+    const ext = extMap[mime] || "webp";
     const key = `${Date.now()}-${crypto.randomUUID()}` + `.${ext}`;
     await saveMediaInDb({
       userId: session.username,

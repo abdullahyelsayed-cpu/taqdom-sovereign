@@ -93,9 +93,9 @@ assert.ok(workerText.includes("Math.min(remaining, PBKDF2_WORKERD_MAX_ITERATIONS
 assert.ok(workerText.includes('salt: PBKDF2_SALT_PREFIX + iterations + "$" + saltHex,'), "New password salts must use the delimiter expected by the versioned salt parser.");
 assert.equal((storeText.match(/loginFlagshipShowcase: async/g) || []).length, 1, "The showcase login action must have exactly one implementation.");
 assert.match(workerText, /PBKDF2_LEGACY_ITERATIONS = 100000/, "Existing passwords must remain verifiable during transparent hash upgrades.");
-assert.match(workerText, /password.length < 15 \|\| password.length > 128/, "New passwords must use a bounded strong passphrase policy.");
+assert.match(workerText, /password.length < 8 \|\| password.length > 128/, "New passwords must use a bounded strong passphrase policy.");
 assert.match(workerText, /validRasterImageData/, "Uploaded image MIME types must be checked against actual file signatures.");
-assert.match(workerText, /Max image size is 1.4MB/, "D1-backed uploads must stay below the single-row size limit.");
+assert.match(workerText, /Max image size is 20MB/, "D1-backed uploads must stay below the chunked 20MB media cap.");
 assert.doesNotMatch(workerText, /Access-Control-Allow-Origin/, "The Worker must not expose wildcard CORS to authenticated API routes.");
 assert.match(workerText, /Strict-Transport-Security/, "Worker responses must set HSTS.");
 assert.match(workerText, /Content-Security-Policy-Report-Only/, "Worker responses must ship a CSP report-only policy before enforcement.");
@@ -123,7 +123,7 @@ assert.match(creditsText, /unoptimized/, "The founder portrait must bypass image
 assert.match(creditsText, /linkedin.com\/in\/abdullah-yehia/, "The founder LinkedIn link must be present.");
 assert.match(worldText, /GraduationCreditsSection/, "The homepage must render the founder and graduation acknowledgement section.");
 assert.match(uploadApiText, /matchesRasterSignature/, "The Next.js upload fallback must verify image signatures.");
-assert.match(uploadApiText, /MAX_IMAGE_BYTES = 1_400_000/, "The Next.js upload fallback must use the D1-safe media cap.");
+assert.match(uploadApiText, /MAX_IMAGE_BYTES = 20_000_000/, "The Next.js upload fallback must use the chunked 20MB media cap.");
 assert.match(workerText, /readOnly: true/, "The demo login response must explicitly identify its read-only mode.");
 assert.match(verifyText, /BASE_PARSED\.protocol !== "http:"/, "Destructive integration verification must reject non-HTTP local targets.");
 assert.match(verifyText, /\["localhost", "127\.0\.0\.1", "::1"\]\.includes\(BASE_PARSED\.hostname\)/, "Destructive integration verification must allow only loopback hostnames.");

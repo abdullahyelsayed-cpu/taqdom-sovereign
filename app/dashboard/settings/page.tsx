@@ -100,9 +100,9 @@ export default function DashboardSettingsPage() {
         return;
       }
     }
-    if (newPassword && (newPassword.length < 15 || newPassword.length > 128)) {
+    if (newPassword && (newPassword.length < 8 || newPassword.length > 128)) {
       toast.error(
-        t("استخدم عبارة مرور من 15 إلى 128 حرفًا.", "Use a passphrase between 15 and 128 characters.")
+        t("استخدم كلمة مرور من 8 إلى 128 حرفًا.", "Use a password between 8 and 128 characters.")
       );
       return;
     }
@@ -259,16 +259,16 @@ export default function DashboardSettingsPage() {
                 id="settings-password-input"
                 type="password"
                 dir="ltr"
-                minLength={15}
+                minLength={8}
                 maxLength={128}
                 value={newPassword}
                 disabled={checkingAuth || isShowcaseAccount || saving || deleting}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="•••••••••••••••"
+                placeholder="••••••••"
                 className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
-                {t("استخدم عبارة مرور من 15 إلى 128 حرفًا.", "Use a passphrase between 15 and 128 characters.")}
+                {t("استخدم كلمة مرور من 8 إلى 128 حرفًا.", "Use a strong password between 8 and 128 characters.")}
               </p>
             </div>
 

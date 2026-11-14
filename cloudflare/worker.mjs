@@ -1,7 +1,7 @@
 // cloudflare/worker.mjs — Sovereign Edge Worker for taqdom.me & *.taqdom.me backed by Cloudflare D1
 import { SEED_PORTFOLIOS, createStarterPortfolio, TEMPLATES_CATALOG } from "../lib/seed-data.ts";
 import { ALL_TEMPLATE_IDS, RESERVED_USERNAMES, normalizeUsername, validateUsername } from "../lib/types.ts";
-import { handleMcpRequest, handleMcpTokenApi } from "./mcp.mjs";
+import { handleMcpRequest, handleMcpRestRequest, handleMcpTokenApi, handleOpenApiSpec } from "./mcp.mjs";
 import { handleOAuthRequest, isOAuthRoute } from "./oauth.mjs";
 import { DEFAULT_FIREBASE_PROJECT_ID, suggestAvailableUsername, verifyFirebaseIdToken } from "./firebase-auth.mjs";
 
@@ -13,6 +13,7 @@ const APP_ROUTES = new Set([
   "favicon.ico",
   "robots.txt",
   "sitemap.xml",
+  "openapi.json",
 ]);
 
 const edgeStore = {
@@ -368,9 +369,47 @@ function validRasterImageData(mime, base64) {
         head.slice(0, 4) === "RIFF" &&
         head.slice(8, 12) === "WEBP";
     }
+    if (mime === "image/gif") {
+      return head.length >= 6 && (head.startsWith("GIF87a") || head.startsWith("GIF89a"));
+    }
+    if (mime === "image/avif") {
+      return head.length >= 12 &&
+        head.slice(4, 8) === "ftyp" &&
+        ["avif", "avis", "mif1"].includes(head.slice(8, 12));
+    }
     return false;
   } catch {
     return false;
+  }
+}
+
+function sanitizeSvgBase64(base64) {
+  try {
+    const bin = atob(base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    let svgText = new TextDecoder("utf-8", { fatal: false }).decode(bytes).trim();
+    if (!/<svg[\s>]/i.test(svgText) || !/<\/svg>/i.test(svgText)) return null;
+    svgText = svgText
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+      .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+      .replace(/(?:href|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript):[^"]*"|'\s*(?:javascript|vbscript):[^']*')/gi, "");
+    if (/<script|foreignObject|\bon[a-z]+\s*=|(?:javascript|vbscript):/i.test(svgText)) {
+      return null;
+    }
+    const cleanBytes = new TextEncoder().encode(svgText);
+    let outBin = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < cleanBytes.length; i += chunkSize) {
+      outBin += String.fromCharCode(...cleanBytes.subarray(i, i + chunkSize));
+    }
+    return {
+      base64: btoa(outBin),
+      size: cleanBytes.byteLength,
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -694,6 +733,206 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
   return updated;
 }
 
+async function renameAndSaveAccountInD1(env, curUsername, targetRawUsername, options = {}) {
+  const cur = normalizeUsername(curUsername);
+  if (!cur) {
+    return { errorResponse: jsonResponse({ error: "Authentication required" }, 401) };
+  }
+  if (!env.DB) {
+    return { errorResponse: jsonResponse({ error: "Settings storage is unavailable." }, 503) };
+  }
+
+  const existingUser = await env.DB.prepare(
+    "SELECT id, email, username, password_hash, salt FROM users WHERE username = ?1"
+  )
+    .bind(cur)
+    .first();
+  if (!existingUser) {
+    return { errorResponse: jsonResponse({ error: "Account not found" }, 404) };
+  }
+
+  const portfolioRow = await env.DB.prepare(
+    "SELECT published_json, published_at FROM portfolios WHERE username = ?1"
+  )
+    .bind(cur)
+    .first();
+  const wasPublished = Boolean(portfolioRow?.published_json);
+
+  let targetUsername = cur;
+  const normalizedTarget = normalizeUsername(String(targetRawUsername || cur));
+  if (normalizedTarget && normalizedTarget !== cur) {
+    const val = validateUsername(String(targetRawUsername));
+    if (!val.valid) {
+      return { errorResponse: jsonResponse({ error: val.reasonAr || "Invalid username" }, 400) };
+    }
+    const candidate = val.normalized;
+    if (RESERVED_USERNAMES.has(candidate) || SEED_PORTFOLIOS[candidate]) {
+      return {
+        errorResponse: jsonResponse(
+          { error: "هذا الاسم محجوز بالفعل لمبدع آخر / Username already taken" },
+          409
+        ),
+      };
+    }
+    const takenRow = await env.DB.prepare(
+      "SELECT username FROM users WHERE username = ?1 UNION SELECT username FROM portfolios WHERE username = ?1"
+    )
+      .bind(candidate)
+      .first();
+    if (takenRow || edgeStore.users[candidate] || edgeStore.portfolios[candidate]) {
+      return {
+        errorResponse: jsonResponse(
+          { error: "هذا الاسم محجوز بالفعل لمبدع آخر / Username already taken" },
+          409
+        ),
+      };
+    }
+    targetUsername = candidate;
+  }
+
+  let pwdInfo = null;
+  if (options.newPassword) {
+    const newPassword = String(options.newPassword);
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      return {
+        errorResponse: jsonResponse(
+          { error: "استخدم كلمة مرور من 8 إلى 128 حرفًا / Passwords must be 8–128 characters." },
+          400
+        ),
+      };
+    }
+    pwdInfo = await hashPasswordEdge(newPassword);
+  }
+
+  const preservedHash = pwdInfo?.hash || existingUser.password_hash;
+  const preservedSalt = pwdInfo?.salt || existingUser.salt;
+  const preservedEmail = existingUser.email;
+  const preservedUserId = existingUser.id;
+  const basePortfolio =
+    options.incomingPortfolio && typeof options.incomingPortfolio === "object"
+      ? options.incomingPortfolio
+      : (await getDraftPortfolioFromD1(env, cur)) || createStarterPortfolio(cur, "haven", cur);
+  const currentPortfolio = structuredClone(basePortfolio);
+  currentPortfolio.username = targetUsername;
+  currentPortfolio.email = preservedEmail;
+  currentPortfolio.publishedAt = options.isPublish
+    ? Date.now()
+    : wasPublished
+      ? (portfolioRow?.published_at || currentPortfolio.publishedAt || Date.now())
+      : null;
+  currentPortfolio.updatedAt = Date.now();
+
+  if (targetUsername !== cur) {
+    let publishedJson = null;
+    if (options.isPublish) {
+      publishedJson = JSON.stringify(currentPortfolio);
+    } else if (wasPublished && portfolioRow?.published_json) {
+      publishedJson = JSON.stringify({
+        ...JSON.parse(portfolioRow.published_json),
+        username: targetUsername,
+        email: preservedEmail,
+      });
+    }
+    const renameStatements = [
+      env.DB.prepare(
+        "UPDATE users SET username = ?1, password_hash = ?2, salt = ?3 WHERE username = ?4"
+      ).bind(targetUsername, preservedHash, preservedSalt, cur),
+    ];
+    if (portfolioRow) {
+      renameStatements.push(
+        env.DB.prepare(
+          "UPDATE portfolios SET username = ?1, draft_json = ?2, published_json = ?3, updated_at = ?4 WHERE username = ?5"
+        ).bind(
+          targetUsername,
+          JSON.stringify(currentPortfolio),
+          publishedJson,
+          Date.now(),
+          cur
+        )
+      );
+    }
+    const { results: optionalTables = [] } = await env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes', 'views')"
+    )
+      .all()
+      .catch(() => ({ results: [] }));
+    const tableNames = new Set(optionalTables.map((r) => r.name));
+    for (const tbl of ["mcp_access_tokens", "oauth_refresh_tokens", "oauth_codes"]) {
+      if (tableNames.has(tbl)) {
+        renameStatements.push(
+          env.DB.prepare(
+            `UPDATE ${tbl} SET username = ?1 WHERE username = ?2 OR user_id = ?3`
+          ).bind(targetUsername, cur, preservedUserId)
+        );
+      }
+    }
+    if (tableNames.has("views")) {
+      renameStatements.push(
+        env.DB.prepare("UPDATE views SET username = ?1 WHERE username = ?2").bind(
+          targetUsername,
+          cur
+        )
+      );
+    }
+    await env.DB.batch(renameStatements);
+    delete edgeStore.portfolios[cur];
+    delete edgeStore.users[cur];
+    edgeStore.views[targetUsername] = edgeStore.views[cur] || 1;
+    delete edgeStore.views[cur];
+    if (wasPublished || options.isPublish) edgeStore.unpublished.delete(targetUsername);
+    else edgeStore.unpublished.add(targetUsername);
+  } else if (pwdInfo) {
+    await env.DB.prepare(
+      "UPDATE users SET password_hash = ?1, salt = ?2 WHERE username = ?3"
+    )
+      .bind(preservedHash, preservedSalt, cur)
+      .run();
+  }
+
+  const userAuth = {
+    id: preservedUserId,
+    email: preservedEmail,
+    passwordHash: preservedHash,
+    salt: preservedSalt,
+  };
+  const saved = await savePortfolioToD1AndMemory(
+    env,
+    currentPortfolio,
+    Boolean(options.isPublish),
+    userAuth
+  );
+  edgeStore.users[targetUsername] = {
+    id: preservedUserId,
+    email: preservedEmail,
+    username: targetUsername,
+    passwordHash: preservedHash,
+    salt: preservedSalt,
+  };
+
+  const sessionPayload = {
+    id: preservedUserId,
+    userId: preservedUserId,
+    email: preservedEmail,
+    username: targetUsername,
+    isTestAccount: false,
+  };
+  const shouldRefreshCookie = targetUsername !== cur || Boolean(pwdInfo);
+  const setCookieHeader = shouldRefreshCookie
+    ? makeSessionCookie(
+        await signEdgeSession(sessionPayload, env?.AUTH_SECRET),
+        options.isSecure !== false
+      )
+    : null;
+
+  return {
+    ok: true,
+    renamed: targetUsername !== cur,
+    user: sessionPayload,
+    portfolio: saved,
+    setCookieHeader,
+  };
+}
+
 async function handleApiRequest(request, url, env) {
   const { pathname, searchParams } = url;
   if (pathname === "/api/health" && (request.method === "GET" || request.method === "HEAD")) {
@@ -887,9 +1126,9 @@ async function handleApiRequest(request, url, env) {
     if (!val.valid) {
       return jsonResponse({ error: val.reasonAr || val.reasonEn || "Invalid username" }, 400);
     }
-    if (password.length < 15 || password.length > 128) {
+    if (password.length < 8 || password.length > 128) {
       return jsonResponse(
-        { error: "استخدم عبارة مرور من 15 إلى 128 حرفًا / Passwords must be 15–128 characters." },
+        { error: "استخدم كلمة مرور من 8 إلى 128 حرفًا / Passwords must be 8–128 characters." },
         400
       );
     }
@@ -1288,147 +1527,16 @@ async function handleApiRequest(request, url, env) {
       if (!cur) return jsonResponse({ error: "Missing currentUsername" }, 400);
       if (!ownsUsername(cur)) return forbidden();
 
-      const existingUser = await env.DB.prepare(
-        "SELECT id, email, username, password_hash, salt FROM users WHERE username = ?1"
-      )
-        .bind(cur)
-        .first();
-      if (!existingUser) return jsonResponse({ error: "Account not found" }, 404);
-
-      const portfolioRow = await env.DB.prepare(
-        "SELECT published_json, published_at FROM portfolios WHERE username = ?1"
-      )
-        .bind(cur)
-        .first();
-      if (!portfolioRow) return jsonResponse({ error: "Portfolio not found" }, 404);
-      const wasPublished = Boolean(portfolioRow.published_json);
-
-      let targetUsername = cur;
-      if (body.newUsername && normalizeUsername(String(body.newUsername)) !== cur) {
-        const val = validateUsername(String(body.newUsername));
-        if (!val.valid) return jsonResponse({ error: val.reasonAr || "Invalid username" }, 400);
-        const candidate = val.normalized;
-        if (RESERVED_USERNAMES.has(candidate) || SEED_PORTFOLIOS[candidate]) {
-          return jsonResponse({ error: "Username already taken" }, 409);
-        }
-        const takenRow = await env.DB.prepare(
-          "SELECT username FROM users WHERE username = ?1 UNION SELECT username FROM portfolios WHERE username = ?1"
-        )
-          .bind(candidate)
-          .first();
-        if (takenRow || edgeStore.users[candidate] || edgeStore.portfolios[candidate]) {
-          return jsonResponse({ error: "Username already taken" }, 409);
-        }
-        targetUsername = candidate;
-      }
-
-      let pwdInfo = null;
-      if (body.newPassword) {
-        const newPassword = String(body.newPassword);
-        if (newPassword.length < 15 || newPassword.length > 128) {
-          return jsonResponse(
-            { error: "استخدم عبارة مرور من 15 إلى 128 حرفًا / Passwords must be 15–128 characters." },
-            400
-          );
-        }
-        pwdInfo = await hashPasswordEdge(newPassword);
-      }
-
-      const preservedHash = pwdInfo?.hash || existingUser.password_hash;
-      const preservedSalt = pwdInfo?.salt || existingUser.salt;
-      const preservedEmail = existingUser.email;
-      const preservedUserId = existingUser.id;
-      const currentPortfolio = structuredClone(
-        (await getDraftPortfolioFromD1(env, cur)) ||
-          createStarterPortfolio(cur, "haven", cur)
-      );
-      currentPortfolio.username = targetUsername;
-      currentPortfolio.email = preservedEmail;
-      currentPortfolio.publishedAt = wasPublished
-        ? (portfolioRow.published_at || currentPortfolio.publishedAt || Date.now())
-        : null;
-      currentPortfolio.updatedAt = Date.now();
-
-      if (targetUsername !== cur) {
-        const publishedJson = wasPublished
-          ? JSON.stringify({
-              ...JSON.parse(portfolioRow.published_json),
-              username: targetUsername,
-              email: preservedEmail,
-            })
-          : null;
-        const renameStatements = [
-          env.DB.prepare(
-            "UPDATE users SET username = ?1, password_hash = ?2, salt = ?3 WHERE username = ?4"
-          ).bind(targetUsername, preservedHash, preservedSalt, cur),
-          env.DB.prepare(
-            "UPDATE portfolios SET username = ?1, draft_json = ?2, published_json = ?3, updated_at = ?4 WHERE username = ?5"
-          ).bind(
-            targetUsername,
-            JSON.stringify(currentPortfolio),
-            publishedJson,
-            Date.now(),
-            cur
-          ),
-        ];
-        const { results: oauthTables = [] } = await env.DB.prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes')"
-        )
-          .all()
-          .catch(() => ({ results: [] }));
-        const tableNames = new Set(oauthTables.map((r) => r.name));
-        for (const tbl of ["mcp_access_tokens", "oauth_refresh_tokens", "oauth_codes"]) {
-          if (tableNames.has(tbl)) {
-            renameStatements.push(
-              env.DB.prepare(
-                `UPDATE ${tbl} SET username = ?1 WHERE username = ?2 OR user_id = ?3`
-              ).bind(targetUsername, cur, preservedUserId)
-            );
-          }
-        }
-        await env.DB.batch(renameStatements);
-        delete edgeStore.portfolios[cur];
-        delete edgeStore.users[cur];
-        edgeStore.views[targetUsername] = edgeStore.views[cur] || 1;
-        delete edgeStore.views[cur];
-        if (wasPublished) edgeStore.unpublished.delete(targetUsername);
-        else edgeStore.unpublished.add(targetUsername);
-      } else {
-        await env.DB.prepare(
-          "UPDATE users SET password_hash = ?1, salt = ?2 WHERE username = ?3"
-        )
-          .bind(preservedHash, preservedSalt, cur)
-          .run();
-      }
-
-      const userAuth = {
-        id: preservedUserId,
-        email: preservedEmail,
-        passwordHash: preservedHash,
-        salt: preservedSalt,
-      };
-      const saved = await savePortfolioToD1AndMemory(env, currentPortfolio, false, userAuth);
-      edgeStore.users[targetUsername] = {
-        id: preservedUserId,
-        email: preservedEmail,
-        username: targetUsername,
-        passwordHash: preservedHash,
-        salt: preservedSalt,
-      };
-
-      const sessionPayload = {
-        id: preservedUserId,
-        userId: preservedUserId,
-        email: preservedEmail,
-        username: targetUsername,
-        isTestAccount: false,
-      };
-      const token = await signEdgeSession(sessionPayload, env?.AUTH_SECRET);
+      const res = await renameAndSaveAccountInD1(env, cur, body.newUsername || cur, {
+        newPassword: body.newPassword ? String(body.newPassword) : "",
+        isSecure,
+      });
+      if (res.errorResponse) return res.errorResponse;
 
       return jsonResponse(
-        { ok: true, user: sessionPayload, portfolio: saved },
+        { ok: true, user: res.user, portfolio: res.portfolio, renamed: res.renamed },
         200,
-        { "Set-Cookie": makeSessionCookie(token, isSecure) }
+        res.setCookieHeader ? { "Set-Cookie": res.setCookieHeader } : {}
       );
     }
 
@@ -1499,46 +1607,83 @@ async function handleApiRequest(request, url, env) {
     if (request.method === "PUT") {
       if (!session?.username) return unauthorized();
       if (!ownsUsername(session.username)) return forbidden();
-      const parsed = await parseJsonBody(request, 1_000_000);
+      const parsed = await parseJsonBody(request, 1_500_000);
       if (!parsed.ok) return rateLimitBodyError(parsed);
       const portfolio = parsed.value?.portfolio;
       if (!portfolio?.username) return jsonResponse({ error: "Invalid payload" }, 400);
-      if (!ownsUsername(portfolio.username)) return forbidden();
-      const validation = validateUsername(String(portfolio.username));
-      if (!validation.valid) {
-        return jsonResponse({ error: validation.reasonAr || "Invalid username" }, 400);
+      const requestedUsername = normalizeUsername(String(portfolio.username));
+      const curSessionName = normalizeUsername(String(session.username));
+      if (requestedUsername === curSessionName) {
+        if (!ownsUsername(portfolio.username)) return forbidden();
+        const validation = validateUsername(String(portfolio.username));
+        if (!validation.valid) {
+          return jsonResponse({ error: validation.reasonAr || "Invalid username" }, 400);
+        }
+        const saved = await savePortfolioToD1AndMemory(
+          env,
+          { ...portfolio, username: validation.normalized },
+          false
+        );
+        return jsonResponse({ ok: true, portfolio: saved });
       }
-      const saved = await savePortfolioToD1AndMemory(
-        env,
-        { ...portfolio, username: validation.normalized },
-        false
+      const res = await renameAndSaveAccountInD1(env, curSessionName, portfolio.username, {
+        incomingPortfolio: portfolio,
+        isPublish: false,
+        isSecure,
+      });
+      if (res.errorResponse) return res.errorResponse;
+      return jsonResponse(
+        { ok: true, portfolio: res.portfolio, user: res.user, renamed: res.renamed },
+        200,
+        res.setCookieHeader ? { "Set-Cookie": res.setCookieHeader } : {}
       );
-      return jsonResponse({ ok: true, portfolio: saved });
     }
   }
 
   if (pathname === "/api/portfolio/publish") {
     if (request.method === "POST") {
       if (!session?.username) return unauthorized();
-      const parsed = await parseJsonBody(request, 1_000_000);
+      if (!ownsUsername(session.username)) return forbidden();
+      const parsed = await parseJsonBody(request, 1_500_000);
       if (!parsed.ok) return rateLimitBodyError(parsed);
       const portfolio = parsed.value?.portfolio;
       if (!portfolio?.username) return jsonResponse({ error: "Missing portfolio" }, 400);
-      if (!ownsUsername(portfolio.username)) return forbidden();
-      const validation = validateUsername(String(portfolio.username));
-      if (!validation.valid) {
-        return jsonResponse({ error: validation.reasonAr || "Invalid username" }, 400);
+      const requestedUsername = normalizeUsername(String(portfolio.username));
+      const curSessionName = normalizeUsername(String(session.username));
+      if (requestedUsername === curSessionName) {
+        if (!ownsUsername(portfolio.username)) return forbidden();
+        const validation = validateUsername(String(portfolio.username));
+        if (!validation.valid) {
+          return jsonResponse({ error: validation.reasonAr || "Invalid username" }, 400);
+        }
+        const saved = await savePortfolioToD1AndMemory(
+          env,
+          { ...portfolio, username: validation.normalized },
+          true
+        );
+        return jsonResponse({
+          ok: true,
+          portfolio: saved,
+          subdomainUrl: `https://${saved.username}.taqdom.me`,
+        });
       }
-      const saved = await savePortfolioToD1AndMemory(
-        env,
-        { ...portfolio, username: validation.normalized },
-        true
-      );
-      return jsonResponse({
-        ok: true,
-        portfolio: saved,
-        subdomainUrl: `https://${saved.username}.taqdom.me`,
+      const res = await renameAndSaveAccountInD1(env, curSessionName, portfolio.username, {
+        incomingPortfolio: portfolio,
+        isPublish: true,
+        isSecure,
       });
+      if (res.errorResponse) return res.errorResponse;
+      return jsonResponse(
+        {
+          ok: true,
+          portfolio: res.portfolio,
+          user: res.user,
+          renamed: res.renamed,
+          subdomainUrl: `https://${res.portfolio.username}.taqdom.me`,
+        },
+        200,
+        res.setCookieHeader ? { "Set-Cookie": res.setCookieHeader } : {}
+      );
     }
 
     if (request.method === "DELETE") {
@@ -1574,81 +1719,164 @@ async function handleApiRequest(request, url, env) {
     if (!session?.username) return unauthorized();
     if (!ownsUsername(session.username)) return forbidden();
     if (!env.DB) return jsonResponse({ error: "Image storage is unavailable." }, 503);
-    const parsed = await parseJsonBody(request, 1_950_000);
+    const parsed = await parseJsonBody(request, 28_500_000);
     if (!parsed.ok) return rateLimitBodyError(parsed);
     const body = parsed.value;
-    if (body.username && normalizeUsername(body.username) !== normalizeUsername(session.username)) {
-      return jsonResponse({ error: "You can only upload to your own portfolio" }, 403);
-    }
     const dataUrl = String(body.dataUrl || "");
-    const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=*)$/i);
+    const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]+=*)$/i);
     if (!match) {
-      return jsonResponse({ error: "Only valid JPG, PNG, and WebP data URLs are allowed" }, 400);
+      return jsonResponse(
+        { error: "صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP أو GIF أو AVIF أو SVG / Unsupported image format." },
+        400
+      );
     }
     const mime = match[1].toLowerCase();
     if (body.mime && String(body.mime).toLowerCase() !== mime) {
       return jsonResponse({ error: "Image type mismatch" }, 400);
     }
-    const base64 = match[2];
-    const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
-    const size = Math.floor((base64.length * 3) / 4) - padding;
-    // D1 limits a single value/row to 2,000,000 bytes; base64 expands binary data by ~33%.
-    if (size <= 0 || size > 1_400_000) {
-      return jsonResponse({ error: "Max image size is 1.4MB while R2 is not enabled for this account." }, 413);
+    let cleanBase64 = match[2];
+    const padding = cleanBase64.endsWith("==") ? 2 : cleanBase64.endsWith("=") ? 1 : 0;
+    let size = Math.floor((cleanBase64.length * 3) / 4) - padding;
+    if (size <= 0 || size > 20_000_000) {
+      return jsonResponse({ error: "Max image size is 20MB." }, 413);
     }
-    if (!validRasterImageData(mime, base64)) {
-      return jsonResponse({ error: "Image bytes do not match the declared JPG, PNG, or WebP type." }, 415);
+    if (mime === "image/svg+xml") {
+      const cleanedSvg = sanitizeSvgBase64(cleanBase64);
+      if (!cleanedSvg) {
+        return jsonResponse({ error: "ملف SVG غير صالح أو يحتوي على أكواد غير آمنة / Unsafe or invalid SVG image." }, 415);
+      }
+      cleanBase64 = cleanedSvg.base64;
+      size = cleanedSvg.size;
+      if (size <= 0 || size > 20_000_000) {
+        return jsonResponse({ error: "Max image size is 20MB." }, 413);
+      }
+    } else if (!validRasterImageData(mime, cleanBase64)) {
+      return jsonResponse({ error: "محتوى الصورة لا يطابق الصيغة المحددة / Image bytes do not match declared type." }, 415);
     }
 
-    const ext = mime === "image/jpeg" ? "jpg" : mime === "image/png" ? "png" : "webp";
+    const extMap = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "image/avif": "avif",
+      "image/svg+xml": "svg",
+    };
+    const ext = extMap[mime] || "webp";
     const key = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const cleanDataUrl = `data:${mime};base64,${cleanBase64}`;
+    const now = Date.now();
     await env.DB.prepare(
       "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
     ).run();
-    await env.DB.prepare(
-      "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
-    )
-      .bind(key, mime, size, dataUrl, Date.now())
-      .run();
-    edgeStore.media[key] = { key, mime, size, dataUrl };
+
+    if (cleanDataUrl.length <= 900_000) {
+      await env.DB.prepare(
+        "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+      )
+        .bind(key, mime, size, cleanDataUrl, now)
+        .run();
+      edgeStore.media[key] = { key, mime, size, dataUrl: cleanDataUrl };
+    } else {
+      await env.DB.prepare(
+        "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
+      ).run();
+      const CHUNK_CHARS = 800_000;
+      const chunkStmts = [];
+      let seq = 0;
+      for (let i = 0; i < cleanBase64.length; i += CHUNK_CHARS) {
+        chunkStmts.push(
+          env.DB.prepare(
+            "INSERT INTO media_chunks (key, seq, chunk) VALUES (?1, ?2, ?3)"
+          ).bind(key, seq++, cleanBase64.slice(i, i + CHUNK_CHARS))
+        );
+      }
+      for (let i = 0; i < chunkStmts.length; i += 8) {
+        await env.DB.batch(chunkStmts.slice(i, i + 8));
+      }
+      await env.DB.prepare(
+        "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+      )
+        .bind(key, mime, size, "__CHUNKED__", now)
+        .run();
+    }
 
     return jsonResponse({
       ok: true,
       key,
+      size,
+      mime,
       url: `/api/media/${key}`,
     });
   }
 
   if (pathname.startsWith("/api/media/") && request.method === "GET") {
     const key = pathname.slice("/api/media/".length);
-    if (!/^\d{10,}-[0-9a-f-]{36}\.(?:jpg|png|webp)$/i.test(key)) {
+    if (!/^\d{10,}-[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp|gif|avif|svg)$/i.test(key)) {
       return new Response("Not found", { status: 404 });
     }
     let item = edgeStore.media[key];
-    if ((!item || !item.dataUrl) && env.DB) {
+    let mime = item?.mime || "image/webp";
+    let bytes = null;
+    if (item?.dataUrl) {
+      const base64Idx = item.dataUrl.indexOf("base64,");
+      if (base64Idx === -1) return new Response("Invalid media", { status: 400 });
+      const binStr = atob(item.dataUrl.slice(base64Idx + 7));
+      bytes = new Uint8Array(binStr.length);
+      for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+    } else if (env.DB) {
       const row = await env.DB.prepare(
         "SELECT mime, size, data_url FROM media_blobs WHERE key = ?1"
       )
         .bind(key)
         .first();
-      if (row?.data_url) {
-        item = { key, mime: row.mime, size: row.size, dataUrl: row.data_url };
-        edgeStore.media[key] = item;
+      if (!row?.data_url) return new Response("Not found", { status: 404 });
+      mime = row.mime || "image/webp";
+      if (row.data_url === "__CHUNKED__") {
+        const { results = [] } = await env.DB.prepare(
+          "SELECT chunk FROM media_chunks WHERE key = ?1 ORDER BY seq ASC"
+        )
+          .bind(key)
+          .all();
+        if (!results.length) return new Response("Not found", { status: 404 });
+        const decodedParts = [];
+        let totalLen = 0;
+        for (const r of results) {
+          const bin = atob(String(r.chunk || ""));
+          const part = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) part[i] = bin.charCodeAt(i);
+          decodedParts.push(part);
+          totalLen += part.length;
+        }
+        bytes = new Uint8Array(totalLen);
+        let offset = 0;
+        for (const part of decodedParts) {
+          bytes.set(part, offset);
+          offset += part.length;
+        }
+      } else {
+        const base64Idx = row.data_url.indexOf("base64,");
+        if (base64Idx === -1) return new Response("Invalid media", { status: 400 });
+        const binStr = atob(row.data_url.slice(base64Idx + 7));
+        bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+        edgeStore.media[key] = { key, mime, size: row.size, dataUrl: row.data_url };
       }
     }
-    if (!item?.dataUrl) return new Response("Not found", { status: 404 });
-    const base64Idx = item.dataUrl.indexOf("base64,");
-    if (base64Idx === -1) return new Response("Invalid media", { status: 400 });
-    const binStr = atob(item.dataUrl.slice(base64Idx + 7));
-    const bytes = new Uint8Array(binStr.length);
-    for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+    if (!bytes) return new Response("Not found", { status: 404 });
+    const responseHeaders = {
+      "Content-Type": mime,
+      "Content-Disposition": "inline",
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    };
+    if (mime === "image/svg+xml") {
+      responseHeaders["Content-Security-Policy"] =
+        "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'";
+    }
     return new Response(bytes, {
       status: 200,
-      headers: {
-        "Content-Type": item.mime || "image/webp",
-        "Content-Disposition": "inline",
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
+      headers: responseHeaders,
     });
   }
 
@@ -1858,10 +2086,17 @@ export default {
       return applySecurityHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString())));
     }
 
-    // 0b. Model Context Protocol (MCP) Endpoints:
-    // - /mcp (OAuth 2.1 root endpoint resolving username from token)
-    // - /mcp/<username> (Bearer header, OAuth token, or ?token=...)
-    // - /mcp/<username>/<token> (Zero-header direct URL)
+    // 0b. Model Context Protocol (MCP) Endpoints & OpenAPI / ChatGPT Actions Bridge
+    if (pathname === "/openapi.json" && (request.method === "GET" || request.method === "HEAD" || request.method === "OPTIONS")) {
+      return applySecurityHeaders(handleOpenApiSpec(request, url, false), true);
+    }
+    if (pathname === "/.well-known/ai-plugin.json" && (request.method === "GET" || request.method === "OPTIONS")) {
+      return applySecurityHeaders(handleOpenApiSpec(request, url, true), true);
+    }
+    if (pathname.startsWith("/api/mcp/tools/")) {
+      const toolName = pathname.slice("/api/mcp/tools/".length).replace(/\/+$/, "");
+      return applySecurityHeaders(await handleMcpRestRequest(request, env, toolName), true);
+    }
     if (pathname === "/mcp" || pathname === "/mcp/") {
       return applySecurityHeaders(await handleMcpRequest(request, env, null, null), true);
     }

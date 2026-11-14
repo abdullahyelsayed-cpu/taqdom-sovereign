@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { publishPortfolioInDb, unpublishPortfolioInDb } from "@/lib/db";
+import {
+  checkUsernameAvailability,
+  publishPortfolioInDb,
+  updateUserSettingsInDb,
+  unpublishPortfolioInDb,
+} from "@/lib/db";
+import { signSessionToken } from "@/lib/auth";
 import { PortfolioData, normalizeUsername, validateUsername } from "@/lib/types";
 import { getRequestSession, sameOriginWriteAllowed, sessionOwnsUsername } from "@/lib/api-session";
 
@@ -26,30 +32,78 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    if (!sessionOwnsUsername(session, validation.normalized)) {
+    const curUsername = normalizeUsername(session.username);
+    if (!sessionOwnsUsername(session, curUsername)) {
       return NextResponse.json({ error: "You cannot publish this portfolio" }, { status: 403 });
+    }
+
+    let renamedUser: { id: string; email: string; username: string; isTestAccount?: boolean } | null = null;
+    if (validation.normalized === curUsername) {
+      if (!sessionOwnsUsername(session, validation.normalized)) {
+        return NextResponse.json({ error: "You cannot publish this portfolio" }, { status: 403 });
+      }
+    } else {
+      const avail = await checkUsernameAvailability(validation.normalized);
+      if (!avail.available) {
+        return NextResponse.json(
+          { error: avail.reasonAr || avail.reasonEn || "Username already taken" },
+          { status: 409 }
+        );
+      }
+      const renamed = await updateUserSettingsInDb({
+        currentUsername: curUsername,
+        newUsername: validation.normalized,
+      });
+      if (!renamed) {
+        return NextResponse.json({ error: "Account not found" }, { status: 404 });
+      }
+      renamedUser = {
+        id: renamed.user.id,
+        email: renamed.user.email,
+        username: renamed.user.username,
+        isTestAccount: false,
+      };
     }
 
     const published = await publishPortfolioInDb({
       ...portfolio,
       username: validation.normalized,
+      ...(renamedUser ? { email: renamedUser.email } : {}),
     });
 
     try {
+      revalidatePath(`/portfolio/${curUsername}`);
       revalidatePath(`/portfolio/${published.username}`);
       revalidatePath("/sitemap.xml");
     } catch {
       // Ignore revalidation outside a Next.js request context.
     }
 
-    return NextResponse.json(
+    const res = NextResponse.json(
       {
         ok: true,
+        ...(renamedUser ? { renamed: true, user: renamedUser } : {}),
         portfolio: published,
         subdomainUrl: `https://${published.username}.taqdom.me`,
       },
       { headers: { "Cache-Control": "private, no-store" } }
     );
+    if (renamedUser) {
+      const token = await signSessionToken({
+        userId: renamedUser.id,
+        email: renamedUser.email,
+        username: renamedUser.username,
+        isTestAccount: false,
+      });
+      res.cookies.set("taqdom_session", token, {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+        secure: req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https",
+      });
+    }
+    return res;
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to publish" },

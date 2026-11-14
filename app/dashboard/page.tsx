@@ -38,6 +38,26 @@ export default function DashboardPage() {
     if (typeof window !== "undefined") {
       setHost(window.location.host);
     }
+    let cancelled = false;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.authenticated || !data?.user) return;
+        const isFlagship = Boolean(data.user.isTestAccount);
+        useTaqdomStore.setState((state) => ({
+          user: {
+            ...data.user,
+            isFlagshipAccount: isFlagship,
+          },
+          ...(data.portfolio && (!isFlagship || state.draft.username !== data.user.username)
+            ? { draft: data.portfolio }
+            : {}),
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const activeUsername = user?.username || draft.username || "layla";

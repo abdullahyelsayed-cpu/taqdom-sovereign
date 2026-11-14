@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
 import {
   ArrowUpLeft,
   ArrowUpRight,
@@ -18,6 +17,62 @@ import {
   PortfolioProject,
   safePortfolioUrl,
 } from "@/lib/types";
+
+function PortfolioImg({
+  src,
+  alt,
+  className = "h-full w-full object-cover",
+  fallback = "/images/ultra/haven-hero.webp",
+}: {
+  src?: string;
+  alt: string;
+  className?: string;
+  fallback?: string;
+}) {
+  const safeSrc =
+    src &&
+    (src.startsWith("/") ||
+      src.startsWith("https://") ||
+      src.startsWith("http://") ||
+      src.startsWith("data:image/"))
+      ? src
+      : fallback;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={safeSrc}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className={className}
+      onError={(e) => {
+        if (!e.currentTarget.dataset.fallbackApplied) {
+          e.currentTarget.dataset.fallbackApplied = "1";
+          e.currentTarget.src = fallback;
+        }
+      }}
+    />
+  );
+}
+
+function sanitizeClientHtml(rawHtml?: string): string {
+  if (!rawHtml || typeof rawHtml !== "string") return "";
+  return rawHtml
+    .slice(0, 24000)
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[^>]*>/gi, "")
+    .replace(/<base[^>]*>/gi, "")
+    .replace(/<link[^>]*>/gi, "")
+    .replace(/<meta[^>]*>/gi, "")
+    .replace(/<style[\s\S]*?(?:@import|expression\(|javascript:)[\s\S]*?<\/style>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(
+      /(?:href|src|xlink:href|poster|action)\s*=\s*(?:"\s*(?:javascript|vbscript|data:text\/html)[^"]*"|'\s*(?:javascript|vbscript|data:text\/html)[^']*')/gi,
+      ""
+    );
+}
 
 interface CustomSovereignPortfolioProps {
   data: PortfolioData;
@@ -274,7 +329,7 @@ export function CustomSovereignPortfolio({
   const avatarSrc = data.avatar || "/images/taqdom-avatar-placeholder.svg";
 
   const renderSectionContent = (sectionId: CanvasSectionId) => {
-    if (sectionId === "metrics" && data.metrics && data.metrics.length > 0) {
+    if (sectionId === "metrics" && data.metrics && data.metrics.length > 0 && heroVariant !== "agency-spotlight") {
       return (
         <section key="metrics" {...canvasAttrs("metrics")}>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -417,11 +472,10 @@ export function CustomSovereignPortfolio({
                   className={`${radiusClass} ${hoverClass} overflow-hidden grid grid-cols-1 lg:grid-cols-12 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`}
                 >
                   <div className="lg:col-span-5 relative min-h-[240px] sm:min-h-[290px] overflow-hidden">
-                    <Image
+                    <PortfolioImg
                       src={proj.images?.[0] || heroImageSrc}
                       alt={t(proj.title.ar, proj.title.en)}
-                      fill
-                      className="object-cover transition-transform duration-500 hover:scale-105"
+                      className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
                     />
                   </div>
                   <div className="lg:col-span-7 p-6 sm:p-9 flex flex-col justify-between gap-6">
@@ -507,11 +561,10 @@ export function CustomSovereignPortfolio({
                     }`}
                   >
                     <div className="relative h-56 w-full overflow-hidden">
-                      <Image
+                      <PortfolioImg
                         src={proj.images?.[0] || heroImageSrc}
                         alt={t(proj.title.ar, proj.title.en)}
-                        fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                       <div
                         className="absolute inset-0 opacity-60"
@@ -741,15 +794,33 @@ export function CustomSovereignPortfolio({
             }`}
           >
             <a href="#top" className="flex items-center gap-3 min-w-0">
-              <div
-                className="relative h-9 w-9 rounded-full overflow-hidden shrink-0 border"
-                style={{ borderColor: accent }}
-              >
-                <Image src={avatarSrc} alt={t(data.name.ar, data.name.en)} fill className="object-cover" />
-              </div>
+              {design.brandMonogram || design.brandName || heroVariant === "agency-spotlight" ? (
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-black shrink-0 shadow-sm"
+                  style={{ backgroundColor: accent, color: accentText, fontFamily: headingFont }}
+                >
+                  {design.brandMonogram ||
+                    (
+                      String(design.brandName || design.designName || t(data.name.ar, data.name.en) || "T")
+                        .trim()[0] || "T"
+                    ).toUpperCase()}
+                </div>
+              ) : (
+                <div
+                  className="relative h-9 w-9 rounded-full overflow-hidden shrink-0 border"
+                  style={{ borderColor: accent }}
+                >
+                  <PortfolioImg
+                    src={avatarSrc}
+                    fallback="/images/taqdom-avatar-placeholder.svg"
+                    alt={t(data.name.ar, data.name.en)}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
               <div className="min-w-0">
-                <p className="truncate text-sm font-extrabold" style={{ fontFamily: headingFont }}>
-                  {t(data.name.ar, data.name.en)}
+                <p className="truncate text-sm font-extrabold tracking-wide" style={{ fontFamily: headingFont }}>
+                  {design.brandName || t(data.name.ar, data.name.en)}
                 </p>
                 {layout.navStyle === "split-editorial" && (
                   <p className="truncate text-[11px]" style={{ color: muted }}>
@@ -780,7 +851,20 @@ export function CustomSovereignPortfolio({
               </a>
             </nav>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2.5 shrink-0">
+              {design.navCta && (() => {
+                const navCtaHref = safePortfolioUrl(design.navCta.url || "#contact");
+                return (
+                  <a
+                    href={navCtaHref}
+                    {...externalLinkProps(navCtaHref)}
+                    style={{ borderColor: alphaColor(accent, 0.55), color: accent }}
+                    className="hidden sm:inline-flex items-center rounded-lg border px-3.5 py-1.5 text-xs font-bold transition hover:opacity-90"
+                  >
+                    {t(design.navCta.label.ar, design.navCta.label.en)}
+                  </a>
+                );
+              })()}
               <button
                 type="button"
                 data-testid="portfolio-lang-switch"
@@ -813,7 +897,143 @@ export function CustomSovereignPortfolio({
       <div id="top" className={`relative z-10 ${maxWidthClass} mx-auto px-4 sm:px-8 py-12 sm:py-16 space-y-16 sm:space-y-20`}>
         {/* HERO VARIANT ENGINE */}
         <section {...canvasAttrs("hero")}>
-          {heroVariant === "centered-monolith" ? (
+          {heroVariant === "agency-spotlight" ? (() => {
+            const rawHeadline = design.heroHeadline
+              ? t(design.heroHeadline.ar, design.heroHeadline.en)
+              : t(data.title.ar, data.title.en);
+            const rawHighlight = design.heroHighlight
+              ? t(design.heroHighlight.ar, design.heroHighlight.en).trim()
+              : "";
+            const subheadline = design.heroSubheadline
+              ? t(design.heroSubheadline.ar, design.heroSubheadline.en)
+              : t(data.bio.ar, data.bio.en);
+            const badgeText = data.badge
+              ? t(data.badge.ar, data.badge.en)
+              : design.brandName || design.designName || t(data.name.ar, data.name.en);
+
+            let headlineNode: React.ReactNode = rawHeadline;
+            if (rawHighlight && rawHeadline.toLowerCase().includes(rawHighlight.toLowerCase())) {
+              const idx = rawHeadline.toLowerCase().indexOf(rawHighlight.toLowerCase());
+              const before = rawHeadline.slice(0, idx);
+              const matched = rawHeadline.slice(idx, idx + rawHighlight.length);
+              const after = rawHeadline.slice(idx + rawHighlight.length);
+              headlineNode = (
+                <>
+                  {before}
+                  <em className="italic font-semibold" style={{ color: accent }}>
+                    {matched}
+                  </em>
+                  {after}
+                </>
+              );
+            }
+
+            return (
+              <div className="relative overflow-hidden py-8 sm:py-16 px-4 text-center">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background: `radial-gradient(ellipse 66% 56% at 54% 48%, ${alphaColor(accent, 0.34)} 0%, ${alphaColor(accent, 0.14)} 42%, transparent 72%)`,
+                  }}
+                />
+                <div className="relative z-10 mx-auto max-w-4xl space-y-7">
+                  {badgeText && (
+                    <div className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.2em]"
+                      style={{
+                        borderColor: alphaColor(accent, 0.35),
+                        backgroundColor: alphaColor(accent, 0.08),
+                        color: accent,
+                      }}
+                    >
+                      <span>• {badgeText} •</span>
+                    </div>
+                  )}
+
+                  <h1
+                    className={`${scaleHeroClass} font-extrabold leading-[1.08] tracking-tight`}
+                    style={{ fontFamily: headingFont }}
+                  >
+                    {headlineNode}
+                  </h1>
+
+                  <p className="mx-auto max-w-2xl text-sm sm:text-lg leading-relaxed" style={{ color: muted }}>
+                    {subheadline}
+                  </p>
+
+                  <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
+                    <a
+                      href={primaryCtaUrl}
+                      {...externalLinkProps(primaryCtaUrl)}
+                      style={{ backgroundColor: accent, color: accentText }}
+                      className="taqdom-lux-btn inline-flex items-center gap-2 rounded-lg px-7 py-3.5 text-sm font-extrabold shadow-xl"
+                    >
+                      <span>{primaryCtaLabel}</span>
+                      <Arrow className="h-4 w-4" />
+                    </a>
+                    <a
+                      href={secondaryCtaUrl}
+                      {...externalLinkProps(secondaryCtaUrl)}
+                      style={{
+                        borderColor: alphaColor(accent, 0.38),
+                        backgroundColor: alphaColor(surface, 0.55),
+                        color: text,
+                      }}
+                      className="taqdom-lux-btn inline-flex items-center gap-2 rounded-lg border px-7 py-3.5 text-sm font-bold backdrop-blur-md"
+                    >
+                      <span>{secondaryCtaLabel}</span>
+                    </a>
+                  </div>
+
+                  {data.metrics && data.metrics.length > 0 && (
+                    <div className="mx-auto grid max-w-2xl grid-cols-1 sm:grid-cols-3 gap-6 pt-8">
+                      {data.metrics.slice(0, 3).map((metric, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <p
+                            className="text-3xl sm:text-4xl font-black tracking-tight"
+                            style={{ color: accent, fontFamily: headingFont }}
+                          >
+                            <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                              {metric.value}
+                            </span>
+                          </p>
+                          <p className="font-mono text-[10px] sm:text-[11px] uppercase tracking-[0.18em]" style={{ color: muted }}>
+                            {t(metric.label.ar, metric.label.en)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {design.showHeroImage === true && heroImageSrc && (
+                    <div
+                      style={cardSurfaceStyle}
+                      className={`mx-auto mt-8 relative h-[280px] sm:h-[400px] max-w-4xl overflow-hidden ${radiusClass}`}
+                    >
+                      <PortfolioImg
+                        src={heroImageSrc}
+                        alt={t(data.name.ar, data.name.en)}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  {design.showScrollIndicator !== false && (
+                    <div className="pt-8 flex justify-center">
+                      <a
+                        href="#work"
+                        className="inline-flex flex-col items-center gap-1 font-mono text-[10px] uppercase tracking-[0.26em] transition-opacity hover:opacity-100 opacity-75"
+                        style={{ color: muted }}
+                      >
+                        <span>{t("استعرض", "SCROLL")}</span>
+                        <ChevronDown className="h-3.5 w-3.5 animate-bounce" style={{ color: accent }} />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })() : heroVariant === "centered-monolith" ? (
             <div className="text-center space-y-8 py-4">
               {data.badge && (
                 <span
@@ -859,7 +1079,7 @@ export function CustomSovereignPortfolio({
                 style={cardSurfaceStyle}
                 className={`relative h-[320px] sm:h-[460px] w-full overflow-hidden ${radiusClass}`}
               >
-                <Image src={heroImageSrc} alt={t(data.name.ar, data.name.en)} fill priority className="object-cover" />
+                <PortfolioImg src={heroImageSrc} alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
               </div>
             </div>
           ) : heroVariant === "full-bleed-poster" ? (
@@ -867,7 +1087,7 @@ export function CustomSovereignPortfolio({
               style={cardSurfaceStyle}
               className={`relative min-h-[520px] sm:min-h-[600px] overflow-hidden flex items-end p-6 sm:p-12 ${radiusClass}`}
             >
-              <Image src={heroImageSrc} alt={t(data.name.ar, data.name.en)} fill priority className="object-cover" />
+              <PortfolioImg src={heroImageSrc} alt={t(data.name.ar, data.name.en)} className="absolute inset-0 h-full w-full object-cover" />
               <div
                 className="absolute inset-0"
                 style={{
@@ -961,7 +1181,7 @@ export function CustomSovereignPortfolio({
                 className={`lg:col-span-4 ${radiusClass} p-5 space-y-4 ${effects.glassBlur ? "backdrop-blur-xl" : ""}`}
               >
                 <div className={`relative h-64 w-full overflow-hidden ${layout.cardRadius === "none" ? "" : "rounded-2xl"}`}>
-                  <Image src={avatarSrc} alt={t(data.name.ar, data.name.en)} fill className="object-cover" />
+                  <PortfolioImg src={avatarSrc} fallback="/images/taqdom-avatar-placeholder.svg" alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
                 </div>
                 <div>
                   <h2 className="text-xl font-extrabold" style={{ fontFamily: headingFont }}>
@@ -1026,7 +1246,7 @@ export function CustomSovereignPortfolio({
               </div>
               <div className="lg:col-span-4 grid grid-rows-2 gap-5">
                 <div style={cardSurfaceStyle} className={`${radiusClass} relative min-h-[210px] overflow-hidden`}>
-                  <Image src={heroImageSrc} alt={t(data.name.ar, data.name.en)} fill priority className="object-cover" />
+                  <PortfolioImg src={heroImageSrc} alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
                 </div>
                 <div
                   style={cardSurfaceStyle}
@@ -1061,7 +1281,7 @@ export function CustomSovereignPortfolio({
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="relative h-12 w-12 overflow-hidden rounded-full border" style={{ borderColor: accent }}>
-                    <Image src={avatarSrc} alt={t(data.name.ar, data.name.en)} fill className="object-cover" />
+                    <PortfolioImg src={avatarSrc} fallback="/images/taqdom-avatar-placeholder.svg" alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
                   </div>
                   <div>
                     <p className="text-sm font-extrabold" style={{ fontFamily: headingFont }}>
@@ -1158,7 +1378,7 @@ export function CustomSovereignPortfolio({
               </div>
               <div className="lg:col-span-6 grid grid-cols-2 gap-4">
                 <div style={cardSurfaceStyle} className={`${radiusClass} col-span-2 relative min-h-[210px] overflow-hidden`}>
-                  <Image src={heroImageSrc} alt={t(data.name.ar, data.name.en)} fill priority className="object-cover" />
+                  <PortfolioImg src={heroImageSrc} alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
                 </div>
                 <div style={cardSurfaceStyle} className={`${radiusClass} p-5 flex flex-col justify-between`}>
                   <span className="font-mono text-[11px] uppercase" style={{ color: accent }}>
@@ -1229,7 +1449,7 @@ export function CustomSovereignPortfolio({
                   style={cardSurfaceStyle}
                   className={`relative h-[360px] sm:h-[440px] w-full overflow-hidden ${radiusClass}`}
                 >
-                  <Image src={heroImageSrc} alt={t(data.name.ar, data.name.en)} fill priority className="object-cover" />
+                  <PortfolioImg src={heroImageSrc} alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
                   <div
                     className="absolute inset-0"
                     style={{
@@ -1241,7 +1461,7 @@ export function CustomSovereignPortfolio({
                       className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 shrink-0"
                       style={{ borderColor: accent }}
                     >
-                      <Image src={avatarSrc} alt={t(data.name.ar, data.name.en)} fill className="object-cover" />
+                      <PortfolioImg src={avatarSrc} fallback="/images/taqdom-avatar-placeholder.svg" alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
                     </div>
                     <div className="min-w-0">
                       <p className="truncate font-bold text-sm">{t(data.name.ar, data.name.en)}</p>
@@ -1390,6 +1610,23 @@ export function CustomSovereignPortfolio({
                     ))}
                   </div>
                 </div>
+              ) : sec.kind === "html" && sec.html ? (
+                <div style={cardSurfaceStyle} className={`${radiusClass} p-6 sm:p-9 space-y-4 overflow-hidden`}>
+                  {sec.title && (
+                    <h2 className="text-2xl sm:text-3xl font-extrabold" style={{ fontFamily: headingFont }}>
+                      {t(sec.title.ar, sec.title.en)}
+                    </h2>
+                  )}
+                  {sec.image && (
+                    <div className="overflow-hidden rounded-2xl max-h-96">
+                      <PortfolioImg src={sec.image} alt={t(sec.title.ar, sec.title.en)} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <div
+                    className="prose prose-sm max-w-none leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: sanitizeClientHtml(t(sec.html.ar, sec.html.en)) }}
+                  />
+                </div>
               ) : sec.kind === "cards" || sec.kind === "timeline" || sec.kind === "testimonials" || sec.kind === "gallery" || (Array.isArray(sec.items) && sec.items.length > 0) ? (
                 <div className="space-y-5">
                   <div>
@@ -1407,57 +1644,92 @@ export function CustomSovereignPortfolio({
                       <div
                         key={idx}
                         style={cardSurfaceStyle}
-                        className={`${radiusClass} ${hoverClass} p-6 flex flex-col justify-between gap-4`}
+                        className={`${radiusClass} ${hoverClass} overflow-hidden flex flex-col justify-between gap-4`}
                       >
-                        <div>
-                          {(item.badge || item.value) && (
-                            <div className="mb-3 flex flex-wrap items-center gap-2">
-                              {item.badge && (
-                                <span
-                                  dir="ltr"
-                                  className="inline-block rounded-full px-3 py-0.5 text-[10px] font-mono font-bold"
-                                  style={{ backgroundColor: alphaColor(accent, 0.12), color: accent, unicodeBidi: "isolate" }}
-                                >
-                                  {item.badge}
-                                </span>
+                        {item.image && (
+                          <div className="relative h-48 w-full overflow-hidden">
+                            <PortfolioImg
+                              src={item.image}
+                              alt={t(item.title.ar, item.title.en)}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <div className="p-6 flex-1 flex flex-col justify-between gap-4">
+                          <div>
+                            {(item.badge || item.value) && (
+                              <div className="mb-3 flex flex-wrap items-center gap-2">
+                                {item.badge && (
+                                  <span
+                                    dir="ltr"
+                                    className="inline-block rounded-full px-3 py-0.5 text-[10px] font-mono font-bold"
+                                    style={{ backgroundColor: alphaColor(accent, 0.12), color: accent, unicodeBidi: "isolate" }}
+                                  >
+                                    {item.badge}
+                                  </span>
+                                )}
+                                {item.value && (
+                                  <span className="text-xs font-semibold" style={{ color: muted }}>
+                                    {item.value}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3">
+                              {item.avatar && (
+                                <div className="h-10 w-10 rounded-full overflow-hidden shrink-0 border" style={{ borderColor: accent }}>
+                                  <PortfolioImg
+                                    src={item.avatar}
+                                    fallback="/images/taqdom-avatar-placeholder.svg"
+                                    alt={t(item.title.ar, item.title.en)}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
                               )}
-                              {item.value && (
-                                <span className="text-xs font-semibold" style={{ color: muted }}>
-                                  {item.value}
-                                </span>
-                              )}
+                              <div>
+                                <h3 className="text-lg font-extrabold" style={{ fontFamily: headingFont }}>
+                                  {t(item.title.ar, item.title.en)}
+                                </h3>
+                                {item.role && (
+                                  <p className="text-xs font-medium" style={{ color: accent }}>
+                                    {t(item.role.ar, item.role.en)}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                          )}
-                          <h3 className="text-lg font-extrabold" style={{ fontFamily: headingFont }}>
-                            {t(item.title.ar, item.title.en)}
-                          </h3>
-                          {item.description && (
-                            <p className="mt-2 text-sm leading-relaxed" style={{ color: muted }}>
-                              {t(item.description.ar, item.description.en)}
-                            </p>
-                          )}
+                            {item.description && (
+                              <p className="mt-2 text-sm leading-relaxed" style={{ color: muted }}>
+                                {t(item.description.ar, item.description.en)}
+                              </p>
+                            )}
+                          </div>
+                          {item.url && (() => {
+                            const itemUrl = safePortfolioUrl(item.url);
+                            return (
+                              <a
+                                href={itemUrl}
+                                {...externalLinkProps(itemUrl)}
+                                className="inline-flex items-center gap-1.5 text-xs font-bold"
+                                style={{ color: accent }}
+                              >
+                                <span>{t("استكشف المزيد", "Learn more")}</span>
+                                <Arrow className="h-3.5 w-3.5" />
+                              </a>
+                            );
+                          })()}
                         </div>
-                        {item.url && (() => {
-                          const itemUrl = safePortfolioUrl(item.url);
-                          return (
-                            <a
-                              href={itemUrl}
-                              {...externalLinkProps(itemUrl)}
-                              className="inline-flex items-center gap-1.5 text-xs font-bold"
-                              style={{ color: accent }}
-                            >
-                              <span>{t("استكشف المزيد", "Learn more")}</span>
-                              <Arrow className="h-3.5 w-3.5" />
-                            </a>
-                          );
-                        })()}
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
                 /* richtext */
-                <div style={cardSurfaceStyle} className={`${radiusClass} p-7 sm:p-10 space-y-3`}>
+                <div style={cardSurfaceStyle} className={`${radiusClass} p-7 sm:p-10 space-y-4`}>
+                  {sec.image && (
+                    <div className="overflow-hidden rounded-2xl max-h-80">
+                      <PortfolioImg src={sec.image} alt={t(sec.title.ar, sec.title.en)} className="w-full h-full object-cover" />
+                    </div>
+                  )}
                   <h2 className="text-2xl sm:text-3xl font-extrabold" style={{ fontFamily: headingFont }}>
                     {t(sec.title.ar, sec.title.en)}
                   </h2>
@@ -1475,6 +1747,18 @@ export function CustomSovereignPortfolio({
               )}
             </section>
           ))}
+
+        {design.customHtml && (t(design.customHtml.ar, design.customHtml.en)) && (
+          <section className="relative">
+            <div
+              style={cardSurfaceStyle}
+              className={`${radiusClass} p-6 sm:p-10 overflow-hidden`}
+              dangerouslySetInnerHTML={{
+                __html: sanitizeClientHtml(t(design.customHtml.ar, design.customHtml.en)),
+              }}
+            />
+          </section>
+        )}
       </div>
 
       {/* Standalone Creator Footer (Zero Platform Chrome) */}

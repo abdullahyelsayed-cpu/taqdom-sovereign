@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  checkUsernameAvailability,
   getAllPublishedPortfolios,
   getDraftPortfolio,
   getPublishedPortfolio,
   saveDraftPortfolio,
+  updateUserSettingsInDb,
 } from "@/lib/db";
-import { PortfolioData, validateUsername } from "@/lib/types";
+import { signSessionToken } from "@/lib/auth";
+import { PortfolioData, normalizeUsername, validateUsername } from "@/lib/types";
 import { getRequestSession, sameOriginWriteAllowed, sessionOwnsUsername } from "@/lib/api-session";
 
 export async function GET(req: NextRequest) {
@@ -60,12 +63,66 @@ export async function PUT(req: NextRequest) {
     if (!validation.valid) {
       return NextResponse.json({ error: validation.reasonAr || validation.reasonEn || "Invalid username" }, { status: 400 });
     }
-    if (!sessionOwnsUsername(session, validation.normalized)) {
+    const curUsername = normalizeUsername(session.username);
+    if (!sessionOwnsUsername(session, curUsername)) {
       return NextResponse.json({ error: "You cannot modify this portfolio" }, { status: 403 });
     }
 
-    const saved = await saveDraftPortfolio({ ...portfolio, username: validation.normalized });
-    return NextResponse.json({ ok: true, portfolio: saved }, { headers: { "Cache-Control": "private, no-store" } });
+    if (validation.normalized === curUsername) {
+      if (!sessionOwnsUsername(session, validation.normalized)) {
+        return NextResponse.json({ error: "You cannot modify this portfolio" }, { status: 403 });
+      }
+      const saved = await saveDraftPortfolio({ ...portfolio, username: validation.normalized });
+      return NextResponse.json({ ok: true, portfolio: saved }, { headers: { "Cache-Control": "private, no-store" } });
+    }
+
+    const avail = await checkUsernameAvailability(validation.normalized);
+    if (!avail.available) {
+      return NextResponse.json(
+        { error: avail.reasonAr || avail.reasonEn || "Username already taken" },
+        { status: 409 }
+      );
+    }
+    const renamed = await updateUserSettingsInDb({
+      currentUsername: curUsername,
+      newUsername: validation.normalized,
+    });
+    if (!renamed) {
+      return NextResponse.json({ error: "Account not found" }, { status: 404 });
+    }
+    const saved = await saveDraftPortfolio({
+      ...portfolio,
+      username: validation.normalized,
+      email: renamed.user.email,
+    });
+    const token = await signSessionToken({
+      userId: renamed.user.id,
+      email: renamed.user.email,
+      username: renamed.user.username,
+      isTestAccount: false,
+    });
+    const res = NextResponse.json(
+      {
+        ok: true,
+        renamed: true,
+        user: {
+          id: renamed.user.id,
+          email: renamed.user.email,
+          username: renamed.user.username,
+          isTestAccount: false,
+        },
+        portfolio: saved,
+      },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
+    res.cookies.set("taqdom_session", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+      secure: req.nextUrl.protocol === "https:" || req.headers.get("x-forwarded-proto") === "https",
+    });
+    return res;
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Failed to save draft" },

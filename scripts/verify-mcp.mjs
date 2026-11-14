@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { handleMcpRequest, handleMcpTokenApi } from "../cloudflare/mcp.mjs";
+import { handleMcpRequest, handleMcpTokenApi, handleOpenApiSpec, handleMcpRestRequest } from "../cloudflare/mcp.mjs";
 import { handleOAuthRequest } from "../cloudflare/oauth.mjs";
 
 const encoder = new TextEncoder();
@@ -127,6 +127,9 @@ const db = {
       },
     };
   },
+  async batch(stmts) {
+    return Promise.all(stmts.map((s) => s.run()));
+  },
 };
 
 const env = { DB: db };
@@ -169,6 +172,7 @@ assert.deepEqual(payload.result.tools.map((tool) => tool.name), [
   "create_project", "update_project", "delete_project", "publish_portfolio",
   "get_portfolio_blueprint", "list_templates_and_capabilities",
   "update_portfolio_content", "design_custom_portfolio_theme",
+  "upload_portfolio_image",
 ]);
 
 response = await rpc({ jsonrpc: "2.0", id: 21, method: "resources/list" });
@@ -795,6 +799,102 @@ const matchQueryInfo = await oauthCall(
   )}&code_challenge=${encodeURIComponent(codeChallenge)}&code_challenge_method=S256`
 );
 assert.equal(matchQueryInfo.status, 200);
+
+// 7d. Agency spotlight editorial theme, customHtml / html section XSS sanitization, upload_portfolio_image, OpenAPI 3.1 & ChatGPT REST bridge
+const agencySpotlightRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 210,
+      method: "tools/call",
+      params: {
+        name: "design_custom_portfolio_theme",
+        arguments: {
+          designName: "Studio 2026 Editorial",
+          brandName: "STUDIO 2026",
+          brandMonogram: "S",
+          heroHeadline: { ar: "نصنع تجارب تحرك الناس", en: "We Craft Experiences That Move People" },
+          heroHighlight: { ar: "تحرك الناس", en: "Experiences" },
+          navCta: { label: { ar: "لنتحدث", en: "Let's Talk" }, url: "#contact" },
+          layout: { heroVariant: "agency-spotlight", projectGrid: "bento", cardRadius: "lg", navStyle: "minimal" },
+          palette: { background: "#0B0D13", surface: "#131722", text: "#F5F2EB", muted: "#98A2B3", accent: "#E5B842" },
+          customHtml: "<section><h3>Atelier</h3><script>evil()</script></section>",
+          customSections: [
+            { id: "craft", kind: "html", title: { ar: "الحرفة", en: "Craft" }, html: "<div>Custom Block<img src=x onerror=alert(1)></div>" },
+          ],
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(agencySpotlightRes.status, 200);
+const agencyPayload = await agencySpotlightRes.json();
+assert.equal(agencyPayload.result.isError, undefined, JSON.stringify(agencyPayload.result));
+assert.equal(agencyPayload.result.structuredContent.customDesign.layout.heroVariant, "agency-spotlight");
+assert.equal(agencyPayload.result.structuredContent.customDesign.brandName, "STUDIO 2026");
+assert.equal(agencyPayload.result.structuredContent.customDesign.brandMonogram, "S");
+assert.equal(agencyPayload.result.structuredContent.customDesign.customHtml.en.includes("<script"), false);
+assert.equal(agencyPayload.result.structuredContent.customDesign.customHtml.en.includes("Atelier"), true);
+assert.equal(agencyPayload.result.structuredContent.customDesign.customSections[0].kind, "html");
+assert.equal(agencyPayload.result.structuredContent.customDesign.customSections[0].html.en.includes("onerror"), false);
+assert.equal(agencyPayload.result.structuredContent.customDesign.customSections[0].html.en.includes("Custom Block"), true);
+
+const tinyPngDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const uploadToolRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 211,
+      method: "tools/call",
+      params: {
+        name: "upload_portfolio_image",
+        arguments: {
+          dataUrl: tinyPngDataUrl,
+          assignTo: "avatar",
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(uploadToolRes.status, 200);
+const uploadToolPayload = await uploadToolRes.json();
+assert.equal(uploadToolPayload.result.isError, undefined, JSON.stringify(uploadToolPayload.result));
+assert.equal(uploadToolPayload.result.structuredContent.ok, true);
+assert.match(uploadToolPayload.result.structuredContent.url, /^\/api\/media\//);
+assert.equal(portfolio.avatar, uploadToolPayload.result.structuredContent.url);
+
+const openApiRes = handleOpenApiSpec(
+  new Request("https://taqdom.me/openapi.json"),
+  new URL("https://taqdom.me/openapi.json"),
+  false
+);
+assert.equal(openApiRes.status, 200);
+const openApiJson = await openApiRes.json();
+assert.equal(openApiJson.openapi, "3.1.0");
+assert.ok(openApiJson.paths["/api/mcp/tools/design_custom_portfolio_theme"]);
+
+const restProfileRes = await handleMcpRestRequest(
+  new Request("https://taqdom.me/api/mcp/tools/get_profile", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: "{}",
+  }),
+  env,
+  "get_profile"
+);
+assert.equal(restProfileRes.status, 200);
+const restProfileJson = await restProfileRes.json();
+assert.equal(restProfileJson.ok, true);
 
 // 8. Refresh token rotation & revocation
 const rotatedRes = await oauthCall("/oauth/token", {

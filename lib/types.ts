@@ -109,6 +109,7 @@ export type CustomPortfolioTypography = {
 
 export type CustomPortfolioLayout = {
   heroVariant:
+    | "agency-spotlight"
     | "split-showcase"
     | "centered-monolith"
     | "asymmetric-editorial"
@@ -150,14 +151,19 @@ export type CustomPortfolioSectionItem = {
   badge?: string;
   value?: string;
   url?: string;
+  image?: string;
+  avatar?: string;
+  role?: BilingualText;
 };
 
 export type CustomPortfolioSection = {
   id: string;
-  kind: "richtext" | "cards" | "stats" | "faq" | "quote" | "cta" | "timeline" | "testimonials" | "gallery";
+  kind: "richtext" | "cards" | "stats" | "faq" | "quote" | "cta" | "timeline" | "testimonials" | "gallery" | "html";
   title: BilingualText;
   subtitle?: BilingualText;
   content?: BilingualText;
+  image?: string;
+  html?: BilingualText;
   items?: CustomPortfolioSectionItem[];
 };
 
@@ -165,6 +171,15 @@ export type CustomPortfolioDesign = {
   enabled: boolean;
   designName?: string;
   concept?: string;
+  brandName?: string;
+  brandMonogram?: string;
+  heroHeadline?: BilingualText;
+  heroSubheadline?: BilingualText;
+  heroHighlight?: BilingualText;
+  showHeroImage?: boolean;
+  showScrollIndicator?: boolean;
+  navCta?: { label: BilingualText; url: string };
+  customHtml?: BilingualText;
   palette: CustomPortfolioPalette;
   typography?: CustomPortfolioTypography;
   layout?: CustomPortfolioLayout;

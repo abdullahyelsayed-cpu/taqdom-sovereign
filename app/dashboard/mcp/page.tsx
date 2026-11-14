@@ -39,7 +39,7 @@ type Created = {
   warning: string;
 };
 
-type ClientTab = "oauth" | "gemini" | "claude" | "curl";
+type ClientTab = "oauth" | "gemini" | "claude" | "chatgpt" | "curl";
 
 export default function McpConnectionsPage() {
   const { lang, t } = useLanguage();
@@ -185,6 +185,22 @@ export default function McpConnectionsPage() {
     2
   );
 
+  const chatgptSnippet = JSON.stringify(
+    {
+      mcpServerUrl: oauthEndpointUrl,
+      openApiSchemaUrl: "https://taqdom.me/openapi.json",
+      aiPluginManifest: "https://taqdom.me/.well-known/ai-plugin.json",
+      authentication: {
+        type: "OAuth 2.1 or Bearer",
+        authorizationUrl: "https://taqdom.me/oauth/authorize",
+        tokenUrl: "https://taqdom.me/oauth/token",
+        bearerToken: tokenDisplay,
+      },
+    },
+    null,
+    2
+  );
+
   const curlSnippet = `curl -X POST "${endpointUrl}" \\
   -H "Authorization: Bearer ${tokenDisplay}" \\
   -H "Content-Type: application/json" \\
@@ -197,6 +213,8 @@ export default function McpConnectionsPage() {
       ? geminiSnippet
       : clientTab === "claude"
       ? claudeSnippet
+      : clientTab === "chatgpt"
+      ? chatgptSnippet
       : curlSnippet;
 
   const masterArchitectPrompt = t(
@@ -496,7 +514,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Terminal className="h-5 w-5 text-[#9A7B4F] dark:text-[#E4B66F]" />
-                <h2 className="text-lg font-extrabold">{t("إعداد فوري لـ Gemini و Claude", "Instant Gemini & Claude Config")}</h2>
+                <h2 className="text-lg font-extrabold">{t("إعداد فوري لـ Gemini و Claude و ChatGPT", "Instant Gemini, Claude & ChatGPT Config")}</h2>
               </div>
               <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-background p-1">
                 {(
@@ -504,6 +522,7 @@ Design a completely bespoke, original luxury personal portfolio for me — you d
                     ["oauth", "OAuth 2.1"],
                     ["gemini", "Gemini"],
                     ["claude", "Claude"],
+                    ["chatgpt", "ChatGPT"],
                     ["curl", "HTTP"],
                   ] as const
                 ).map(([tabId, labelTxt]) => (

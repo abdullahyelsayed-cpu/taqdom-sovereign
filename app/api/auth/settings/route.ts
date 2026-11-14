@@ -47,9 +47,9 @@ export async function POST(req: NextRequest) {
     let newSalt: string | undefined;
     if (body.newPassword) {
       const pwd = String(body.newPassword);
-      if (pwd.length < 15 || pwd.length > 128) {
+      if (pwd.length < 8 || pwd.length > 128) {
         return NextResponse.json(
-          { error: "استخدم عبارة مرور من 15 إلى 128 حرفًا / Passwords must be 15–128 characters." },
+          { error: "استخدم كلمة مرور من 8 إلى 128 حرفًا / Passwords must be 8–128 characters." },
           { status: 400 }
         );
       }

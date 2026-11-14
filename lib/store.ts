@@ -161,7 +161,20 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
           }
 
           const published = result.portfolio as PortfolioData;
+          const nextUser =
+            result.user && typeof result.user === "object"
+              ? result.user
+              : null;
           set((state) => ({
+            ...(nextUser
+              ? {
+                  user: {
+                    ...(state.user || {}),
+                    ...nextUser,
+                    isFlagshipAccount: false,
+                  },
+                }
+              : {}),
             draft: published,
             publishedPortfolios: {
               ...state.publishedPortfolios,

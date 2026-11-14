@@ -100,6 +100,7 @@ export async function handleMcpTokenApi(request, url, env, session) {
 const TEMPLATE_IDS = ["madar", "athar", "haven", "siyada", "wameed", "salam", "meshwar"];
 const CANVAS_SECTIONS = ["hero", "metrics", "skills", "projects", "timeline", "contact"];
 const HERO_VARIANTS = [
+  "agency-spotlight",
   "split-showcase",
   "centered-monolith",
   "asymmetric-editorial",
@@ -128,6 +129,7 @@ const CUSTOM_SECTION_KINDS = [
   "timeline",
   "testimonials",
   "gallery",
+  "html",
 ];
 
 const TEMPLATE_CATALOG_DETAILS = [
@@ -354,8 +356,8 @@ const TOOLS = [
           },
           additionalProperties: true,
         },
-        avatar: { type: "string", maxLength: 2048 },
-        cover: { type: "string", maxLength: 2048 },
+        avatar: { type: "string", maxLength: 2000000 },
+        cover: { type: "string", maxLength: 2000000 },
         theme: { type: "object", additionalProperties: true },
         projects: { type: "array", maxItems: 100, items: { type: "object", additionalProperties: true } },
         customDesign: { type: "object", additionalProperties: true },
@@ -367,7 +369,7 @@ const TOOLS = [
   {
     name: "design_custom_portfolio_theme",
     description:
-      "Design and apply a completely bespoke portfolio look and layout (even if completely different from preset templates). Flexible input: accepts hex/rgb/hsl/named colors, partial palettes (missing text/surface colors auto-derive cleanly with WCAG contrast), custom typography, any heroVariant (split-showcase, centered-monolith, asymmetric-editorial, terminal-bento, full-bleed-poster, minimal-typographic, cards-mosaic) or projectGrid, visual effects, heroCta, sectionOrder, and rich customSections (cards, stats, faq, quote, richtext, cta, timeline, testimonials, gallery). Pass enabled=false to revert to a preset template.",
+      "Design and apply a completely bespoke portfolio look and layout (even if completely different from preset templates). Supports agency-spotlight hero (centered editorial headline with italic gold highlight, studio monogram, spotlight radial glow, metrics, and scroll cue), split-showcase, centered-monolith, asymmetric-editorial, terminal-bento, full-bleed-poster, minimal-typographic, cards-mosaic, any image URL or uploaded image, and rich customSections (including gallery images and sanitized customHtml blocks). Pass enabled=false to revert to a preset template.",
     inputSchema: {
       type: "object",
       properties: {
@@ -376,6 +378,15 @@ const TOOLS = [
         fallbackTemplate: { type: "string" },
         designName: { type: "string", maxLength: 120 },
         concept: { type: "string", maxLength: 500 },
+        brandName: { type: "string", maxLength: 80 },
+        brandMonogram: { type: "string", maxLength: 8 },
+        heroHeadline: BILINGUAL,
+        heroSubheadline: BILINGUAL,
+        heroHighlight: BILINGUAL,
+        showHeroImage: { type: "boolean" },
+        showScrollIndicator: { type: "boolean" },
+        navCta: { type: "object", additionalProperties: true },
+        customHtml: BILINGUAL,
         palette: { type: "object", additionalProperties: true },
         colors: { type: "object", additionalProperties: true },
         theme: { type: "object", additionalProperties: true },
@@ -389,6 +400,22 @@ const TOOLS = [
         customSections: { type: "array", maxItems: 12, items: { type: ["object", "string"], additionalProperties: true } },
         sections: { type: "array", maxItems: 12, items: { type: ["object", "string"], additionalProperties: true } },
         tokens: { type: "object", additionalProperties: true },
+      },
+      additionalProperties: true,
+    },
+  },
+  {
+    name: "upload_portfolio_image",
+    description:
+      "Upload an image (JPG, PNG, WebP, GIF, AVIF, or sanitized SVG up to 20MB) via dataUrl or base64+mime, persist it to Taqdom D1 media storage, and optionally assign its hosted /api/media/... URL to avatar, cover, canvas backgroundImage, or a project.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dataUrl: { type: "string", maxLength: 28000000 },
+        base64: { type: "string", maxLength: 28000000 },
+        mime: { type: "string", maxLength: 40 },
+        assignTo: { type: "string", enum: ["avatar", "cover", "backgroundImage", "project", "none"] },
+        projectId: { type: "string", maxLength: 100 },
       },
       additionalProperties: true,
     },
@@ -482,11 +509,84 @@ function bilingual(value, fieldName) {
   };
 }
 
-function safeUrl(value, { allowMail = false, allowLocal = false, allowHash = false } = {}) {
-  const raw = String(value || "").trim().slice(0, 2048);
+function validRasterUploadMcp(mime, base64) {
+  try {
+    const head = atob(base64.slice(0, 24));
+    if (mime === "image/jpeg") {
+      return head.length >= 3 && head.charCodeAt(0) === 0xff && head.charCodeAt(1) === 0xd8 && head.charCodeAt(2) === 0xff;
+    }
+    if (mime === "image/png") {
+      const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+      return head.length >= 8 && signature.every((byte, index) => head.charCodeAt(index) === byte);
+    }
+    if (mime === "image/webp") {
+      return head.length >= 12 && head.slice(0, 4) === "RIFF" && head.slice(8, 12) === "WEBP";
+    }
+    if (mime === "image/gif") {
+      return head.length >= 6 && (head.startsWith("GIF87a") || head.startsWith("GIF89a"));
+    }
+    if (mime === "image/avif") {
+      return head.length >= 12 && head.slice(4, 8) === "ftyp" && ["avif", "avis", "mif1"].includes(head.slice(8, 12));
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeSvgBase64Mcp(base64) {
+  try {
+    const bin = atob(base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    let svgText = new TextDecoder("utf-8", { fatal: false }).decode(bytes).trim();
+    if (!/<svg[\s>]/i.test(svgText) || !/<\/svg>/i.test(svgText)) return null;
+    svgText = svgText
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+      .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+      .replace(/(?:href|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript):[^"]*"|'\s*(?:javascript|vbscript):[^']*')/gi, "");
+    if (/<script|foreignObject|\bon[a-z]+\s*=|(?:javascript|vbscript):/i.test(svgText)) return null;
+    const cleanBytes = new TextEncoder().encode(svgText);
+    let outBin = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < cleanBytes.length; i += chunkSize) {
+      outBin += String.fromCharCode(...cleanBytes.subarray(i, i + chunkSize));
+    }
+    return { base64: btoa(outBin), size: cleanBytes.byteLength };
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeCustomHtmlFragment(rawHtml) {
+  if (!rawHtml || typeof rawHtml !== "string") return "";
+  return String(rawHtml)
+    .slice(0, 24000)
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
+    .replace(/<object[\s\S]*?<\/object>/gi, "")
+    .replace(/<embed[^>]*>/gi, "")
+    .replace(/<base[^>]*>/gi, "")
+    .replace(/<link[^>]*>/gi, "")
+    .replace(/<meta[^>]*>/gi, "")
+    .replace(/<style[\s\S]*?(?:@import|expression\(|javascript:)[\s\S]*?<\/style>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/(?:href|src|xlink:href|poster|action)\s*=\s*(?:"\s*(?:javascript|vbscript|data:text\/html)[^"]*"|'\s*(?:javascript|vbscript|data:text\/html)[^']*')/gi, "");
+}
+
+function safeUrl(value, { allowMail = false, allowLocal = false, allowHash = false, allowDataImage = false } = {}) {
+  const raw = String(value || "").trim().slice(0, allowDataImage ? 2_000_000 : 8192);
   if (!raw) return "";
+  if (allowDataImage && /^data:image\/(?:jpeg|png|webp|gif|avif|svg\+xml);base64,[A-Za-z0-9+/]+=*$/i.test(raw)) {
+    if (/^data:image\/svg\+xml;base64,/i.test(raw)) {
+      const b64 = raw.slice(raw.indexOf("base64,") + 7);
+      if (!sanitizeSvgBase64Mcp(b64)) throw new Error("Unsafe SVG image data URL.");
+    }
+    return raw;
+  }
   if (allowHash && /^#[a-z0-9_-]{1,64}$/i.test(raw)) return raw;
-  if (allowLocal && /^\/(?!\/)[a-z0-9/_ .%-]*$/i.test(raw)) return raw;
+  if (allowLocal && /^\/(?!\/)[^\s"'<>]{0,8190}$/i.test(raw)) return raw;
   if (allowMail && /^(mailto:|tel:)[^\s]+$/i.test(raw)) return raw;
   let candidate = raw;
   if (!/^https?:\/\//i.test(candidate)) candidate = "https://" + candidate;
@@ -635,9 +735,10 @@ function safeCssGradient(value) {
 function mapHeroVariant(raw) {
   const val = String(raw || "").trim().toLowerCase();
   if (HERO_VARIANTS.includes(val)) return val;
+  if (/agency|spotlight|studio|editorial-center|hero-center|centered-hero|gold-spotlight/.test(val)) return "agency-spotlight";
   if (/minimal|typo|clean|stark/.test(val)) return "minimal-typographic";
   if (/mosaic|collage|tile|showcase-grid/.test(val)) return "cards-mosaic";
-  if (/center|mono|spotlight|single/.test(val)) return "centered-monolith";
+  if (/center|mono|single/.test(val)) return "centered-monolith";
   if (/asym|editor|mag|journal/.test(val)) return "asymmetric-editorial";
   if (/term|bento|dev|code|cyber|tech/.test(val)) return "terminal-bento";
   if (/full|poster|bleed|cinema|hero-img/.test(val)) return "full-bleed-poster";
@@ -666,6 +767,7 @@ function mapHeadingStyle(raw) {
 function mapSectionKind(raw) {
   const val = String(raw || "").trim().toLowerCase();
   if (CUSTOM_SECTION_KINDS.includes(val)) return val;
+  if (/html|markup|custom-block|embed/.test(val)) return "html";
   if (/text|markdown|about|story|essay|bio|note/.test(val)) return "richtext";
   if (/stat|metric|kpi|number|impact/.test(val)) return "stats";
   if (/faq|question|qa/.test(val)) return "faq";
@@ -763,7 +865,10 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     !args.tokens &&
     !args.designName &&
     !args.name &&
-    !args.theme
+    !args.theme &&
+    !args.brandName &&
+    !args.heroHeadline &&
+    !args.customHtml
   ) {
     throw new Error(
       "Provide palette/colors, layout, typography, hero, or customSections when designing a custom theme."
@@ -1035,6 +1140,16 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
           rawSec.markdown ||
           rawSec.quote ||
           rawSec.statement;
+        const secImage = rawSec.image || rawSec.cover || rawSec.photo || rawSec.banner;
+        const rawSecHtml = rawSec.html || rawSec.markup;
+        let cleanSecHtml;
+        if (rawSecHtml) {
+          const bHtml = bilingual(rawSecHtml, "customSection.html");
+          cleanSecHtml = {
+            ar: sanitizeCustomHtmlFragment(bHtml.ar),
+            en: sanitizeCustomHtmlFragment(bHtml.en),
+          };
+        }
 
         return {
           id: sanitizedId || `custom-${idx + 1}`,
@@ -1048,6 +1163,10 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
                 content: bilingual(secContent, "customSection.content"),
               }
             : {}),
+          ...(secImage
+            ? { image: safeUrl(secImage, { allowLocal: true, allowDataImage: true }) }
+            : {}),
+          ...(cleanSecHtml && (cleanSecHtml.ar || cleanSecHtml.en) ? { html: cleanSecHtml } : {}),
           ...(rawItems
             ? {
                 items: rawItems.slice(0, 12).map((item, itemIdx) => {
@@ -1090,6 +1209,9 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
                     (itemBadge && (item.org || item.company) && itemBadge !== (item.org || item.company)
                       ? String(item.org || item.company)
                       : undefined);
+                  const itemImage = item.image || item.photo || item.thumbnail || item.img;
+                  const itemAvatar = item.avatar;
+                  const itemRole = item.role;
                   return {
                     title: bilingual(itemTitle, "customSection.item.title"),
                     ...(itemDesc
@@ -1110,6 +1232,17 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
                           }),
                         }
                       : {}),
+                    ...(itemImage
+                      ? { image: safeUrl(itemImage, { allowLocal: true, allowDataImage: true }) }
+                      : {}),
+                    ...(itemAvatar
+                      ? { avatar: safeUrl(itemAvatar, { allowLocal: true, allowDataImage: true }) }
+                      : {}),
+                    ...(itemRole && typeof itemRole === "object"
+                      ? { role: bilingual(itemRole, "customSection.item.role") }
+                      : typeof itemRole === "string"
+                        ? { role: bilingual(itemRole, "customSection.item.role") }
+                        : {}),
                   };
                 }),
               }
@@ -1130,6 +1263,63 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     }
   }
 
+  const cleanBrandName =
+    typeof args.brandName === "string"
+      ? args.brandName.slice(0, 80)
+      : existingDesign?.brandName;
+  const cleanBrandMonogram =
+    typeof args.brandMonogram === "string"
+      ? args.brandMonogram.slice(0, 8)
+      : existingDesign?.brandMonogram;
+  const cleanHeroHeadline =
+    "heroHeadline" in args
+      ? args.heroHeadline
+        ? bilingual(args.heroHeadline, "heroHeadline")
+        : undefined
+      : existingDesign?.heroHeadline;
+  const cleanHeroSubheadline =
+    "heroSubheadline" in args
+      ? args.heroSubheadline
+        ? bilingual(args.heroSubheadline, "heroSubheadline")
+        : undefined
+      : existingDesign?.heroSubheadline;
+  const cleanHeroHighlight =
+    "heroHighlight" in args
+      ? args.heroHighlight
+        ? bilingual(args.heroHighlight, "heroHighlight")
+        : undefined
+      : existingDesign?.heroHighlight;
+  const cleanShowHeroImage =
+    typeof args.showHeroImage === "boolean"
+      ? args.showHeroImage
+      : existingDesign?.showHeroImage;
+  const cleanShowScrollIndicator =
+    typeof args.showScrollIndicator === "boolean"
+      ? args.showScrollIndicator
+      : existingDesign?.showScrollIndicator;
+  const rawNavCta = "navCta" in args ? args.navCta : existingDesign?.navCta;
+  const cleanNavCta =
+    rawNavCta && typeof rawNavCta === "object" && (rawNavCta.label || rawNavCta.url)
+      ? {
+          label: bilingual(rawNavCta.label || { ar: "تواصل معي", en: "Let's Talk" }, "navCta.label"),
+          url: rawNavCta.url
+            ? safeUrl(rawNavCta.url, { allowMail: true, allowHash: true, allowLocal: true })
+            : "#contact",
+        }
+      : undefined;
+  let cleanCustomHtml = existingDesign?.customHtml;
+  if ("customHtml" in args) {
+    if (!args.customHtml) {
+      cleanCustomHtml = undefined;
+    } else {
+      const bCustomHtml = bilingual(args.customHtml, "customHtml");
+      cleanCustomHtml = {
+        ar: sanitizeCustomHtmlFragment(bCustomHtml.ar),
+        en: sanitizeCustomHtmlFragment(bCustomHtml.en),
+      };
+    }
+  }
+
   return {
     enabled: true,
     designName: String(
@@ -1138,6 +1328,15 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     ...(args.concept || existingDesign?.concept
       ? { concept: String(args.concept || existingDesign?.concept).slice(0, 500) }
       : {}),
+    ...(cleanBrandName ? { brandName: cleanBrandName } : {}),
+    ...(cleanBrandMonogram ? { brandMonogram: cleanBrandMonogram } : {}),
+    ...(cleanHeroHeadline ? { heroHeadline: cleanHeroHeadline } : {}),
+    ...(cleanHeroSubheadline ? { heroSubheadline: cleanHeroSubheadline } : {}),
+    ...(cleanHeroHighlight ? { heroHighlight: cleanHeroHighlight } : {}),
+    ...(typeof cleanShowHeroImage === "boolean" ? { showHeroImage: cleanShowHeroImage } : {}),
+    ...(typeof cleanShowScrollIndicator === "boolean" ? { showScrollIndicator: cleanShowScrollIndicator } : {}),
+    ...(cleanNavCta ? { navCta: cleanNavCta } : {}),
+    ...(cleanCustomHtml && (cleanCustomHtml.ar || cleanCustomHtml.en) ? { customHtml: cleanCustomHtml } : {}),
     palette: cleanPalette,
     typography: cleanTypography,
     layout: cleanLayout,
@@ -1163,7 +1362,7 @@ function normalizeProjectFields(args, partial = false) {
   if ("metrics" in args) result.metrics = String(args.metrics || "").slice(0, 500);
   if ("images" in args) {
     result.images = Array.isArray(args.images)
-      ? args.images.slice(0, 12).map((src) => safeUrl(src, { allowLocal: true }))
+      ? args.images.slice(0, 12).map((src) => safeUrl(src, { allowLocal: true, allowDataImage: true }))
       : [];
   }
   if (!partial && (!result.title || !result.desc)) {
@@ -1568,7 +1767,9 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
         }
         for (const key of ["avatar", "cover"]) {
           if (key in normalizedArgs) {
-            portfolio[key] = normalizedArgs[key] ? safeUrl(normalizedArgs[key], { allowLocal: true }) : "";
+            portfolio[key] = normalizedArgs[key]
+              ? safeUrl(normalizedArgs[key], { allowLocal: true, allowDataImage: true })
+              : "";
           }
         }
         if ("theme" in normalizedArgs) {
@@ -1703,7 +1904,9 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
         }
         for (const key of ["avatar", "cover"]) {
           if (key in normalizedArgs) {
-            portfolio[key] = normalizedArgs[key] ? safeUrl(normalizedArgs[key], { allowLocal: true }) : "";
+            portfolio[key] = normalizedArgs[key]
+              ? safeUrl(normalizedArgs[key], { allowLocal: true, allowDataImage: true })
+              : "";
           }
         }
         if ("theme" in normalizedArgs && normalizedArgs.theme && typeof normalizedArgs.theme === "object") {
@@ -1845,6 +2048,118 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
           })
         );
       }
+      if (name === "upload_portfolio_image") {
+        let dataUrl = String(args.dataUrl || "").trim();
+        let mime = String(args.mime || "").toLowerCase().trim();
+        let base64 = String(args.base64 || "").trim();
+        if (dataUrl) {
+          const m = dataUrl.match(/^data:(image\/(?:jpeg|png|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]+=*)$/i);
+          if (!m) throw new Error("dataUrl must be a base64-encoded image (jpg, png, webp, gif, avif, svg+xml).");
+          mime = m[1].toLowerCase();
+          base64 = m[2];
+        } else if (base64 && mime) {
+          if (!/^image\/(?:jpeg|png|webp|gif|avif|svg\+xml)$/.test(mime) || !/^[A-Za-z0-9+/]+=*$/.test(base64)) {
+            throw new Error("Invalid base64 image or unsupported mime type.");
+          }
+        } else {
+          throw new Error("Provide either dataUrl or both base64 and mime.");
+        }
+
+        const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+        let size = Math.floor((base64.length * 3) / 4) - padding;
+        if (size <= 0 || size > 20_000_000) {
+          throw new Error("Max image size is 20MB.");
+        }
+        if (mime === "image/svg+xml") {
+          const cleaned = sanitizeSvgBase64Mcp(base64);
+          if (!cleaned) throw new Error("Invalid or unsafe SVG markup.");
+          base64 = cleaned.base64;
+          size = cleaned.size;
+        } else if (!validRasterUploadMcp(mime, base64)) {
+          throw new Error("Image bytes do not match the declared MIME type.");
+        }
+
+        const extMap = {
+          "image/jpeg": "jpg",
+          "image/png": "png",
+          "image/webp": "webp",
+          "image/gif": "gif",
+          "image/avif": "avif",
+          "image/svg+xml": "svg",
+        };
+        const ext = extMap[mime] || "webp";
+        const key = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
+        const cleanDataUrl = `data:${mime};base64,${base64}`;
+        const now = Date.now();
+        await env.DB.prepare(
+          "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
+        ).run();
+        if (cleanDataUrl.length <= 900_000) {
+          await env.DB.prepare(
+            "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+          )
+            .bind(key, mime, size, cleanDataUrl, now)
+            .run();
+        } else {
+          await env.DB.prepare(
+            "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
+          ).run();
+          const CHUNK_CHARS = 800_000;
+          const chunkStmts = [];
+          let seq = 0;
+          for (let i = 0; i < base64.length; i += CHUNK_CHARS) {
+            chunkStmts.push(
+              env.DB.prepare(
+                "INSERT INTO media_chunks (key, seq, chunk) VALUES (?1, ?2, ?3)"
+              ).bind(key, seq++, base64.slice(i, i + CHUNK_CHARS))
+            );
+          }
+          for (let i = 0; i < chunkStmts.length; i += 8) {
+            await env.DB.batch(chunkStmts.slice(i, i + 8));
+          }
+          await env.DB.prepare(
+            "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
+          )
+            .bind(key, mime, size, "__CHUNKED__", now)
+            .run();
+        }
+
+        const url = `/api/media/${key}`;
+        const fullUrl = `https://taqdom.me${url}`;
+        const assignTo = String(args.assignTo || "none");
+        let savedDraft = null;
+        if (assignTo === "avatar" || assignTo === "cover") {
+          portfolio[assignTo] = url;
+          savedDraft = await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
+        } else if (assignTo === "backgroundImage") {
+          portfolio.canvas = { ...(portfolio.canvas || {}), backgroundImage: url };
+          savedDraft = await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
+        } else if (assignTo === "project" || args.projectId) {
+          const projects = Array.isArray(portfolio.projects) ? portfolio.projects : [];
+          const pIdx = args.projectId
+            ? projects.findIndex((p) => String(p?.id) === String(args.projectId))
+            : 0;
+          if (pIdx >= 0 && projects[pIdx]) {
+            const imgs = Array.isArray(projects[pIdx].images) ? projects[pIdx].images : [];
+            projects[pIdx] = { ...projects[pIdx], images: [url, ...imgs].slice(0, 12) };
+            portfolio.projects = projects;
+            savedDraft = await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
+          }
+        }
+        return wrapOk(
+          toolResult({
+            ok: true,
+            key,
+            mime,
+            size,
+            url,
+            fullUrl,
+            assignedTo: assignTo,
+            savedToDraft: Boolean(savedDraft),
+          })
+        );
+      }
+
       if (name === "publish_portfolio") {
         const published = await publishOwnedDraft(env, username, tokenRow.user_id, portfolio);
         return wrapOk(
@@ -2054,4 +2369,186 @@ export async function handleMcpRequest(
     "mcp-session-id": sessionHeader,
     "mcp-protocol-version": protocolVersion,
   });
+}
+
+export function handleOpenApiSpec(request, url, isPluginManifest = false) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: oauthCorsHeaders() });
+  }
+  const origin = `${url.protocol}//${url.host}`;
+  if (isPluginManifest) {
+    return json({
+      schema_version: "v1",
+      name_for_human: "Taqdom Sovereign Portfolio",
+      name_for_model: "taqdom_portfolio",
+      description_for_human: "Design, edit, upload images, and publish bespoke bilingual personal websites on taqdom.me.",
+      description_for_model:
+        "Inspect and edit the authenticated creator's Taqdom portfolio, design completely custom visual layouts and CSS themes, upload images up to 20MB, manage projects, and publish live to https://<username>.taqdom.me.",
+      auth: {
+        type: "oauth",
+        client_url: `${origin}/oauth/authorize`,
+        scope: "portfolio:read portfolio:write portfolio:publish",
+        authorization_url: `${origin}/oauth/token`,
+        authorization_content_type: "application/json",
+      },
+      api: {
+        type: "openapi",
+        url: `${origin}/openapi.json`,
+      },
+      logo_url: `${origin}/icon`,
+      contact_email: "support@taqdom.me",
+      legal_info_url: `${origin}/privacy`,
+    });
+  }
+
+  const paths = {};
+  for (const tool of TOOLS) {
+    const isReadOnly = ["get_portfolio", "get_profile", "list_projects", "get_portfolio_blueprint", "list_templates_and_capabilities"].includes(tool.name);
+    paths[`/api/mcp/tools/${tool.name}`] = {
+      post: {
+        operationId: tool.name,
+        summary: tool.description.slice(0, 120),
+        description: tool.description,
+        "x-openai-isConsequential": !isReadOnly,
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: tool.inputSchema,
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Tool execution result",
+            content: {
+              "application/json": {
+                schema: { type: "object" },
+              },
+            },
+          },
+        },
+      },
+    };
+  }
+
+  if (request.method === "HEAD") {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        "cache-control": "public, max-age=300",
+        ...oauthCorsHeaders(),
+      },
+    });
+  }
+
+  return json({
+    openapi: "3.1.0",
+    info: {
+      title: "Taqdom Sovereign Portfolio Actions API",
+      version: "2.0.0",
+      description:
+        "OpenAPI 3.1 interface for ChatGPT Custom GPT Actions & REST clients to inspect, design bespoke themes, upload images, edit content, and publish Taqdom portfolios.",
+    },
+    servers: [{ url: origin }],
+    security: [{ oauth2: ["portfolio:read", "portfolio:write", "portfolio:publish"] }, { bearerAuth: [] }],
+    paths,
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          description: "Taqdom MCP or OAuth Bearer token (tqd_mcp_... or tqd_oat_...).",
+        },
+        oauth2: {
+          type: "oauth2",
+          flows: {
+            authorizationCode: {
+              authorizationUrl: `${origin}/oauth/authorize`,
+              tokenUrl: `${origin}/oauth/token`,
+              scopes: {
+                "portfolio:read": "Read portfolio draft, profile, projects, and design system.",
+                "portfolio:write": "Modify profile, projects, images, and bespoke theme.",
+                "portfolio:publish": "Publish portfolio live to https://<username>.taqdom.me.",
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function handleMcpRestRequest(request, env, toolName) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: oauthCorsHeaders() });
+  }
+  if (request.method !== "POST") {
+    return json({ error: "Use POST for /api/mcp/tools/:toolName" }, 405, { allow: "POST, OPTIONS" });
+  }
+  if (!env?.DB) return json({ error: "Account storage unavailable" }, 503);
+
+  const reqUrl = new URL(request.url);
+  const resourceMetaUrl = `${reqUrl.origin}/.well-known/oauth-protected-resource/mcp`;
+  const rawToken = extractMcpToken(request, reqUrl, null);
+  if (!rawToken) {
+    return json(
+      {
+        error: "authentication_required",
+        message: "Pass Authorization: Bearer <token> or complete OAuth 2.1.",
+        resource_metadata: resourceMetaUrl,
+      },
+      401,
+      {
+        "www-authenticate": `Bearer realm="Taqdom MCP", resource_metadata="${resourceMetaUrl}"`,
+      }
+    );
+  }
+
+  await ensureSchema(env);
+  const tokenHash = await digest(rawToken);
+  const tokenRow = await env.DB.prepare(
+    "SELECT id, user_id, username, scope, expires_at FROM mcp_access_tokens WHERE token_hash = ?1 AND revoked_at IS NULL"
+  )
+    .bind(tokenHash)
+    .first();
+  if (!tokenRow || (tokenRow.expires_at && Number(tokenRow.expires_at) <= Date.now())) {
+    return json(
+      { error: "Invalid, expired, or revoked Bearer token." },
+      401,
+      { "www-authenticate": `Bearer realm="Taqdom MCP", error="invalid_token"` }
+    );
+  }
+
+  const resolvedUsername = normalizeUsername(tokenRow.username);
+  await env.DB.prepare("UPDATE mcp_access_tokens SET last_used_at = ?1 WHERE id = ?2")
+    .bind(Date.now(), tokenRow.id)
+    .run();
+
+  const args = await request.json().catch(() => ({}));
+  const outcome = await processSingleRpcCall(
+    {
+      jsonrpc: "2.0",
+      id: "rest-bridge",
+      method: "tools/call",
+      params: { name: toolName, arguments: args && typeof args === "object" ? args : {} },
+    },
+    { env, username: resolvedUsername, tokenRow, negotiatedProtocol: "2025-03-26" }
+  );
+
+  if (outcome.payload?.error) {
+    return json(
+      { ok: false, error: outcome.payload.error.message || "Unknown tool" },
+      outcome.payload.error.code === -32602 ? 404 : 400
+    );
+  }
+  const result = outcome.payload?.result;
+  if (result?.isError) {
+    return json(
+      { ok: false, error: result?.content?.[0]?.text || "Tool execution failed" },
+      400
+    );
+  }
+  return json({ ok: true, result: result?.structuredContent ?? result }, 200);
 }

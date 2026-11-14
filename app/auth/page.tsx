@@ -213,8 +213,8 @@ export default function AuthPage() {
       return;
     }
 
-    if (password.length < 15 || password.length > 128) {
-      toast.error(t("كلمة المرور يجب أن تكون من 15 إلى 128 حرفًا.", "Use a passphrase between 15 and 128 characters."));
+    if (password.length < 8 || password.length > 128) {
+      toast.error(t("كلمة المرور يجب أن تكون من 8 إلى 128 حرفًا.", "Use a password between 8 and 128 characters."));
       return;
     }
 
@@ -542,24 +542,24 @@ export default function AuthPage() {
                       <span
                         dir="ltr"
                         className={`font-mono text-[11px] font-bold ${
-                          password.length >= 15
+                          password.length >= 8
                             ? "text-emerald-600 dark:text-emerald-400"
                             : "text-muted-foreground"
                         }`}
                       >
-                        {password.length}/15+
+                        {password.length}/8+
                       </span>
                     </div>
                     <div className="relative">
                       <input
                         type={showPassword ? "text" : "password"}
                         required
-                        minLength={15}
+                        minLength={8}
                         maxLength={128}
                         dir="ltr"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="•••••••••••••••"
+                        placeholder="••••••••"
                         className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 pe-11 text-sm"
                       />
                       <button
@@ -572,7 +572,7 @@ export default function AuthPage() {
                       </button>
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {t("استخدم عبارة مرور قوية من 15 إلى 128 حرفًا.", "Use a passphrase between 15 and 128 characters.")}
+                      {t("استخدم كلمة مرور قوية من 8 إلى 128 حرفًا.", "Use a strong password between 8 and 128 characters.")}
                     </p>
                   </div>
 
