@@ -242,6 +242,87 @@ export function isPublicSafeHttpsUrl(rawUrl) {
   }
 }
 
+const CIMD_CACHE_TTL_MS = 60 * 60 * 1000;
+const CIMD_STALE_TTL_MS = 24 * 60 * 60 * 1000;
+const cimdClientCache = new Map();
+
+/**
+ * Curated Client ID Metadata Document (CIMD) fallbacks for major MCP hosts whose
+ * client.json URLs may challenge or 403 Cloudflare Workers subrequests via WAF/Bot Management.
+ * Redirect URIs stay strictly bound to each provider's verified official callback URI.
+ */
+const VERIFIED_CIMD_FALLBACKS = new Map([
+  [
+    "https://chatgpt.com/oauth/client.json",
+    {
+      clientId: "https://chatgpt.com/oauth/client.json",
+      clientName: "ChatGPT",
+      redirectUris: ["https://chatgpt.com/connector_platform_oauth_redirect"],
+    },
+  ],
+  [
+    "https://claude.ai/oauth/mcp-oauth-client-metadata",
+    {
+      clientId: "https://claude.ai/oauth/mcp-oauth-client-metadata",
+      clientName: "Claude",
+      redirectUris: ["https://claude.ai/api/mcp/auth_callback"],
+    },
+  ],
+  [
+    "https://claude.ai/oauth/claude-code-client-metadata",
+    {
+      clientId: "https://claude.ai/oauth/claude-code-client-metadata",
+      clientName: "Claude Code",
+      redirectUris: ["http://localhost/callback", "http://127.0.0.1/callback"],
+    },
+  ],
+]);
+
+function buildResolvedCimdClient(clientId, clientName, redirectUris) {
+  return {
+    clientId,
+    clientSecretHash: null,
+    clientName: String(clientName || new URL(clientId).hostname).slice(0, 80),
+    redirectUris: [...redirectUris],
+    tokenEndpointAuthMethod: "none",
+    scope: SUPPORTED_SCOPES.join(" "),
+    isCimd: true,
+  };
+}
+
+async function fetchCimdDocument(id) {
+  let currentUrl = id;
+  for (let hop = 0; hop < 3; hop += 1) {
+    if (!currentUrl.startsWith("https://") || !isPublicSafeHttpsUrl(currentUrl)) {
+      return null;
+    }
+    const res = await fetch(currentUrl, {
+      headers: {
+        Accept: "application/json, application/oauth-authz-req+json",
+        "User-Agent": "Taqdom-MCP-OAuth/1.0 (+https://taqdom.me)",
+      },
+      redirect: "manual",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (!location) return null;
+      currentUrl = new URL(location, currentUrl).toString();
+      continue;
+    }
+    if (!res.ok) return null;
+    const doc = await res.json().catch(() => null);
+    if (!doc || typeof doc !== "object") return null;
+    const docClientId = String(doc.client_id || "").trim();
+    const redirectUris = Array.isArray(doc.redirect_uris)
+      ? doc.redirect_uris.filter((u) => isValidRedirectUri(u))
+      : [];
+    if (docClientId !== id || redirectUris.length === 0) return null;
+    return buildResolvedCimdClient(id, doc.client_name, redirectUris);
+  }
+  return null;
+}
+
 export async function resolveOAuthClient(env, clientId) {
   const id = String(clientId || "").trim();
   if (!id || id.length > 2048) return null;
@@ -274,32 +355,40 @@ export async function resolveOAuthClient(env, clientId) {
 
   // Support Client ID Metadata Documents (CIMD: client_id is an HTTPS metadata URL)
   if (id.startsWith("https://") && isPublicSafeHttpsUrl(id)) {
+    const now = Date.now();
+    const cached = cimdClientCache.get(id);
+    if (cached && now < cached.expiresAt) {
+      return cached.client;
+    }
+
     try {
-      const res = await fetch(id, {
-        headers: { Accept: "application/json" },
-        redirect: "error",
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) {
-        const doc = await res.json();
-        const docClientId = String(doc?.client_id || "").trim();
-        const redirectUris = Array.isArray(doc?.redirect_uris)
-          ? doc.redirect_uris.filter((u) => isValidRedirectUri(u))
-          : [];
-        if (docClientId === id && redirectUris.length > 0) {
-          return {
-            clientId: id,
-            clientSecretHash: null,
-            clientName: String(doc?.client_name || new URL(id).hostname).slice(0, 80),
-            redirectUris,
-            tokenEndpointAuthMethod: "none",
-            scope: SUPPORTED_SCOPES.join(" "),
-            isCimd: true,
-          };
+      const live = await fetchCimdDocument(id);
+      if (live) {
+        if (cimdClientCache.size >= 200) {
+          cimdClientCache.clear();
         }
+        cimdClientCache.set(id, {
+          client: live,
+          expiresAt: now + CIMD_CACHE_TTL_MS,
+          staleUntil: now + CIMD_STALE_TTL_MS,
+        });
+        return live;
       }
     } catch {
-      return null;
+      // Upstream fetch blocked or timed out; fall through to stale cache or curated fallback.
+    }
+
+    if (cached && now < cached.staleUntil) {
+      return cached.client;
+    }
+
+    const fallback = VERIFIED_CIMD_FALLBACKS.get(id);
+    if (fallback) {
+      return buildResolvedCimdClient(
+        fallback.clientId,
+        fallback.clientName,
+        fallback.redirectUris
+      );
     }
   }
 

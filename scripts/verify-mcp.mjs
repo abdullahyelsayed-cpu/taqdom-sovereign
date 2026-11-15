@@ -1574,4 +1574,165 @@ const postRevokeMcp = await handleMcpRequest(
 );
 assert.equal(postRevokeMcp.status, 401);
 
-console.log("Taqdom MCP & OAuth 2.1 integration tests: PASS (DCR, PKCE S256, root /mcp, direct URLs, SSE, rotation, bespoke design normalization, tenant isolation, revocation)");
+// 9. CIMD (Client ID Metadata Documents) resolution: WAF 403 fallback for ChatGPT & Claude + live CIMD caching + redirect_uri enforcement
+{
+  const cimdVerifier = crypto.randomBytes(48).toString("base64url");
+  const cimdChallenge = crypto.createHash("sha256").update(cimdVerifier).digest("base64url");
+  const chatgptClientId = "https://chatgpt.com/oauth/client.json";
+  const chatgptRedirect = "https://chatgpt.com/connector_platform_oauth_redirect";
+  const claudeClientId = "https://claude.ai/oauth/mcp-oauth-client-metadata";
+  const claudeRedirect = "https://claude.ai/api/mcp/auth_callback";
+  let liveAgentFetchCount = 0;
+
+  const prevFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url) => {
+      const s = String(url);
+      if (s === chatgptClientId || s === claudeClientId || s === "https://evil-or-down.example/oauth/client.json") {
+        return new Response("<html>Just a moment...</html>", { status: 403, headers: { "content-type": "text/html" } });
+      }
+      if (s === "https://live-agent.example/oauth/client.json") {
+        liveAgentFetchCount += 1;
+        if (liveAgentFetchCount === 1) {
+          return new Response(
+            JSON.stringify({
+              client_id: "https://live-agent.example/oauth/client.json",
+              client_name: "Live Agent",
+              redirect_uris: ["https://live-agent.example/callback"],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          );
+        }
+        return new Response("upstream error", { status: 500 });
+      }
+      if (s === "https://redirect-agent.example/old.json") {
+        return new Response("", {
+          status: 302,
+          headers: { location: "https://redirect-agent.example/client.json" },
+        });
+      }
+      if (s === "https://redirect-agent.example/client.json") {
+        return new Response(
+          JSON.stringify({
+            client_id: "https://redirect-agent.example/old.json",
+            client_name: "Redirect Agent",
+            redirect_uris: ["https://redirect-agent.example/cb"],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        );
+      }
+      throw new Error(`Unexpected CIMD fetch URL in verify-mcp: ${s}`);
+    };
+
+    const chatgptInfoRes = await oauthCall(
+      `/api/oauth/client-info?client_id=${encodeURIComponent(chatgptClientId)}&redirect_uri=${encodeURIComponent(
+        chatgptRedirect
+      )}&code_challenge=${encodeURIComponent(cimdChallenge)}&code_challenge_method=S256`
+    );
+    assert.equal(chatgptInfoRes.status, 200, "ChatGPT CIMD must succeed even when WAF blocks outbound worker fetch");
+    const chatgptInfo = await chatgptInfoRes.json();
+    assert.equal(chatgptInfo.client.clientName, "ChatGPT");
+
+    const chatgptEvilRedirect = await oauthCall(
+      `/api/oauth/client-info?client_id=${encodeURIComponent(chatgptClientId)}&redirect_uri=${encodeURIComponent(
+        "https://evil.example/steal"
+      )}&code_challenge=${encodeURIComponent(cimdChallenge)}&code_challenge_method=S256`
+    );
+    assert.equal(chatgptEvilRedirect.status, 400, "ChatGPT CIMD must reject unregistered redirect_uri");
+    assert.equal((await chatgptEvilRedirect.json()).error, "invalid_redirect_uri");
+
+    const chatgptApproveRes = await oauthCall("/api/oauth/approve", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        client_id: chatgptClientId,
+        redirect_uri: chatgptRedirect,
+        code_challenge: cimdChallenge,
+        code_challenge_method: "S256",
+        state: "chatgpt-state-1",
+      }),
+    });
+    assert.equal(chatgptApproveRes.status, 200);
+    const chatgptApproveJson = await chatgptApproveRes.json();
+    const chatgptRedirectUrl = new URL(chatgptApproveJson.redirectTo);
+    assert.equal(`${chatgptRedirectUrl.origin}${chatgptRedirectUrl.pathname}`, chatgptRedirect);
+    const chatgptCode = chatgptRedirectUrl.searchParams.get("code");
+    assert.ok(chatgptCode);
+
+    const chatgptTokenRes = await oauthCall("/oauth/token", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: chatgptCode,
+        redirect_uri: chatgptRedirect,
+        code_verifier: cimdVerifier,
+        client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+        client_assertion: "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJjaGF0Z3B0In0.sig",
+      }).toString(),
+    });
+    assert.equal(chatgptTokenRes.status, 200, "ChatGPT token exchange must recover client_id from auth code and verify PKCE");
+    const chatgptTokens = await chatgptTokenRes.json();
+    assert.match(chatgptTokens.access_token, /^tqd_oat_/);
+
+    const chatgptMcpPing = await handleMcpRequest(
+      new Request("https://taqdom.me/mcp", {
+        method: "POST",
+        headers: { authorization: `Bearer ${chatgptTokens.access_token}`, "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 219, method: "ping" }),
+      }),
+      env,
+      null,
+      null
+    );
+    assert.equal(chatgptMcpPing.status, 200);
+
+    const claudeInfoRes = await oauthCall(
+      `/api/oauth/client-info?client_id=${encodeURIComponent(claudeClientId)}&redirect_uri=${encodeURIComponent(
+        claudeRedirect
+      )}&code_challenge=${encodeURIComponent(cimdChallenge)}&code_challenge_method=S256`
+    );
+    assert.equal(claudeInfoRes.status, 200);
+    assert.equal((await claudeInfoRes.json()).client.clientName, "Claude");
+
+    const blockedUnknownRes = await oauthCall(
+      `/api/oauth/client-info?client_id=${encodeURIComponent(
+        "https://evil-or-down.example/oauth/client.json"
+      )}&redirect_uri=${encodeURIComponent("https://evil-or-down.example/cb")}&code_challenge=${encodeURIComponent(
+        cimdChallenge
+      )}&code_challenge_method=S256`
+    );
+    assert.equal(blockedUnknownRes.status, 400);
+
+    const liveFirstRes = await oauthCall(
+      `/api/oauth/client-info?client_id=${encodeURIComponent(
+        "https://live-agent.example/oauth/client.json"
+      )}&redirect_uri=${encodeURIComponent("https://live-agent.example/callback")}&code_challenge=${encodeURIComponent(
+        cimdChallenge
+      )}&code_challenge_method=S256`
+    );
+    assert.equal(liveFirstRes.status, 200);
+    const liveCachedRes = await oauthCall(
+      `/api/oauth/client-info?client_id=${encodeURIComponent(
+        "https://live-agent.example/oauth/client.json"
+      )}&redirect_uri=${encodeURIComponent("https://live-agent.example/callback")}&code_challenge=${encodeURIComponent(
+        cimdChallenge
+      )}&code_challenge_method=S256`
+    );
+    assert.equal(liveCachedRes.status, 200, "Cached CIMD entry must avoid repeated fetches");
+    assert.equal(liveAgentFetchCount, 1);
+
+    const redirectAgentRes = await oauthCall(
+      `/api/oauth/client-info?client_id=${encodeURIComponent(
+        "https://redirect-agent.example/old.json"
+      )}&redirect_uri=${encodeURIComponent("https://redirect-agent.example/cb")}&code_challenge=${encodeURIComponent(
+        cimdChallenge
+      )}&code_challenge_method=S256`
+    );
+    assert.equal(redirectAgentRes.status, 200);
+  } finally {
+    globalThis.fetch = prevFetch;
+  }
+}
+
+console.log("Taqdom MCP & OAuth 2.1 integration tests: PASS (DCR, CIMD, PKCE S256, root /mcp, direct URLs, SSE, rotation, bespoke design normalization, tenant isolation, revocation)");
