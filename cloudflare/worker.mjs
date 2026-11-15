@@ -2282,6 +2282,32 @@ export default {
     const { root, sub } = parseHost(rawHost);
     const { pathname } = url;
 
+    // 0a. Firebase Custom AuthDomain Reverse Proxy (/__/auth/* and /__/firebase/*)
+    // Ensures Google Sign-In displays "taqdom.me" instead of "inspirational-terra-rtn3v.firebaseapp.com"
+    if (pathname.startsWith("/__/auth/") || pathname.startsWith("/__/firebase/")) {
+      const upstreamUrl = `https://inspirational-terra-rtn3v.firebaseapp.com${pathname}${url.search}`;
+      const proxyHeaders = new Headers();
+      for (const h of ["accept", "accept-language", "user-agent", "content-type"]) {
+        const val = request.headers.get(h);
+        if (val) proxyHeaders.set(h, val);
+      }
+      const upstreamRes = await fetch(upstreamUrl, {
+        method: request.method,
+        headers: proxyHeaders,
+        body: request.method !== "GET" && request.method !== "HEAD" ? request.body : undefined,
+        redirect: "manual",
+      });
+      const resHeaders = new Headers(upstreamRes.headers);
+      resHeaders.set("X-Content-Type-Options", "nosniff");
+      resHeaders.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+      resHeaders.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+      return new Response(upstreamRes.body, {
+        status: upstreamRes.status,
+        statusText: upstreamRes.statusText,
+        headers: resHeaders,
+      });
+    }
+
     // 0. OAuth 2.1 Discovery, Dynamic Client Registration, Consent API & Token Exchange
     if (isOAuthRoute(pathname)) {
       const allowCrossOrigin = !pathname.startsWith("/api/oauth/");
