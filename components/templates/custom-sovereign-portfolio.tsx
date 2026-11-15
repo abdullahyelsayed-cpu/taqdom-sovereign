@@ -1,14 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpLeft,
   ArrowUpRight,
+  BarChart3,
+  Bot,
+  BrainCircuit,
   ChevronDown,
+  Code2,
+  Cpu,
+  Database,
   ExternalLink,
   Globe2,
+  Layers,
   MapPin,
+  Play,
   Sparkles,
+  Terminal,
+  Workflow,
 } from "lucide-react";
 import {
   CanvasSectionId,
@@ -153,6 +163,510 @@ function sanitizeSafeCssGradient(value?: string): string | undefined {
   return undefined;
 }
 
+function normalizeIframeViewportUnits(cssText: string): string {
+  if (!cssText) return "";
+  return cssText.replace(
+    /(-?\d+(?:\.\d+)?)\s*(?:d|s|l)?vh\b/gi,
+    "calc(var(--taqdom-vh, 900px) * $1 / 100)"
+  );
+}
+
+function normalizeHtmlViewportUnits(htmlText: string): string {
+  if (!htmlText) return "";
+  return htmlText
+    .replace(/<style(\b[^>]*)>([\s\S]*?)<\/style>/gi, (_m, attrs, cssBody) => {
+      return `<style${attrs}>${normalizeIframeViewportUnits(cssBody)}</style>`;
+    })
+    .replace(/\bstyle=(["'])([\s\S]*?)\1/gi, (_m, quote, styleBody) => {
+      return `style=${quote}${normalizeIframeViewportUnits(styleBody)}${quote}`;
+    });
+}
+
+function resolveLibraryTags(
+  libraries: string[] | undefined,
+  htmlCode = "",
+  jsCode = ""
+): { importMapTag: string; headTags: string; bodyEndTags: string } {
+  const headParts: string[] = [];
+  const bodyParts: string[] = [];
+  const seen = new Set<string>();
+
+  const importMapImports: Record<string, string> = {
+    three: "https://esm.sh/three@0.160.0",
+    "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
+    gsap: "https://esm.sh/gsap@3.12.5",
+    "gsap/ScrollTrigger": "https://esm.sh/gsap@3.12.5/ScrollTrigger",
+    animejs: "https://esm.sh/animejs@3.2.2",
+    lenis: "https://esm.sh/lenis@1.1.13",
+    "@studio-freight/lenis": "https://esm.sh/lenis@1.1.13",
+    "canvas-confetti": "https://esm.sh/canvas-confetti@1.9.3",
+    lucide: "https://esm.sh/lucide@0.460.0",
+    "chart.js": "https://esm.sh/chart.js@4.4.1/auto",
+    d3: "https://esm.sh/d3@7.9.0",
+    motion: "https://esm.sh/motion@11.11.13",
+    "framer-motion": "https://esm.sh/framer-motion@11.11.13",
+  };
+
+  for (const rawLib of libraries || []) {
+    const lib = String(rawLib || "").trim();
+    if (!lib) continue;
+    const key = lib.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    if (/^https:\/\//i.test(lib)) {
+      const safe = lib.replace(/["<>]/g, "");
+      if (safe.endsWith(".css") || safe.includes("fonts.googleapis.com")) {
+        headParts.push(`<link rel="stylesheet" href="${safe}" crossorigin="anonymous" />`);
+      } else {
+        headParts.push(`<script src="${safe}" crossorigin="anonymous"></script>`);
+      }
+      continue;
+    }
+
+    const bareName = lib.replace(/(?<=.)@[^/]+$/, "");
+    const bareKey = bareName.toLowerCase();
+    const hasExplicitVersion = bareName !== lib;
+
+    if (!key.startsWith("http") && bareName) {
+      if (hasExplicitVersion || !importMapImports[bareName]) {
+        importMapImports[bareName] =
+          bareKey === "chart.js" ? `https://esm.sh/${lib}/auto` : `https://esm.sh/${lib}`;
+        if (bareKey === "three") {
+          importMapImports["three/addons/"] = `https://esm.sh/${lib}/examples/jsm/`;
+        } else if (bareKey === "gsap") {
+          importMapImports["gsap/ScrollTrigger"] = `https://esm.sh/${lib}/ScrollTrigger`;
+        }
+      }
+    }
+
+    if (bareKey === "tailwindcss" || bareKey === "tailwind") {
+      if (!seen.has("cdn:tailwind")) {
+        seen.add("cdn:tailwind");
+        headParts.push(`<script src="https://cdn.tailwindcss.com"></script>`);
+      }
+    } else if (bareKey === "gsap") {
+      if (!seen.has("cdn:gsap")) {
+        seen.add("cdn:gsap");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>`);
+      }
+    } else if (bareKey === "gsap/scrolltrigger" || bareKey === "scrolltrigger") {
+      if (!seen.has("cdn:gsap")) {
+        seen.add("cdn:gsap");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>`);
+      }
+      if (!seen.has("cdn:scrolltrigger")) {
+        seen.add("cdn:scrolltrigger");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>`);
+      }
+    } else if (bareKey === "three" || bareKey === "three.js" || bareKey === "threejs") {
+      if (!seen.has("cdn:three")) {
+        seen.add("cdn:three");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>`);
+      }
+    } else if (bareKey === "lucide" || bareKey === "lucide-icons") {
+      if (!seen.has("cdn:lucide")) {
+        seen.add("cdn:lucide");
+        headParts.push(`<script src="https://unpkg.com/lucide@latest"></script>`);
+      }
+    } else if (bareKey === "animejs" || bareKey === "anime") {
+      if (!seen.has("cdn:animejs")) {
+        seen.add("cdn:animejs");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/animejs@3.2.2/lib/anime.min.js"></script>`);
+      }
+    } else if (bareKey === "lenis" || bareKey === "@studio-freight/lenis") {
+      if (!seen.has("cdn:lenis")) {
+        seen.add("cdn:lenis");
+        headParts.push(`<script src="https://unpkg.com/lenis@1.1.13/dist/lenis.min.js"></script>`);
+      }
+    } else if (bareKey === "swiper") {
+      if (!seen.has("cdn:swiper")) {
+        seen.add("cdn:swiper");
+        headParts.push(`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />`);
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>`);
+      }
+    } else if (bareKey === "aos") {
+      if (!seen.has("cdn:aos")) {
+        seen.add("cdn:aos");
+        headParts.push(`<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" />`);
+        bodyParts.push(`<script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>`);
+      }
+    } else if (bareKey === "chart.js" || bareKey === "chartjs") {
+      if (!seen.has("cdn:chartjs")) {
+        seen.add("cdn:chartjs");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>`);
+      }
+    } else if (bareKey === "d3") {
+      if (!seen.has("cdn:d3")) {
+        seen.add("cdn:d3");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>`);
+      }
+    } else if (bareKey === "typed.js" || bareKey === "typed") {
+      if (!seen.has("cdn:typed")) {
+        seen.add("cdn:typed");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.js"></script>`);
+      }
+    } else if (bareKey === "canvas-confetti" || bareKey === "confetti") {
+      if (!seen.has("cdn:confetti")) {
+        seen.add("cdn:confetti");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>`);
+      }
+    } else if (bareKey === "lottie-web" || bareKey === "lottie") {
+      if (!seen.has("cdn:lottie")) {
+        seen.add("cdn:lottie");
+        headParts.push(`<script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>`);
+      }
+    } else if (bareKey === "particles.js" || bareKey === "particles") {
+      if (!seen.has("cdn:particles")) {
+        seen.add("cdn:particles");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>`);
+      }
+    } else if (bareKey === "vanta") {
+      if (!seen.has("cdn:three")) {
+        seen.add("cdn:three");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js"></script>`);
+      }
+      if (!seen.has("cdn:vanta")) {
+        seen.add("cdn:vanta");
+        headParts.push(`<script src="https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.waves.min.js"></script>`);
+      }
+    } else if (bareKey === "fontawesome" || bareKey === "font-awesome") {
+      if (!seen.has("cdn:fontawesome")) {
+        seen.add("cdn:fontawesome");
+        headParts.push(`<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />`);
+      }
+    } else if (bareKey === "motion" || bareKey === "framer-motion") {
+      // Exposed via importmap for ES modules; also expose global window.Motion
+      if (!seen.has("cdn:motion")) {
+        seen.add("cdn:motion");
+        bodyParts.push(
+          `<script type="module">import * as _motion from "${importMapImports[bareName] || "https://esm.sh/motion@11.11.13"}"; window.Motion = _motion; window.motion = _motion;</script>`
+        );
+      }
+    } else if (/^(@[a-z0-9_.-]+\/)?[a-z0-9_.-]+(?:@[a-z0-9_.^~><=*+-]+)?(?:\/[a-z0-9_./-]+)?$/i.test(lib)) {
+      const safeVarName = bareName.replace(/[^a-zA-Z0-9_]/g, "_");
+      bodyParts.push(
+        `<script type="module">import * as _pkg from "https://esm.sh/${lib}"; window[${JSON.stringify(
+          safeVarName
+        )}] = _pkg.default || _pkg; window[${JSON.stringify(bareName)}] = _pkg.default || _pkg;</script>`
+      );
+    }
+  }
+
+  const combinedCode = `${htmlCode}\n${jsCode}`;
+  const bareImportRegex =
+    /(?:from\s+|import\s*\(\s*|import\s+)["']((?:@[a-z0-9_.-]+\/)?[a-z0-9_.-]+(?:\/[a-z0-9_./-]+)?)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = bareImportRegex.exec(combinedCode)) !== null) {
+    const spec = m[1];
+    if (
+      spec &&
+      !spec.startsWith(".") &&
+      !spec.startsWith("/") &&
+      !spec.startsWith("http") &&
+      !importMapImports[spec]
+    ) {
+      importMapImports[spec] = `https://esm.sh/${spec}`;
+    }
+  }
+
+  const importMapTag = `<script type="importmap">${JSON.stringify({ imports: importMapImports })}</script>`;
+
+  return {
+    importMapTag,
+    headTags: headParts.join("\n"),
+    bodyEndTags: bodyParts.join("\n"),
+  };
+}
+
+function buildFullCustomDocument(
+  data: PortfolioData,
+  design: CustomPortfolioDesign,
+  lang: "ar" | "en",
+  origin: string,
+  viewportHeight = 900
+): string {
+  const htmlObj = design.fullPageHtml || design.customCode?.html;
+  let rawHtml =
+    lang === "ar"
+      ? htmlObj?.ar || htmlObj?.en || ""
+      : htmlObj?.en || htmlObj?.ar || "";
+
+  const nameStr = lang === "ar" ? data.name.ar || data.name.en : data.name.en || data.name.ar;
+  const titleStr = lang === "ar" ? data.title.ar || data.title.en : data.title.en || data.title.ar;
+  const bioStr = lang === "ar" ? data.bio.ar || data.bio.en : data.bio.en || data.bio.ar;
+  const cityStr = lang === "ar" ? data.city.ar || data.city.en : data.city.en || data.city.ar;
+  const avatarUrl = data.avatar
+    ? data.avatar.startsWith("/")
+      ? `${origin}${data.avatar}`
+      : data.avatar
+    : `${origin}/images/taqdom-avatar-placeholder.svg`;
+  const coverUrl = data.cover
+    ? data.cover.startsWith("/")
+      ? `${origin}${data.cover}`
+      : data.cover
+    : avatarUrl;
+
+  rawHtml = rawHtml
+    .replace(/\{\{\s*name\s*\}\}/gi, nameStr || "")
+    .replace(/\{\{\s*title\s*\}\}/gi, titleStr || "")
+    .replace(/\{\{\s*bio\s*\}\}/gi, bioStr || "")
+    .replace(/\{\{\s*city\s*\}\}/gi, cityStr || "")
+    .replace(/\{\{\s*avatar\s*\}\}/gi, avatarUrl)
+    .replace(/\{\{\s*cover\s*\}\}/gi, coverUrl)
+    .replace(/\{\{\s*username\s*\}\}/gi, data.username || "");
+
+  if (origin) {
+    rawHtml = rawHtml
+      .replace(/(src|href)=["'](\/api\/media\/[^"']+)["']/gi, `$1="${origin}$2"`)
+      .replace(/(src|href)=["'](\/images\/[^"']+)["']/gi, `$1="${origin}$2"`)
+      .replace(/url\((["']?)(\/api\/media\/[^)"']+)\1\)/gi, `url("${origin}$2")`)
+      .replace(/url\((["']?)(\/images\/[^)"']+)\1\)/gi, `url("${origin}$2")`);
+  }
+
+  rawHtml = normalizeHtmlViewportUnits(rawHtml);
+
+  let css = design.customCss || design.customCode?.css || "";
+  if (origin && css) {
+    css = css
+      .replace(/url\((["']?)(\/api\/media\/[^)"']+)\1\)/gi, `url("${origin}$2")`)
+      .replace(/url\((["']?)(\/images\/[^)"']+)\1\)/gi, `url("${origin}$2")`);
+  }
+  css = normalizeIframeViewportUnits(css);
+
+  const js = design.customJs || design.customCode?.js || "";
+  const extraHead = design.headHtml || design.customCode?.headHtml || "";
+  const libraries = design.libraries || design.customCode?.libraries || [];
+  const googleFonts = design.googleFonts || design.customCode?.googleFonts || [];
+  const { importMapTag, headTags, bodyEndTags } = resolveLibraryTags(libraries, rawHtml, js);
+
+  const fontLinks = [
+    `<link rel="preconnect" href="https://fonts.googleapis.com" />`,
+    `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />`,
+    `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Readex+Pro:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" />`,
+    ...googleFonts.map((f) => {
+      if (f.startsWith("http")) return `<link rel="stylesheet" href="${f.replace(/["<>]/g, "")}" />`;
+      return `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=${encodeURIComponent(
+        f
+      ).replace(/%20/g, "+")}:wght@300;400;500;600;700;800;900&display=swap" />`;
+    }),
+  ].join("\n");
+
+  rawHtml = rawHtml.replace(/\bloading=(["'])lazy\1/gi, 'loading="eager"');
+
+  const textOnly = rawHtml
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ");
+  const arabicChars = (textOnly.match(/[\u0600-\u06FF]/g) || []).length;
+  const latinChars = (textOnly.match(/[A-Za-z]/g) || []).length;
+  const isContentArabic =
+    arabicChars > 0 && (latinChars === 0 || arabicChars > latinChars * 0.25);
+  const docLang = isContentArabic ? "ar" : latinChars > 0 ? "en" : lang;
+  const docDir = isContentArabic ? "rtl" : latinChars > 0 ? "ltr" : lang === "ar" ? "rtl" : "ltr";
+
+  const safeVh = Math.max(320, Math.min(4000, Math.round(viewportHeight || 900)));
+  const viewportGuardCss = `
+  :root { --taqdom-vh: ${safeVh}px; }
+  html, body { height: auto !important; min-height: 0 !important; }
+  .min-h-screen, .min-h-dvh, .min-h-svh, .min-h-\\[100vh\\], .min-h-\\[100dvh\\] { min-height: var(--taqdom-vh, ${safeVh}px) !important; }
+  .h-screen, .h-dvh, .h-svh, .h-\\[100vh\\], .h-\\[100dvh\\] { height: var(--taqdom-vh, ${safeVh}px) !important; }`;
+
+  const helperScript = `<script>
+(function(){
+  window.__TAQDOM_DATA__ = ${JSON.stringify({
+    username: data.username,
+    name: data.name,
+    title: data.title,
+    bio: data.bio,
+    city: data.city,
+    skills: data.skills,
+    links: data.links,
+    projects: data.projects,
+    timeline: data.timeline,
+    metrics: data.metrics,
+    avatar: avatarUrl,
+    cover: coverUrl,
+  })};
+  var lastReportedHeight = 0;
+  function updateParentVh(vh) {
+    if (typeof vh === "number" && vh >= 320 && vh <= 4000) {
+      document.documentElement.style.setProperty("--taqdom-vh", Math.round(vh) + "px");
+    }
+  }
+  window.addEventListener("message", function(e) {
+    if (e.data && e.data.type === "taqdom-parent-viewport" && typeof e.data.vh === "number") {
+      updateParentVh(e.data.vh);
+      reportHeight();
+    }
+  });
+  function reportHeight() {
+    try {
+      var body = document.body;
+      if (!body) return;
+      var bodyRect = body.getBoundingClientRect();
+      var maxBottom = Math.max(body.offsetHeight || 0, Math.ceil(bodyRect.height || 0));
+      var children = body.children;
+      for (var i = 0; i < children.length; i++) {
+        var el = children[i];
+        if (!el || el.tagName === "SCRIPT" || el.tagName === "STYLE" || el.tagName === "LINK") continue;
+        var style = window.getComputedStyle(el);
+        if (style.position === "fixed") continue;
+        var rect = el.getBoundingClientRect();
+        var mb = parseFloat(style.marginBottom) || 0;
+        var bottom = Math.ceil(rect.bottom - bodyRect.top + mb);
+        if (bottom > maxBottom) maxBottom = bottom;
+        if (el.scrollHeight && style.overflowY !== "scroll" && style.overflowY !== "auto" && style.overflowY !== "hidden") {
+          var sh = Math.ceil((rect.top - bodyRect.top) + el.scrollHeight + mb);
+          if (sh > maxBottom) maxBottom = sh;
+        }
+      }
+      var padBottom = parseFloat(window.getComputedStyle(body).paddingBottom) || 0;
+      var h = Math.max(maxBottom, Math.ceil(padBottom));
+      if (h > 100 && Math.abs(h - lastReportedHeight) > 2 && window.parent && window.parent !== window) {
+        lastReportedHeight = h;
+        window.parent.postMessage({ type: "taqdom-iframe-height", height: h }, "*");
+      }
+    } catch (_) {}
+  }
+  document.addEventListener("click", function(e) {
+    var a = e.target && e.target.closest ? e.target.closest("a") : null;
+    if (!a) return;
+    var href = a.getAttribute("href") || "";
+    if (href.startsWith("#") && href.length > 1) {
+      var el = document.querySelector(href);
+      if (el) {
+        e.preventDefault();
+        el.scrollIntoView({ behavior: "smooth" });
+      }
+      return;
+    }
+    if (/^(https?:|mailto:|tel:)/i.test(href)) {
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
+    }
+  });
+  function bindMediaAndObservers() {
+    reportHeight();
+    var imgs = document.querySelectorAll("img");
+    for (var i = 0; i < imgs.length; i++) {
+      imgs[i].addEventListener("load", reportHeight);
+    }
+    if (typeof ResizeObserver !== "undefined") {
+      try {
+        var ro = new ResizeObserver(reportHeight);
+        if (document.body) ro.observe(document.body);
+        if (document.body && document.body.firstElementChild) ro.observe(document.body.firstElementChild);
+      } catch (_) {}
+    }
+    setTimeout(reportHeight, 100);
+    setTimeout(reportHeight, 400);
+    setTimeout(reportHeight, 1000);
+    setTimeout(reportHeight, 2200);
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindMediaAndObservers);
+  } else {
+    bindMediaAndObservers();
+  }
+  window.addEventListener("load", function() {
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      try { window.lucide.createIcons(); } catch (_) {}
+    }
+    if (window.AOS && typeof window.AOS.init === "function") {
+      try { window.AOS.init({ duration: 800, once: true }); } catch (_) {}
+    }
+    reportHeight();
+    setTimeout(reportHeight, 300);
+    setTimeout(reportHeight, 1200);
+  });
+  window.addEventListener("resize", reportHeight);
+})();
+</script>`;
+
+  const isEsModuleJs =
+    /\bimport\s*(?:["'(]|[\w*{][\s\S]*?\bfrom\s*["'])|\bexport\s+/.test(js);
+  const customJsTag = js
+    ? isEsModuleJs
+      ? `<script type="module">\n${js}\n</script>`
+      : `<script>\ntry {\n${js}\n} catch (err) { console.error(err); }\n</script>`
+    : "";
+
+  const isCompleteDoc = /<!doctype\s+html/i.test(rawHtml) || /<html[\s>]/i.test(rawHtml);
+  if (isCompleteDoc) {
+    let doc = rawHtml;
+    if (/<html\b/i.test(doc)) {
+      if (!/<html[^>]*\blang=/i.test(doc)) {
+        doc = doc.replace(/<html(\b[^>]*)>/i, `<html lang="${docLang}"$1>`);
+      }
+      if (!/<html[^>]*\bdir=/i.test(doc)) {
+        doc = doc.replace(/<html(\b[^>]*)>/i, `<html dir="${docDir}"$1>`);
+      }
+    }
+    if (/<head(\b[^>]*)>/i.test(doc)) {
+      doc = doc.replace(/<head(\b[^>]*)>/i, `<head$1>\n${importMapTag}`);
+    } else {
+      doc = `${importMapTag}\n${doc}`;
+    }
+    const headInsert = `${fontLinks}\n${headTags}\n${extraHead}\n<style>${viewportGuardCss}\n${css}</style>`;
+    if (/<\/head>/i.test(doc)) {
+      doc = doc.replace(/<\/head>/i, `${headInsert}\n</head>`);
+    } else {
+      doc = `${headInsert}\n${doc}`;
+    }
+    const bodyInsert = `${bodyEndTags}\n${helperScript}\n${customJsTag}`;
+    if (/<\/body>/i.test(doc)) {
+      doc = doc.replace(/<\/body>/i, `${bodyInsert}\n</body>`);
+    } else {
+      doc = `${doc}\n${bodyInsert}`;
+    }
+    return doc;
+  }
+
+  const bg = design.palette?.background || "#040814";
+  const fg = design.palette?.text || "#F8FAFC";
+
+  return `<!DOCTYPE html>
+<html lang="${docLang}" dir="${docDir}">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${(nameStr || data.username || "Portfolio").replace(/[<>&]/g, "")}</title>
+${importMapTag}
+${fontLinks}
+${headTags}
+${extraHead}
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html {
+    margin: 0;
+    padding: 0;
+    background-color: ${bg};
+    color: ${fg};
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: ${bg};
+    color: ${fg};
+    font-family: 'Inter', 'Plus Jakarta Sans', 'Readex Pro', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+  }
+  ${viewportGuardCss}
+  ${css}
+</style>
+</head>
+<body>
+${rawHtml}
+${bodyEndTags}
+${helperScript}
+${customJsTag}
+</body>
+</html>`;
+}
+
 export function CustomSovereignPortfolio({
   data,
   design,
@@ -164,9 +678,122 @@ export function CustomSovereignPortfolio({
   onSelectProject,
 }: CustomSovereignPortfolioProps) {
   const [openFaqKey, setOpenFaqKey] = useState<string | null>(null);
+  const [iframeHeight, setIframeHeight] = useState<number | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const t = (ar?: string, en?: string) => (lang === "ar" ? ar || en || "" : en || ar || "");
   const dir = lang === "ar" ? "rtl" : "ltr";
   const Arrow = lang === "ar" ? ArrowUpLeft : ArrowUpRight;
+
+  const fullHtmlObj = design.fullPageHtml || design.customCode?.html;
+  const hasFullCode = Boolean(
+    fullHtmlObj &&
+      ((typeof fullHtmlObj.en === "string" && fullHtmlObj.en.trim().length > 0) ||
+        (typeof fullHtmlObj.ar === "string" && fullHtmlObj.ar.trim().length > 0)) &&
+      design.renderMode !== "bespoke-components"
+  );
+
+  const origin =
+    typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin
+      : "https://taqdom.me";
+
+  const initialVh =
+    typeof window !== "undefined" && window.innerHeight ? window.innerHeight : 900;
+
+  useEffect(() => {
+    if (!hasFullCode) return;
+    const onMsg = (e: MessageEvent) => {
+      if (e.data && e.data.type === "taqdom-iframe-height" && typeof e.data.height === "number") {
+        setIframeHeight(Math.max(400, Math.min(20000, Math.ceil(e.data.height))));
+      }
+    };
+    const onResize = () => {
+      try {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: "taqdom-parent-viewport", vh: window.innerHeight || 900 },
+          "*"
+        );
+      } catch (_) {}
+    };
+    window.addEventListener("message", onMsg);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("message", onMsg);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [hasFullCode]);
+
+  const fullCodeDoc = useMemo(() => {
+    if (!hasFullCode) return "";
+    return buildFullCustomDocument(data, design, lang, origin, initialVh);
+  }, [hasFullCode, data, design, lang, origin, initialVh]);
+
+  if (hasFullCode) {
+    const hasDistinctBilingualHtml =
+      Boolean(fullHtmlObj?.ar && fullHtmlObj?.en) && fullHtmlObj?.ar !== fullHtmlObj?.en;
+    return (
+      <div
+        dir={dir}
+        data-testid="custom-sovereign-portfolio"
+        data-custom-design="true"
+        data-render-mode="full-code"
+        data-design-name={design.designName || "Bespoke Full-Code Sovereign"}
+        style={{ backgroundColor: design.palette?.background || "#040814" }}
+        className="portfolio-custom-sovereign relative min-h-screen w-full"
+      >
+        {hasDistinctBilingualHtml && (
+          <div className="fixed top-3.5 end-4 z-50">
+            <button
+              type="button"
+              data-testid="portfolio-lang-switch"
+              onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/80 px-3.5 py-1.5 text-xs font-bold text-white backdrop-blur-xl shadow-lg cursor-pointer hover:bg-slate-900"
+            >
+              <Globe2 className="h-3.5 w-3.5 text-sky-400" />
+              <span>{lang === "ar" ? "EN" : "عربي"}</span>
+            </button>
+          </div>
+        )}
+        <iframe
+          ref={iframeRef}
+          data-testid="custom-code-iframe"
+          title={t(data.name.ar, data.name.en) || data.username || "Portfolio"}
+          sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals"
+          srcDoc={fullCodeDoc}
+          onLoad={() => {
+            try {
+              iframeRef.current?.contentWindow?.postMessage(
+                { type: "taqdom-parent-viewport", vh: window.innerHeight || 900 },
+                "*"
+              );
+            } catch (_) {}
+          }}
+          style={{
+            height: iframeHeight ? `${iframeHeight}px` : "100vh",
+            minHeight: "100vh",
+          }}
+          className="w-full border-0 block"
+        />
+        {/* Semantic Accessibility & SEO Mirror */}
+        <div className="sr-only" aria-hidden="false">
+          <h1>{design.heroHeadline ? t(design.heroHeadline.ar, design.heroHeadline.en) : t(data.name.ar, data.name.en)}</h1>
+          <p>{t(data.title.ar, data.title.en)}</p>
+          <p>{t(data.bio.ar, data.bio.en)}</p>
+          {data.projects.map((p) => (
+            <article key={p.id}>
+              <h2>{t(p.title.ar, p.title.en)}</h2>
+              <p>{t(p.desc.ar, p.desc.en)}</p>
+            </article>
+          ))}
+          <ul>
+            {(data.skills || []).map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+  }
 
   const palette = design.palette || {
     background: "#0B0D14",
@@ -357,7 +984,115 @@ export function CustomSovereignPortfolio({
       );
     }
 
+    const isSplitEditorial = design.sectionLayout === "split-editorial";
+    const skillIconComponents = [
+      BrainCircuit,
+      Code2,
+      Bot,
+      Database,
+      BarChart3,
+      Layers,
+      Cpu,
+      Workflow,
+      Terminal,
+    ];
+
     if (sectionId === "skills" && skillsList.length > 0) {
+      const skillsHeading = design.sectionHeadings?.skills;
+      const eyebrow = skillsHeading?.eyebrow
+        ? t(skillsHeading.eyebrow.ar, skillsHeading.eyebrow.en)
+        : t("مهاراتي", "MY SKILLS");
+      const titleText = skillsHeading?.title
+        ? t(skillsHeading.title.ar, skillsHeading.title.en)
+        : isSplitEditorial
+        ? t("المهارات والتقنيات", "Skills &\nTechnologies")
+        : t("مجالات الخبرة والتقنيات", "Core Disciplines & Craft");
+      const subtitleText = skillsHeading?.subtitle
+        ? t(skillsHeading.subtitle.ar, skillsHeading.subtitle.en)
+        : t(
+            "الأدوات والمنهجيات التي أوظفها لبناء منتجات ذكية.",
+            "The tools and methodologies I use to bring ideas to life."
+          );
+
+      const isIconGrid = design.skillsLayout === "icon-grid" || isSplitEditorial;
+
+      const skillsBody = isIconGrid ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+          {skillsList.slice(0, 9).map((skill, idx) => {
+            const IconComp = skillIconComponents[idx % skillIconComponents.length];
+            return (
+              <div
+                key={skill}
+                style={{
+                  backgroundColor: alphaColor(surface, 0.78),
+                  borderColor: alphaColor(accent, 0.25),
+                  boxShadow: `inset 0 1px 0 0 ${alphaColor(accent, 0.14)}, 0 12px 30px -18px ${alphaColor(
+                    accent,
+                    0.35
+                  )}`,
+                }}
+                className="group rounded-xl border p-4 sm:p-5 flex flex-col items-center justify-center text-center gap-3 transition-all duration-200 hover:-translate-y-0.5"
+              >
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border"
+                  style={{
+                    backgroundColor: alphaColor(accent, 0.12),
+                    borderColor: alphaColor(accent, 0.32),
+                    color: accent,
+                  }}
+                >
+                  <IconComp className="h-5 w-5" />
+                </div>
+                <span className="text-xs sm:text-sm font-semibold leading-snug" style={{ color: text }}>
+                  {skill}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2.5">
+          {skillsList.map((skill) => (
+            <span
+              key={skill}
+              style={{
+                backgroundColor: surfaceAlt,
+                borderColor: border,
+                color: text,
+              }}
+              className="taqdom-lux-pill inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs sm:text-sm font-semibold"
+            >
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+              {skill}
+            </span>
+          ))}
+        </div>
+      );
+
+      if (isSplitEditorial) {
+        return (
+          <section id="skills" key="skills" {...canvasAttrs("skills")}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+              <div className="lg:col-span-4 space-y-3">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-[0.22em]" style={{ color: accent }}>
+                  {eyebrow}
+                </span>
+                <h2
+                  className="text-2xl sm:text-4xl font-extrabold whitespace-pre-line leading-tight"
+                  style={{ fontFamily: headingFont }}
+                >
+                  {titleText}
+                </h2>
+                <p className="text-sm leading-relaxed" style={{ color: muted }}>
+                  {subtitleText}
+                </p>
+              </div>
+              <div className="lg:col-span-8">{skillsBody}</div>
+            </div>
+          </section>
+        );
+      }
+
       return (
         <section id="skills" key="skills" {...canvasAttrs("skills")}>
           <div
@@ -367,318 +1102,438 @@ export function CustomSovereignPortfolio({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
               <div>
                 <span className="font-mono text-[11px] uppercase tracking-[0.22em]" style={{ color: accent }}>
-                  {t("القدرات والتخصصات", "CAPABILITIES & STACK")}
+                  {eyebrow}
                 </span>
                 <h2 className="mt-1 text-xl sm:text-2xl font-extrabold" style={{ fontFamily: headingFont }}>
-                  {t("مجالات الخبرة والتقنيات", "Core Disciplines & Craft")}
+                  {titleText}
                 </h2>
               </div>
               <span className="font-mono text-xs" style={{ color: muted }}>
                 {skillsList.length} {t("تخصص", "disciplines")}
               </span>
             </div>
-            <div className="flex flex-wrap gap-2.5">
-              {skillsList.map((skill) => (
-                <span
-                  key={skill}
-                  style={{
-                    backgroundColor: surfaceAlt,
-                    borderColor: border,
-                    color: text,
-                  }}
-                  className="taqdom-lux-pill inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs sm:text-sm font-semibold"
-                >
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
-                  {skill}
-                </span>
-              ))}
-            </div>
+            {skillsBody}
           </div>
         </section>
       );
     }
 
     if (sectionId === "projects" && data.projects.length > 0) {
+      const projHeading = design.sectionHeadings?.projects;
+      const projEyebrow = projHeading?.eyebrow
+        ? t(projHeading.eyebrow.ar, projHeading.eyebrow.en)
+        : t("الأعمال المختارة", "SELECTED PROJECTS");
+      const projTitle = projHeading?.title
+        ? t(projHeading.title.ar, projHeading.title.en)
+        : isSplitEditorial
+        ? t("أعمال أحدثت أثراً.", "Work that makes\nan impact.")
+        : t("مشاريع ودراسات حالة", "Projects & Case Studies");
+      const projSubtitle = projHeading?.subtitle
+        ? t(projHeading.subtitle.ar, projHeading.subtitle.en)
+        : t(
+            "مشاريع مختارة تجمع بين الذكاء الاصطناعي والبيانات والمنتجات الرقمية.",
+            "Projects combining AI, data, and product thinking."
+          );
+
+      const projectsListMarkup = projectGrid === "minimal-list" ? (
+        <div className="divide-y" style={{ borderColor: border }}>
+          {data.projects.map((proj, idx) => (
+            <button
+              key={proj.id}
+              type="button"
+              onClick={() => onSelectProject(proj)}
+              style={{ borderColor: border }}
+              className={`group w-full py-6 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-start transition-colors cursor-pointer ${
+                isLightBg ? "hover:bg-black/[0.04]" : "hover:bg-white/[0.06]"
+              }`}
+            >
+              <div className="flex items-start sm:items-center gap-5">
+                <span className="font-mono text-xs pt-1 sm:pt-0" style={{ color: accent }}>
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
+                <div>
+                  <h3
+                    className="text-xl sm:text-2xl font-bold group-hover:translate-x-1 transition-transform"
+                    style={{ fontFamily: headingFont }}
+                  >
+                    {t(proj.title.ar, proj.title.en)}
+                  </h3>
+                  <p className="mt-1 text-sm line-clamp-1" style={{ color: muted }}>
+                    {t(proj.desc.ar, proj.desc.en)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                {proj.year && (
+                  <span className="font-mono text-xs" style={{ color: muted }}>
+                    {proj.year}
+                  </span>
+                )}
+                <Arrow className="h-4 w-4 transition-transform group-hover:scale-110" style={{ color: accent }} />
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : projectGrid === "editorial-rows" ? (
+        <div className="space-y-6">
+          {data.projects.map((proj, idx) => (
+            <article
+              key={proj.id}
+              role="button"
+              tabIndex={0}
+              style={cardSurfaceStyle}
+              onClick={() => onSelectProject(proj)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onSelectProject(proj);
+                }
+              }}
+              className={`${radiusClass} ${hoverClass} overflow-hidden grid grid-cols-1 lg:grid-cols-12 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`}
+            >
+              <div className="lg:col-span-5 relative min-h-[240px] sm:min-h-[290px] overflow-hidden">
+                <PortfolioImg
+                  src={proj.images?.[0] || heroImageSrc}
+                  alt={t(proj.title.ar, proj.title.en)}
+                  className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                />
+              </div>
+              <div className="lg:col-span-7 p-6 sm:p-9 flex flex-col justify-between gap-6">
+                <div>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="font-mono text-xs" style={{ color: accent }}>
+                      {String(idx + 1).padStart(2, "0")} · {proj.year || "2026"}
+                    </span>
+                    {proj.metrics && (
+                      <span
+                        dir="ltr"
+                        className="inline-block rounded-full px-3 py-1 text-[11px] font-bold"
+                        style={{ backgroundColor: alphaColor(accent, 0.12), color: accent, unicodeBidi: "isolate" }}
+                      >
+                        {proj.metrics}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-extrabold" style={{ fontFamily: headingFont }}>
+                    {t(proj.title.ar, proj.title.en)}
+                  </h3>
+                  <p className="mt-3 text-sm sm:text-base leading-relaxed" style={{ color: muted }}>
+                    {t(proj.desc.ar, proj.desc.en)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t" style={{ borderColor: border }}>
+                  <div className="flex flex-wrap gap-2">
+                    {proj.tags.slice(0, 4).map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full px-2.5 py-1 text-[11px] font-medium border"
+                        style={{ borderColor: border, color: muted }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold" style={{ color: accent }}>
+                    <span>{t("استعرض الدراسة", "View Case Study")}</span>
+                    <Arrow className="h-3.5 w-3.5" />
+                  </span>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div
+          className={
+            projectGrid === "masonry"
+              ? "columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6"
+              : projectGrid === "bento"
+              ? "grid grid-cols-1 md:grid-cols-6 gap-6"
+              : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          }
+        >
+          {data.projects.map((proj, idx) => {
+            const bentoSpan =
+              projectGrid === "bento"
+                ? idx === 0
+                  ? "md:col-span-4"
+                  : idx === 1
+                  ? "md:col-span-2"
+                  : "md:col-span-3"
+                : projectGrid === "masonry"
+                ? "break-inside-avoid mb-6"
+                : "";
+            return (
+              <article
+                key={proj.id}
+                role="button"
+                tabIndex={0}
+                style={cardSurfaceStyle}
+                onClick={() => onSelectProject(proj)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectProject(proj);
+                  }
+                }}
+                className={`group ${radiusClass} ${hoverClass} ${bentoSpan} overflow-hidden flex flex-col justify-between cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                  effects.glassBlur ? "backdrop-blur-xl" : ""
+                }`}
+              >
+                <div className="relative h-56 w-full overflow-hidden">
+                  <PortfolioImg
+                    src={proj.images?.[0] || heroImageSrc}
+                    alt={t(proj.title.ar, proj.title.en)}
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div
+                    className="absolute inset-0 opacity-60"
+                    style={{
+                      background: `linear-gradient(to top, ${surface} 4%, transparent 62%)`,
+                    }}
+                  />
+                  {proj.year && (
+                    <span
+                      className="absolute top-3.5 end-3.5 rounded-full px-3 py-1 font-mono text-[10px] font-bold"
+                      style={{ backgroundColor: bg, color: accent, border: `1px solid ${border}` }}
+                    >
+                      {proj.year}
+                    </span>
+                  )}
+                </div>
+                <div className="p-6 flex-1 flex flex-col justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-extrabold" style={{ fontFamily: headingFont }}>
+                      {t(proj.title.ar, proj.title.en)}
+                    </h3>
+                    <p className="mt-2 text-xs sm:text-sm leading-relaxed line-clamp-3" style={{ color: muted }}>
+                      {t(proj.desc.ar, proj.desc.en)}
+                    </p>
+                  </div>
+                  <div className="space-y-3 pt-2">
+                    {proj.metrics && (
+                      <div
+                        className="rounded-xl px-3 py-2 text-xs font-semibold"
+                        style={{ backgroundColor: alphaColor(accent, 0.1), color: accent }}
+                      >
+                        <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
+                          {proj.metrics}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t" style={{ borderColor: border }}>
+                      <div className="flex flex-wrap gap-1.5">
+                        {proj.tags.slice(0, 3).map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-md px-2 py-0.5 text-[10px] font-medium"
+                            style={{ backgroundColor: surfaceAlt, color: muted }}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      {proj.url && (
+                        <a
+                          href={safePortfolioUrl(proj.url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={t("رابط المشروع", "Project link")}
+                          className="inline-flex items-center gap-1 text-xs font-bold"
+                          style={{ color: accent }}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      );
+
+      if (isSplitEditorial) {
+        return (
+          <section id="work" key="projects" {...canvasAttrs("projects")}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+              <div className="lg:col-span-4 space-y-3">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-[0.22em]" style={{ color: accent }}>
+                  {projEyebrow}
+                </span>
+                <h2
+                  className="text-2xl sm:text-4xl font-extrabold whitespace-pre-line leading-tight"
+                  style={{ fontFamily: headingFont }}
+                >
+                  {projTitle}
+                </h2>
+                <p className="text-sm leading-relaxed" style={{ color: muted }}>
+                  {projSubtitle}
+                </p>
+              </div>
+              <div className="lg:col-span-8">{projectsListMarkup}</div>
+            </div>
+          </section>
+        );
+      }
+
       return (
         <section id="work" key="projects" {...canvasAttrs("projects")}>
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
             <div>
               <span className="font-mono text-[11px] uppercase tracking-[0.22em]" style={{ color: accent }}>
-                {t("الأعمال المختارة", "SELECTED ARCHIVE")}
+                {projEyebrow}
               </span>
               <h2 className="mt-2 text-2xl sm:text-4xl font-extrabold" style={{ fontFamily: headingFont }}>
-                {t("مشاريع ودراسات حالة", "Projects & Case Studies")}
+                {projTitle}
               </h2>
             </div>
             <span className="font-mono text-xs" style={{ color: muted }}>
               {String(data.projects.length).padStart(2, "0")} {t("أعمال موثقة", "WORKS")}
             </span>
           </div>
-
-          {projectGrid === "minimal-list" ? (
-            <div className="divide-y" style={{ borderColor: border }}>
-              {data.projects.map((proj, idx) => (
-                <button
-                  key={proj.id}
-                  type="button"
-                  onClick={() => onSelectProject(proj)}
-                  style={{ borderColor: border }}
-                  className={`group w-full py-6 px-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-start transition-colors cursor-pointer ${
-                    isLightBg ? "hover:bg-black/[0.04]" : "hover:bg-white/[0.06]"
-                  }`}
-                >
-                  <div className="flex items-start sm:items-center gap-5">
-                    <span className="font-mono text-xs pt-1 sm:pt-0" style={{ color: accent }}>
-                      {String(idx + 1).padStart(2, "0")}
-                    </span>
-                    <div>
-                      <h3
-                        className="text-xl sm:text-2xl font-bold group-hover:translate-x-1 transition-transform"
-                        style={{ fontFamily: headingFont }}
-                      >
-                        {t(proj.title.ar, proj.title.en)}
-                      </h3>
-                      <p className="mt-1 text-sm line-clamp-1" style={{ color: muted }}>
-                        {t(proj.desc.ar, proj.desc.en)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    {proj.year && (
-                      <span className="font-mono text-xs" style={{ color: muted }}>
-                        {proj.year}
-                      </span>
-                    )}
-                    <Arrow className="h-4 w-4 transition-transform group-hover:scale-110" style={{ color: accent }} />
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : projectGrid === "editorial-rows" ? (
-            <div className="space-y-6">
-              {data.projects.map((proj, idx) => (
-                <article
-                  key={proj.id}
-                  role="button"
-                  tabIndex={0}
-                  style={cardSurfaceStyle}
-                  onClick={() => onSelectProject(proj)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onSelectProject(proj);
-                    }
-                  }}
-                  className={`${radiusClass} ${hoverClass} overflow-hidden grid grid-cols-1 lg:grid-cols-12 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2`}
-                >
-                  <div className="lg:col-span-5 relative min-h-[240px] sm:min-h-[290px] overflow-hidden">
-                    <PortfolioImg
-                      src={proj.images?.[0] || heroImageSrc}
-                      alt={t(proj.title.ar, proj.title.en)}
-                      className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
-                    />
-                  </div>
-                  <div className="lg:col-span-7 p-6 sm:p-9 flex flex-col justify-between gap-6">
-                    <div>
-                      <div className="flex items-center justify-between gap-3 mb-3">
-                        <span className="font-mono text-xs" style={{ color: accent }}>
-                          {String(idx + 1).padStart(2, "0")} · {proj.year || "2026"}
-                        </span>
-                        {proj.metrics && (
-                          <span
-                            dir="ltr"
-                            className="inline-block rounded-full px-3 py-1 text-[11px] font-bold"
-                            style={{ backgroundColor: alphaColor(accent, 0.12), color: accent, unicodeBidi: "isolate" }}
-                          >
-                            {proj.metrics}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="text-2xl sm:text-3xl font-extrabold" style={{ fontFamily: headingFont }}>
-                        {t(proj.title.ar, proj.title.en)}
-                      </h3>
-                      <p className="mt-3 text-sm sm:text-base leading-relaxed" style={{ color: muted }}>
-                        {t(proj.desc.ar, proj.desc.en)}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t" style={{ borderColor: border }}>
-                      <div className="flex flex-wrap gap-2">
-                        {proj.tags.slice(0, 4).map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full px-2.5 py-1 text-[11px] font-medium border"
-                            style={{ borderColor: border, color: muted }}
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold" style={{ color: accent }}>
-                        <span>{t("استعرض الدراسة", "View Case Study")}</span>
-                        <Arrow className="h-3.5 w-3.5" />
-                      </span>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div
-              className={
-                projectGrid === "masonry"
-                  ? "columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6"
-                  : projectGrid === "bento"
-                  ? "grid grid-cols-1 md:grid-cols-6 gap-6"
-                  : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              }
-            >
-              {data.projects.map((proj, idx) => {
-                const bentoSpan =
-                  projectGrid === "bento"
-                    ? idx === 0
-                      ? "md:col-span-4"
-                      : idx === 1
-                      ? "md:col-span-2"
-                      : "md:col-span-3"
-                    : projectGrid === "masonry"
-                    ? "break-inside-avoid mb-6"
-                    : "";
-                return (
-                  <article
-                    key={proj.id}
-                    role="button"
-                    tabIndex={0}
-                    style={cardSurfaceStyle}
-                    onClick={() => onSelectProject(proj)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onSelectProject(proj);
-                      }
-                    }}
-                    className={`group ${radiusClass} ${hoverClass} ${bentoSpan} overflow-hidden flex flex-col justify-between cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                      effects.glassBlur ? "backdrop-blur-xl" : ""
-                    }`}
-                  >
-                    <div className="relative h-56 w-full overflow-hidden">
-                      <PortfolioImg
-                        src={proj.images?.[0] || heroImageSrc}
-                        alt={t(proj.title.ar, proj.title.en)}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                      <div
-                        className="absolute inset-0 opacity-60"
-                        style={{
-                          background: `linear-gradient(to top, ${surface} 4%, transparent 62%)`,
-                        }}
-                      />
-                      {proj.year && (
-                        <span
-                          className="absolute top-3.5 end-3.5 rounded-full px-3 py-1 font-mono text-[10px] font-bold"
-                          style={{ backgroundColor: bg, color: accent, border: `1px solid ${border}` }}
-                        >
-                          {proj.year}
-                        </span>
-                      )}
-                    </div>
-                    <div className="p-6 flex-1 flex flex-col justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg sm:text-xl font-extrabold" style={{ fontFamily: headingFont }}>
-                          {t(proj.title.ar, proj.title.en)}
-                        </h3>
-                        <p className="mt-2 text-xs sm:text-sm leading-relaxed line-clamp-3" style={{ color: muted }}>
-                          {t(proj.desc.ar, proj.desc.en)}
-                        </p>
-                      </div>
-                      <div className="space-y-3 pt-2">
-                        {proj.metrics && (
-                          <div
-                            className="rounded-xl px-3 py-2 text-xs font-semibold"
-                            style={{ backgroundColor: alphaColor(accent, 0.1), color: accent }}
-                          >
-                            <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
-                              {proj.metrics}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t" style={{ borderColor: border }}>
-                          <div className="flex flex-wrap gap-1.5">
-                            {proj.tags.slice(0, 3).map((tag) => (
-                              <span
-                                key={tag}
-                                className="rounded-md px-2 py-0.5 text-[10px] font-medium"
-                                style={{ backgroundColor: surfaceAlt, color: muted }}
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                          {proj.url && (
-                            <a
-                              href={safePortfolioUrl(proj.url)}
-                              target="_blank"
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label={t("رابط المشروع", "Project link")}
-                              className="inline-flex items-center gap-1 text-xs font-bold"
-                              style={{ color: accent }}
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
+          {projectsListMarkup}
         </section>
       );
     }
 
     if (sectionId === "timeline" && data.timeline && data.timeline.length > 0) {
+      const timeHeading = design.sectionHeadings?.timeline;
+      const timeEyebrow = timeHeading?.eyebrow
+        ? t(timeHeading.eyebrow.ar, timeHeading.eyebrow.en)
+        : t("خبراتي", "MY EXPERIENCE");
+      const timeTitle = timeHeading?.title
+        ? t(timeHeading.title.ar, timeHeading.title.en)
+        : isSplitEditorial
+        ? t("الخبرات المهنية.", "Professional\nExperience.")
+        : t("الخبرات والمحطات الرئيسية", "Career Journey");
+      const timeSubtitle = timeHeading?.subtitle
+        ? t(timeHeading.subtitle.ar, timeHeading.subtitle.en)
+        : t("الأدوار التي قدت فيها الابتكار ونمو المنتجات.", "Roles where I've driven innovation and growth.");
+
+      const isVerticalGlow = design.timelineLayout === "vertical-glow" || isSplitEditorial;
+
+      const timelineBody = isVerticalGlow ? (
+        <div className="relative ps-6 sm:ps-8 space-y-5">
+          <div
+            className="absolute top-2 bottom-2 start-2 w-[2px]"
+            style={{
+              background: `linear-gradient(to bottom, ${accent}, ${alphaColor(accent, 0.2)})`,
+              boxShadow: `0 0 12px ${alphaColor(accent, 0.6)}`,
+            }}
+          />
+          {data.timeline.map((item, idx) => (
+            <div
+              key={idx}
+              style={cardSurfaceStyle}
+              className={`relative ${radiusClass} ${hoverClass} p-6 ${effects.glassBlur ? "backdrop-blur-xl" : ""}`}
+            >
+              <span
+                className="absolute top-7 -start-[1.65rem] sm:-start-[2.15rem] h-3.5 w-3.5 rounded-full border-2"
+                style={{
+                  backgroundColor: idx === 0 ? accent : bg,
+                  borderColor: accent,
+                  boxShadow: `0 0 10px ${accent}`,
+                }}
+              />
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-extrabold" style={{ fontFamily: headingFont }}>
+                    {t(item.role.ar, item.role.en)}
+                  </h3>
+                  <p className="text-xs sm:text-sm font-bold mt-0.5" style={{ color: accent }}>
+                    {t(item.org.ar, item.org.en)}
+                  </p>
+                </div>
+                {item.year && (
+                  <span
+                    className="inline-block rounded-full border px-3 py-1 font-mono text-xs font-bold"
+                    style={{
+                      backgroundColor: alphaColor(accent, 0.12),
+                      borderColor: alphaColor(accent, 0.35),
+                      color: accent,
+                    }}
+                  >
+                    {item.year}
+                  </span>
+                )}
+              </div>
+              <p className="mt-3 text-sm leading-relaxed" style={{ color: muted }}>
+                {t(item.summary.ar, item.summary.en)}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {data.timeline.map((item, idx) => (
+            <div
+              key={idx}
+              style={cardSurfaceStyle}
+              className={`${radiusClass} ${hoverClass} p-6 ${effects.glassBlur ? "backdrop-blur-xl" : ""}`}
+            >
+              <span
+                className="inline-block rounded-full px-3 py-1 font-mono text-xs font-bold"
+                style={{ backgroundColor: alphaColor(accent, 0.12), color: accent }}
+              >
+                {item.year}
+              </span>
+              <h3 className="mt-3 text-lg font-bold" style={{ fontFamily: headingFont }}>
+                {t(item.role.ar, item.role.en)}
+              </h3>
+              <p className="text-xs font-semibold mt-0.5" style={{ color: muted }}>
+                {t(item.org.ar, item.org.en)}
+              </p>
+              <p className="mt-3 text-sm leading-relaxed" style={{ color: muted }}>
+                {t(item.summary.ar, item.summary.en)}
+              </p>
+            </div>
+          ))}
+        </div>
+      );
+
+      if (isSplitEditorial) {
+        return (
+          <section id="timeline" key="timeline" {...canvasAttrs("timeline")}>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+              <div className="lg:col-span-4 space-y-3">
+                <span className="font-mono text-[11px] font-bold uppercase tracking-[0.22em]" style={{ color: accent }}>
+                  {timeEyebrow}
+                </span>
+                <h2
+                  className="text-2xl sm:text-4xl font-extrabold whitespace-pre-line leading-tight"
+                  style={{ fontFamily: headingFont }}
+                >
+                  {timeTitle}
+                </h2>
+                <p className="text-sm leading-relaxed" style={{ color: muted }}>
+                  {timeSubtitle}
+                </p>
+              </div>
+              <div className="lg:col-span-8">{timelineBody}</div>
+            </div>
+          </section>
+        );
+      }
+
       return (
         <section id="timeline" key="timeline" {...canvasAttrs("timeline")}>
           <div className="mb-6">
             <span className="font-mono text-[11px] uppercase tracking-[0.22em]" style={{ color: accent }}>
-              {t("المسار والخبرات", "TRAJECTORY & MILESTONES")}
+              {timeEyebrow}
             </span>
             <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold" style={{ fontFamily: headingFont }}>
-              {t("الخبرات والمحطات الرئيسية", "Career Journey")}
+              {timeTitle}
             </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {data.timeline.map((item, idx) => (
-              <div
-                key={idx}
-                style={cardSurfaceStyle}
-                className={`${radiusClass} ${hoverClass} p-6 ${effects.glassBlur ? "backdrop-blur-xl" : ""}`}
-              >
-                <span
-                  className="inline-block rounded-full px-3 py-1 font-mono text-xs font-bold"
-                  style={{ backgroundColor: alphaColor(accent, 0.12), color: accent }}
-                >
-                  {item.year}
-                </span>
-                <h3 className="mt-3 text-lg font-bold" style={{ fontFamily: headingFont }}>
-                  {t(item.role.ar, item.role.en)}
-                </h3>
-                <p className="text-xs font-semibold mt-0.5" style={{ color: muted }}>
-                  {t(item.org.ar, item.org.en)}
-                </p>
-                <p className="mt-3 text-sm leading-relaxed" style={{ color: muted }}>
-                  {t(item.summary.ar, item.summary.en)}
-                </p>
-              </div>
-            ))}
-          </div>
+          {timelineBody}
         </section>
       );
     }
 
-    if (sectionId === "contact") {
+    if (sectionId === "contact" && !design.hideContactSection) {
       return (
         <section id="contact" key="contact" {...canvasAttrs("contact")}>
           <div
@@ -731,11 +1586,10 @@ export function CustomSovereignPortfolio({
   };
 
   const defaultOrder: CanvasSectionId[] = ["metrics", "skills", "projects", "timeline", "contact"];
-  const configuredOrder = Array.isArray(layout.sectionOrder) && layout.sectionOrder.length > 0
-    ? layout.sectionOrder.filter((id) => id !== "hero")
+  const hasExplicitSectionOrder = Array.isArray(layout.sectionOrder) && layout.sectionOrder.length > 0;
+  const orderedSections: CanvasSectionId[] = hasExplicitSectionOrder
+    ? layout.sectionOrder!.filter((id) => id !== "hero")
     : defaultOrder;
-  const remainingSections = defaultOrder.filter((id) => !configuredOrder.includes(id));
-  const orderedSections: CanvasSectionId[] = [...configuredOrder, ...remainingSections];
 
   return (
     <div
@@ -1396,86 +2250,160 @@ export function CustomSovereignPortfolio({
                 </div>
               </div>
             </div>
-          ) : (
-            /* split-showcase default */
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-              <div className="lg:col-span-7 space-y-6">
-                <div className="flex flex-wrap items-center gap-3">
-                  {data.badge && (
-                    <span
-                      className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-bold"
-                      style={{ borderColor: alphaColor(accent, 0.34), backgroundColor: alphaColor(accent, 0.1), color: accent }}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      <span>{t(data.badge.ar, data.badge.en)}</span>
-                    </span>
-                  )}
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: muted }}>
-                    <MapPin className="h-3.5 w-3.5" style={{ color: accent }} />
-                    <span>{t(data.city.ar, data.city.en)}</span>
-                  </span>
-                </div>
-                <h1 className={`${scaleHeroClass} font-black leading-[1.1]`} style={{ fontFamily: headingFont }}>
-                  {t(data.name.ar, data.name.en)}
-                </h1>
-                <p className="text-xl sm:text-2xl font-bold" style={{ color: accent }}>
-                  {t(data.title.ar, data.title.en)}
-                </p>
-                <p className="text-sm sm:text-lg leading-relaxed max-w-2xl" style={{ color: muted }}>
-                  {t(data.bio.ar, data.bio.en)}
-                </p>
-                <div className="flex flex-wrap gap-3 pt-2">
-                  <a
-                    href={primaryCtaUrl}
-                    {...externalLinkProps(primaryCtaUrl)}
-                    style={{ backgroundColor: accent, color: accentText }}
-                    className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-extrabold shadow-xl"
-                  >
-                    <span>{primaryCtaLabel}</span>
-                    <Arrow className="h-4 w-4" />
-                  </a>
-                  <a
-                    href={secondaryCtaUrl}
-                    {...externalLinkProps(secondaryCtaUrl)}
-                    style={{ borderColor: border, backgroundColor: surface, color: text }}
-                    className="taqdom-lux-btn inline-flex items-center gap-2 rounded-full border px-7 py-3.5 text-sm font-bold"
-                  >
-                    <span>{secondaryCtaLabel}</span>
-                  </a>
-                </div>
-              </div>
-              <div className="lg:col-span-5">
-                <div
-                  style={cardSurfaceStyle}
-                  className={`relative h-[360px] sm:h-[440px] w-full overflow-hidden ${radiusClass}`}
-                >
-                  <PortfolioImg src={heroImageSrc} alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background: `linear-gradient(to top, ${alphaColor(bg, 0.92)} 0%, ${alphaColor(bg, 0.45)} 50%, transparent 100%)`,
-                    }}
-                  />
-                  <div className="absolute bottom-5 inset-x-5 flex items-center gap-3.5">
-                    <div
-                      className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 shrink-0"
-                      style={{ borderColor: accent }}
-                    >
-                      <PortfolioImg src={avatarSrc} fallback="/images/taqdom-avatar-placeholder.svg" alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate font-bold text-sm">{t(data.name.ar, data.name.en)}</p>
-                      {design.designName && (
-                        <p className="truncate font-mono text-[11px]" style={{ color: accent }}>
-                          {design.designName}
-                        </p>
+          ) : (() => {
+            /* split-showcase default — honors heroEyebrow, heroHeadline, heroHighlight, heroSubheadline, founderPills */
+            const eyebrowText = design.heroEyebrow
+              ? t(design.heroEyebrow.ar, design.heroEyebrow.en)
+              : data.badge
+              ? t(data.badge.ar, data.badge.en)
+              : "";
+            const rawHeadline = design.heroHeadline
+              ? t(design.heroHeadline.ar, design.heroHeadline.en)
+              : t(data.name.ar, data.name.en);
+            const rawHighlight = design.heroHighlight
+              ? t(design.heroHighlight.ar, design.heroHighlight.en).trim()
+              : "";
+            const subheadlineText = design.heroSubheadline
+              ? t(design.heroSubheadline.ar, design.heroSubheadline.en)
+              : t(data.bio.ar, data.bio.en);
+
+            let headlineNode: React.ReactNode = rawHeadline;
+            if (rawHighlight && rawHeadline.toLowerCase().includes(rawHighlight.toLowerCase())) {
+              const idx = rawHeadline.toLowerCase().indexOf(rawHighlight.toLowerCase());
+              const before = rawHeadline.slice(0, idx);
+              const matched = rawHeadline.slice(idx, idx + rawHighlight.length);
+              const after = rawHeadline.slice(idx + rawHighlight.length);
+              headlineNode = (
+                <>
+                  {before}
+                  <span style={{ color: accent }}>{matched}</span>
+                  {after}
+                </>
+              );
+            }
+
+            return (
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+                  <div className="lg:col-span-7 space-y-6">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {eyebrowText && (
+                        <span
+                          className="inline-flex items-center gap-1.5 font-mono text-xs font-bold uppercase tracking-[0.2em]"
+                          style={{ color: accent }}
+                        >
+                          <span>{eyebrowText}</span>
+                        </span>
                       )}
+                      {!design.heroEyebrow && data.city && (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: muted }}>
+                          <MapPin className="h-3.5 w-3.5" style={{ color: accent }} />
+                          <span>{t(data.city.ar, data.city.en)}</span>
+                        </span>
+                      )}
+                    </div>
+                    <h1 className={`${scaleHeroClass} font-black leading-[1.08] tracking-tight`} style={{ fontFamily: headingFont }}>
+                      {headlineNode}
+                    </h1>
+                    {!design.heroHeadline && (
+                      <p className="text-xl sm:text-2xl font-bold" style={{ color: accent }}>
+                        {t(data.title.ar, data.title.en)}
+                      </p>
+                    )}
+                    {Array.isArray(design.founderPills) && design.founderPills.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {design.founderPills.map((pill, pIdx) => {
+                          const prefix = pill.prefix ? t(pill.prefix.ar, pill.prefix.en) : t("مؤسس", "Founder of");
+                          const pillContent = (
+                            <>
+                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: accent }} />
+                              <span style={{ color: muted }}>{prefix}</span>
+                              <span className="font-bold" style={{ color: text }}>
+                                {pill.name}
+                              </span>
+                            </>
+                          );
+                          return pill.url ? (
+                            <a
+                              key={pIdx}
+                              href={safePortfolioUrl(pill.url)}
+                              {...externalLinkProps(pill.url)}
+                              style={{ backgroundColor: alphaColor(surface, 0.82), borderColor: alphaColor(accent, 0.3) }}
+                              className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs transition hover:opacity-90"
+                            >
+                              {pillContent}
+                            </a>
+                          ) : (
+                            <span
+                              key={pIdx}
+                              style={{ backgroundColor: alphaColor(surface, 0.82), borderColor: alphaColor(accent, 0.3) }}
+                              className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs"
+                            >
+                              {pillContent}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <p className="text-sm sm:text-lg leading-relaxed max-w-2xl" style={{ color: muted }}>
+                      {subheadlineText}
+                    </p>
+                    <div className="flex flex-wrap gap-3 pt-2">
+                      <a
+                        href={primaryCtaUrl}
+                        {...externalLinkProps(primaryCtaUrl)}
+                        style={{ backgroundColor: accent, color: accentText }}
+                        className="taqdom-lux-btn inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-sm font-extrabold shadow-xl"
+                      >
+                        <span>{primaryCtaLabel}</span>
+                        <Arrow className="h-4 w-4" />
+                      </a>
+                      <a
+                        href={secondaryCtaUrl}
+                        {...externalLinkProps(secondaryCtaUrl)}
+                        style={{ borderColor: border, backgroundColor: alphaColor(surface, 0.8), color: text }}
+                        className="taqdom-lux-btn inline-flex items-center gap-2 rounded-xl border px-6 py-3.5 text-sm font-bold"
+                      >
+                        <span>{secondaryCtaLabel}</span>
+                        <span
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-md"
+                          style={{ backgroundColor: alphaColor(accent, 0.2), color: accent }}
+                        >
+                          <Play className="h-3 w-3 fill-current" />
+                        </span>
+                      </a>
+                    </div>
+                  </div>
+                  <div className="lg:col-span-5">
+                    <div
+                      style={cardSurfaceStyle}
+                      className={`relative h-[380px] sm:h-[460px] w-full overflow-hidden ${radiusClass}`}
+                    >
+                      <PortfolioImg src={heroImageSrc} alt={t(data.name.ar, data.name.en)} className="h-full w-full object-cover" />
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background: `linear-gradient(to top, ${alphaColor(bg, 0.86)} 0%, ${alphaColor(bg, 0.2)} 45%, transparent 100%)`,
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
+                {design.showScrollIndicator && (
+                  <div className="pt-2 flex justify-center">
+                    <a
+                      href="#work"
+                      className="inline-flex flex-col items-center gap-1.5 font-mono text-[11px] transition-opacity hover:opacity-100 opacity-80"
+                      style={{ color: muted }}
+                    >
+                      <span>{t("مرر للأسفل", "Scroll Down")}</span>
+                      <ChevronDown className="h-4 w-4 animate-bounce" style={{ color: accent }} />
+                    </a>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </section>
 
         {/* ORDERED BUILT-IN SECTIONS */}
@@ -1628,6 +2556,70 @@ export function CustomSovereignPortfolio({
                   />
                 </div>
               ) : sec.kind === "cards" || sec.kind === "timeline" || sec.kind === "testimonials" || sec.kind === "gallery" || (Array.isArray(sec.items) && sec.items.length > 0) ? (
+                design.sectionLayout === "split-editorial" ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+                    <div className="lg:col-span-4 space-y-3">
+                      <span className="font-mono text-[11px] font-bold uppercase tracking-[0.22em]" style={{ color: accent }}>
+                        {t(sec.title.ar, sec.title.en)}
+                      </span>
+                      {sec.subtitle && (
+                        <h2 className="text-2xl sm:text-4xl font-extrabold leading-tight" style={{ fontFamily: headingFont }}>
+                          {t(sec.subtitle.ar, sec.subtitle.en)}
+                        </h2>
+                      )}
+                      {sec.content && (
+                        <p className="text-sm leading-relaxed" style={{ color: muted }}>
+                          {t(sec.content.ar, sec.content.en)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {(sec.items || []).map((item, idx) => (
+                        <div
+                          key={idx}
+                          style={cardSurfaceStyle}
+                          className={`${radiusClass} ${hoverClass} overflow-hidden flex flex-col justify-between gap-4`}
+                        >
+                          {item.image && (
+                            <div className="relative h-44 w-full overflow-hidden">
+                              <PortfolioImg
+                                src={item.image}
+                                alt={t(item.title.ar, item.title.en)}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          )}
+                          <div className="p-6 flex-1 flex flex-col justify-between gap-4">
+                            <div>
+                              <h3 className="text-lg font-extrabold" style={{ fontFamily: headingFont }}>
+                                {t(item.title.ar, item.title.en)}
+                              </h3>
+                              {item.description && (
+                                <p className="mt-2 text-sm leading-relaxed" style={{ color: muted }}>
+                                  {t(item.description.ar, item.description.en)}
+                                </p>
+                              )}
+                            </div>
+                            {item.url && (() => {
+                              const itemUrl = safePortfolioUrl(item.url);
+                              return (
+                                <a
+                                  href={itemUrl}
+                                  {...externalLinkProps(itemUrl)}
+                                  className="inline-flex items-center gap-1.5 text-xs font-bold"
+                                  style={{ color: accent }}
+                                >
+                                  <span>{item.badge || t("زيارة الموقع", "Visit Website")}</span>
+                                  <Arrow className="h-3.5 w-3.5" />
+                                </a>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
                 <div className="space-y-5">
                   <div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold" style={{ fontFamily: headingFont }}>
@@ -1722,6 +2714,7 @@ export function CustomSovereignPortfolio({
                     ))}
                   </div>
                 </div>
+                )
               ) : (
                 /* richtext */
                 <div style={cardSurfaceStyle} className={`${radiusClass} p-7 sm:p-10 space-y-4`}>

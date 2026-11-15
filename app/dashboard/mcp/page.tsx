@@ -218,22 +218,25 @@ export default function McpConnectionsPage() {
       : curlSnippet;
 
   const masterArchitectPrompt = t(
-    `أنت مصمم مواقع ومخرج فني خبير (Art Director & Frontend Architect). اتصل بمعرضي عبر خادم Taqdom MCP، واقرأ بياناتي عبر get_portfolio_blueprint واكتشف قدرات التصميم المخصص عبر list_templates_and_capabilities.
+    `أنت مصمم مواقع ومهندس واجهات عالمي (Art Director & Creative Technologist). اتصل بمعرضي عبر خادم Taqdom MCP، واقرأ بياناتي عبر get_portfolio_blueprint واكتشف قدرات التصميم المخصص والمكتبات عبر list_templates_and_capabilities.
 
-أريد تصميم بورتفوليو أسطوري مخصص على مزاجي بالكامل حتى لو كان التصميم نفسه مختلفًا تمامًا عن القوالب السبعة الجاهزة:
-1. ابتكر هوية بصرية أصلية (لوحة ألوان عالية التباين، تدرج إضاءة أنيق، خطوط مناسبة، وتخطيط Hero وتصميم شبكات مشاريع Bento أو Editorial).
-2. أضف أقسامًا مخصصة (مثل: فلسفة التصميم، أو خدمات/مجالات التعاون، أو أسئلة شائعة، أو شريط دعوة للتواصل) عبر design_custom_portfolio_theme مع الحرص على صياغة عربية وإنجليزية احترافية عبر update_portfolio_content و create_project/update_project.
-3. اعرض عليّ ملخص التصميم النهائي، وعندما أوافق قم بنشره مباشرة عبر publish_portfolio ليظهر كموقع شخصي مستقل بالكامل على https://${activeUsername}.taqdom.me.`,
-    `You are an elite Art Director & Frontend Architect. Connect to my Taqdom MCP server, inspect my current draft via get_portfolio_blueprint and check list_templates_and_capabilities.
+أريد تصميم بورتفوليو أسطوري وحر بالكامل (100% Freeform Full-Code) غير مقيد بأي قالب جاهز:
+1. استخدم أداة deploy_custom_code_portfolio (أو design_custom_portfolio_theme مع renderMode="full-code") لكتابة كود HTML5 و CSS3 و JavaScript مخصص بالكامل عبر fullPageHtml و customCss و customJs، أو مطابقة أي صورة مرجعية أرفقها لك بنسبة 1:1.
+2. ثبّت أي مكتبات أو حزم npm عالمية تحتاجها عبر حقل libraries (مثل: gsap، و gsap/ScrollTrigger، و three، و tailwindcss، و lucide، و animejs، و lenis، أو أي حزمة npm عبر esm.sh) مع خطوط Google Fonts.
+3. حدّث بياناتي ومشاريعي ومهاراتي عبر update_portfolio_content و create_project/update_project، ثم انشر الموقع مباشرة عبر publish_portfolio ليظهر كموقع شخصي مستقل على https://${activeUsername}.taqdom.me.`,
+    `You are an elite Art Director & Creative Technologist. Connect to my Taqdom MCP server, inspect my current draft via get_portfolio_blueprint and check list_templates_and_capabilities.
 
-Design a completely bespoke, original luxury personal portfolio for me — you do NOT need to stay within the 7 preset templates:
-1. Synthesize an original design system (high-contrast custom palette, refined gradients, typography pairing, bespoke heroVariant, projectGrid, GPU hover physics, and customSections such as Principles/Services cards, FAQ accordion, stats, quote, or CTA) via design_custom_portfolio_theme.
-2. Elevate my bilingual (Arabic & English) bio, projects, skills, metrics, and timeline via update_portfolio_content and create_project/update_project.
-3. Present your design blueprint, then publish live to my standalone site at https://${activeUsername}.taqdom.me using publish_portfolio.`
+Build a 100% freeform, world-class personal portfolio for me — completely unconstrained by preset templates:
+1. Use deploy_custom_code_portfolio (or design_custom_portfolio_theme with renderMode="full-code") to write bespoke HTML5, CSS3, SVG, Canvas/WebGL, and JavaScript via fullPageHtml, customCss, and customJs — or clone any reference image I upload 1:1.
+2. Install any external libraries or npm packages via libraries/install_portfolio_libraries (e.g., gsap, gsap/ScrollTrigger, three, tailwindcss, lucide, animejs, lenis, chart.js, d3, or any npm package loaded via esm.sh) and googleFonts.
+3. Sync my bilingual profile, projects, skills, and timeline via update_portfolio_content and create_project/update_project, then publish live to https://${activeUsername}.taqdom.me using publish_portfolio.`
   );
 
   const toolsCatalog = [
-    ["design_custom_portfolio_theme", t("تصميم ثيم وتخطيط وأقسام مخصصة بالكامل خارج أي قالب جاهز", "Design bespoke colors, hero, grid, effects & custom sections beyond presets")],
+    ["deploy_custom_code_portfolio", t("بناء أي تصميم عالمي حر بالكامل (HTML/CSS/JS/WebGL) بدون أي قوالب", "Deploy 100% freeform HTML5/CSS3/JS/WebGL portfolio with zero template limits")],
+    ["install_portfolio_libraries", t("تثبيت أي مكتبة خارجية أو حزمة npm (GSAP, Three.js, Tailwind, Lucide...)", "Install external libraries & npm packages (GSAP, Three.js, Tailwind, esm.sh)")],
+    ["design_custom_portfolio_theme", t("تصميم ثيم وتخطيط وأقسام مخصصة بالكامل (Full-Code أو Bespoke Components)", "Design bespoke full-code or parameterized portfolio themes beyond presets")],
+    ["upload_portfolio_image", t("رفع الصور والخلفيات والشعارات حتى 20MB مباشرة إلى قاعدة البيانات", "Upload portfolio & project images up to 20MB to D1 media storage")],
     ["get_portfolio_blueprint", t("قراءة المخطط الكامل للمعرض وقدرات التصميم المخصص", "Inspect full portfolio blueprint, design state & publication status")],
     ["list_templates_and_capabilities", t("استعراض القوالب السبعة + كل قدرات محرك التصميم المخصص", "Inspect 7 presets + full bespoke design-engine specification")],
     ["update_portfolio_content", t("تحديث شامل للمحتوى والمهارات والإنجازات والمسار وSEO", "Batch-update bilingual content, skills, metrics, timeline & SEO")],

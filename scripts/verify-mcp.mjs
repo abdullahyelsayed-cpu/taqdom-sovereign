@@ -172,6 +172,7 @@ assert.deepEqual(payload.result.tools.map((tool) => tool.name), [
   "create_project", "update_project", "delete_project", "publish_portfolio",
   "get_portfolio_blueprint", "list_templates_and_capabilities",
   "update_portfolio_content", "design_custom_portfolio_theme",
+  "deploy_custom_code_portfolio", "install_portfolio_libraries",
   "upload_portfolio_image",
 ]);
 
@@ -860,6 +861,156 @@ assert.equal(agencyPayload.result.structuredContent.customDesign.customHtml.en.i
 assert.equal(agencyPayload.result.structuredContent.customDesign.customSections[0].kind, "html");
 assert.equal(agencyPayload.result.structuredContent.customDesign.customSections[0].html.en.includes("onerror"), false);
 assert.equal(agencyPayload.result.structuredContent.customDesign.customSections[0].html.en.includes("Custom Block"), true);
+
+// 7e. Full-Code Sovereign Engine & External Library / NPM Package Support
+const fullCodeRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 212,
+      method: "tools/call",
+      params: {
+        name: "deploy_custom_code_portfolio",
+        arguments: {
+          designName: "AI Sovereign Full-Code",
+          heroEyebrow: "AI • DATA • DIGITAL PRODUCTS",
+          heroHeadline: "I build intelligent products from data to reality.",
+          heroHighlight: "data to reality.",
+          founderPills: [
+            { prefix: "Founder of", name: "taqdom.me", url: "https://taqdom.me" },
+            "data-middleeast.tech",
+          ],
+          sectionLayout: "split-editorial",
+          skillsLayout: "icon-grid",
+          timelineLayout: "vertical-glow",
+          hideContactSection: true,
+          fullPageHtml: "<div class='hero-custom'><h1>I build intelligent products from data to reality.</h1></div>",
+          customCss: ".hero-custom { background: #040915; color: #F8FAFC; }",
+          customJs: "console.log('GSAP & Three ready');",
+          libraries: ["tailwindcss", "gsap", "gsap/ScrollTrigger", "three", "lucide"],
+          dependencies: { "canvas-confetti": "1.9.3", "@studio-freight/lenis": "1.0.42" },
+          googleFonts: ["Plus Jakarta Sans", "Space Grotesk"],
+          publish: true,
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(fullCodeRes.status, 200);
+const fullCodePayload = await fullCodeRes.json();
+assert.equal(fullCodePayload.result.isError, undefined, JSON.stringify(fullCodePayload.result));
+const savedCustomDesign = fullCodePayload.result.structuredContent.customDesign;
+assert.equal(savedCustomDesign.renderMode, "full-code");
+assert.equal(savedCustomDesign.sectionLayout, "split-editorial");
+assert.equal(savedCustomDesign.skillsLayout, "icon-grid");
+assert.equal(savedCustomDesign.timelineLayout, "vertical-glow");
+assert.equal(savedCustomDesign.hideContactSection, true);
+assert.equal(savedCustomDesign.founderPills.length, 2);
+assert.equal(savedCustomDesign.founderPills[0].name, "taqdom.me");
+assert.equal(savedCustomDesign.fullPageHtml.en.includes("intelligent products"), true);
+assert.equal(savedCustomDesign.libraries.includes("gsap"), true);
+assert.equal(savedCustomDesign.libraries.includes("three"), true);
+assert.equal(savedCustomDesign.libraries.includes("canvas-confetti@1.9.3"), true);
+assert.equal(savedCustomDesign.googleFonts.includes("Space Grotesk"), true);
+
+const unsafeLibRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 213,
+      method: "tools/call",
+      params: {
+        name: "design_custom_portfolio_theme",
+        arguments: {
+          libraries: ["javascript:alert(1)"],
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const unsafeLibPayload = await unsafeLibRes.json();
+assert.equal(unsafeLibPayload.result.isError, true, "Unsafe library specifier must be rejected");
+
+// 7f. Verify switching from full-code to bespoke-components and update_portfolio_content top-level full-code fields
+const switchBespokeRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 214,
+      method: "tools/call",
+      params: {
+        name: "design_custom_portfolio_theme",
+        arguments: {
+          designName: "Component Mode Switch",
+          layout: { heroVariant: "split-showcase", projectGrid: "bento" },
+          sectionLayout: "split-editorial",
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const switchBespokePayload = await switchBespokeRes.json();
+assert.equal(switchBespokePayload.result.isError, undefined, JSON.stringify(switchBespokePayload.result));
+assert.equal(
+  switchBespokePayload.result.structuredContent.customDesign.renderMode,
+  "bespoke-components",
+  "Component layout update without full-code args must switch renderMode to bespoke-components"
+);
+
+const topLevelFullCodeRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 215,
+      method: "tools/call",
+      params: {
+        name: "update_portfolio_content",
+        arguments: {
+          template: "custom",
+          name: { ar: "عبد الله يحيى", en: "Abdullah Yehia" },
+          fullPageHtml: {
+            ar: "<section class='min-h-screen'><h1>أبني منتجات ذكية</h1></section>",
+            en: "<section class='min-h-screen'><h1>I build intelligent products</h1></section>",
+          },
+          customCss: ".min-h-screen { min-height: 100vh; }",
+          customJs: "import confetti from 'canvas-confetti'; console.log(typeof confetti);",
+          libraries: ["gsap@3.12.5", "lucide@0.460.0"],
+          dependencies: { "canvas-confetti": "1.9.3" },
+          publish: true,
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const topLevelFullCodePayload = await topLevelFullCodeRes.json();
+assert.equal(topLevelFullCodePayload.result.isError, undefined, JSON.stringify(topLevelFullCodePayload.result));
+const updatedCustomDesign = topLevelFullCodePayload.result.structuredContent.portfolio.customDesign;
+assert.equal(updatedCustomDesign.enabled, true);
+assert.equal(updatedCustomDesign.renderMode, "full-code");
+assert.equal(updatedCustomDesign.fullPageHtml.ar.includes("أبني منتجات ذكية"), true);
+assert.equal(updatedCustomDesign.fullPageHtml.en.includes("I build intelligent products"), true);
+assert.equal(updatedCustomDesign.libraries.includes("gsap@3.12.5"), true);
+assert.equal(updatedCustomDesign.libraries.includes("canvas-confetti@1.9.3"), true);
 
 const tinyPngDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const uploadToolRes = await handleMcpRequest(

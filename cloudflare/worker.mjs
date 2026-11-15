@@ -82,7 +82,7 @@ function applySecurityHeaders(response, allowCrossOrigin = false) {
   headers.set("Cross-Origin-Resource-Policy", allowCrossOrigin ? "cross-origin" : "same-site");
   headers.set(
     "Content-Security-Policy-Report-Only",
-    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; script-src 'self' 'unsafe-inline' https://apis.google.com https://accounts.google.com; style-src 'self' 'unsafe-inline'; frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://www.youtube.com https://www.youtube-nocookie.com"
+    "default-src 'self' blob: data:; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; connect-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://apis.google.com https://accounts.google.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; frame-src 'self' blob: data: https://*.firebaseapp.com https://accounts.google.com https://www.youtube.com https://www.youtube-nocookie.com"
   );
   return new Response(response.body, {
     status: response.status,
@@ -316,12 +316,24 @@ function safeJsonForHtmlScript(value) {
 function sanitizeCustomDesignUrlsEdge(customDesign) {
   if (!customDesign || typeof customDesign !== "object") return customDesign;
   const next = { ...customDesign };
+  if (next.navCta && typeof next.navCta === "object") {
+    next.navCta = {
+      ...next.navCta,
+      ...(next.navCta.url ? { url: safePortfolioHref(next.navCta.url) } : {}),
+    };
+  }
   if (next.heroCta && typeof next.heroCta === "object") {
     next.heroCta = {
       ...next.heroCta,
       ...(next.heroCta.primaryUrl ? { primaryUrl: safePortfolioHref(next.heroCta.primaryUrl) } : {}),
       ...(next.heroCta.secondaryUrl ? { secondaryUrl: safePortfolioHref(next.heroCta.secondaryUrl) } : {}),
     };
+  }
+  if (Array.isArray(next.founderPills)) {
+    next.founderPills = next.founderPills.map((pill) => ({
+      ...pill,
+      ...(pill?.url ? { url: safePortfolioHref(pill.url) } : {}),
+    }));
   }
   if (Array.isArray(next.customSections)) {
     next.customSections = next.customSections.map((sec) => ({
@@ -1665,7 +1677,7 @@ async function handleApiRequest(request, url, env) {
     if (request.method === "PUT") {
       if (!session?.username) return unauthorized();
       if (!ownsUsername(session.username)) return forbidden();
-      const parsed = await parseJsonBody(request, 1_500_000);
+      const parsed = await parseJsonBody(request, 5_000_000);
       if (!parsed.ok) return rateLimitBodyError(parsed);
       let portfolio = parsed.value?.portfolio;
       if (!portfolio?.username) return jsonResponse({ error: "Invalid payload" }, 400);
@@ -1706,7 +1718,7 @@ async function handleApiRequest(request, url, env) {
     if (request.method === "POST") {
       if (!session?.username) return unauthorized();
       if (!ownsUsername(session.username)) return forbidden();
-      const parsed = await parseJsonBody(request, 1_500_000);
+      const parsed = await parseJsonBody(request, 5_000_000);
       if (!parsed.ok) return rateLimitBodyError(parsed);
       let portfolio = parsed.value?.portfolio;
       if (!portfolio?.username) return jsonResponse({ error: "Missing portfolio" }, 400);
@@ -2072,11 +2084,39 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       : [],
   };
 
+  const resolvedOgImage = (() => {
+    const candidate = String(customData.cover || customData.avatar || "").trim();
+    if (/^https?:\/\//i.test(candidate)) {
+      const safe = safePortfolioHref(candidate);
+      return safe !== "#" ? safe : "https://taqdom.me/opengraph-image";
+    }
+    return candidate.startsWith("/")
+      ? `https://taqdom.me${candidate}`
+      : "https://taqdom.me/opengraph-image";
+  })();
+
+  const keywordsStr = Array.isArray(customData.seo?.keywords) && customData.seo.keywords.length > 0
+    ? customData.seo.keywords.join(",")
+    : [
+        customData.name?.ar,
+        customData.name?.en,
+        targetUser,
+        customData.title?.ar,
+        customData.title?.en,
+        ...(Array.isArray(customData.skills) ? customData.skills.slice(0, 6) : []),
+      ]
+        .filter(Boolean)
+        .join(",");
+
   headHtml = headHtml
     .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`)
     .replace(
       /<meta name="description" content="[^"]*"\s*\/?>/i,
       `<meta name="description" content="${escapeHtml(description)}"/>`
+    )
+    .replace(
+      /<meta name="keywords" content="[^"]*"\s*\/?>/i,
+      `<meta name="keywords" content="${escapeHtml(keywordsStr)}"/>`
     )
     .replace(
       /<meta property="og:title" content="[^"]*"\s*\/?>/i,
@@ -2089,6 +2129,30 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
     .replace(
       /<meta property="og:url" content="[^"]*"\s*\/?>/i,
       `<meta property="og:url" content="${escapeHtml(canonicalUrl)}"/>`
+    )
+    .replace(
+      /<meta property="og:image" content="[^"]*"\s*\/?>/i,
+      `<meta property="og:image" content="${escapeHtml(resolvedOgImage)}"/>`
+    )
+    .replace(
+      /<meta property="og:image:alt" content="[^"]*"\s*\/?>/i,
+      `<meta property="og:image:alt" content="${escapeHtml(customData.name?.en || customData.name?.ar || targetUser)}"/>`
+    )
+    .replace(
+      /<meta name="twitter:title" content="[^"]*"\s*\/?>/i,
+      `<meta name="twitter:title" content="${escapeHtml(title)}"/>`
+    )
+    .replace(
+      /<meta name="twitter:description" content="[^"]*"\s*\/?>/i,
+      `<meta name="twitter:description" content="${escapeHtml(description)}"/>`
+    )
+    .replace(
+      /<meta name="twitter:image" content="[^"]*"\s*\/?>/i,
+      `<meta name="twitter:image" content="${escapeHtml(resolvedOgImage)}"/>`
+    )
+    .replace(
+      /<meta name="twitter:image:alt" content="[^"]*"\s*\/?>/i,
+      `<meta name="twitter:image:alt" content="${escapeHtml(customData.name?.en || customData.name?.ar || targetUser)}"/>`
     );
 
   const jsonLdScript = `<script type="application/ld+json">${safeJsonForHtmlScript(personJsonLd)}</script>`;
@@ -2179,7 +2243,8 @@ export default {
     // 1. Handle API endpoints
     if (pathname.startsWith("/api/")) {
       try {
-        return applySecurityHeaders(await handleApiRequest(request, url, env));
+        const allowCrossOriginMedia = pathname.startsWith("/api/media/");
+        return applySecurityHeaders(await handleApiRequest(request, url, env), allowCrossOriginMedia);
       } catch (error) {
         console.error(
           "Taqdom API error:",
@@ -2229,7 +2294,7 @@ export default {
       pathname.startsWith("/images/") ||
       /\.[a-zA-Z0-9]{2,5}$/.test(pathname)
     ) {
-      return applySecurityHeaders(await env.ASSETS.fetch(request));
+      return applySecurityHeaders(await env.ASSETS.fetch(request), pathname.startsWith("/images/"));
     }
 
     // 4. www -> apex 308 redirect

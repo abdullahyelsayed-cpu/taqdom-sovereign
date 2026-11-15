@@ -130,12 +130,24 @@ async function writeDiskAndMemoryDb(snapshot: DbSnapshot): Promise<void> {
 function sanitizeCustomDesignUrls(customDesign: PortfolioData["customDesign"]): PortfolioData["customDesign"] {
   if (!customDesign || typeof customDesign !== "object") return customDesign;
   const next = { ...customDesign };
+  if (next.navCta && typeof next.navCta === "object") {
+    next.navCta = {
+      ...next.navCta,
+      url: safePortfolioUrl(next.navCta.url),
+    };
+  }
   if (next.heroCta && typeof next.heroCta === "object") {
     next.heroCta = {
       ...next.heroCta,
       primaryUrl: next.heroCta.primaryUrl ? safePortfolioUrl(next.heroCta.primaryUrl) : undefined,
       secondaryUrl: next.heroCta.secondaryUrl ? safePortfolioUrl(next.heroCta.secondaryUrl) : undefined,
     };
+  }
+  if (Array.isArray(next.founderPills)) {
+    next.founderPills = next.founderPills.map((pill) => ({
+      ...pill,
+      url: safePortfolioUrl(pill.url || "#"),
+    }));
   }
   if (Array.isArray(next.customSections)) {
     next.customSections = next.customSections.map((sec) => ({

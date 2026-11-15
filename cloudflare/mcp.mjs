@@ -159,9 +159,40 @@ const DESIGN_CAPABILITIES = {
   builtInTemplates: TEMPLATE_CATALOG_DETAILS,
   bespokeCustomDesignEngine: {
     summary:
-      "Set customDesign.enabled=true via design_custom_portfolio_theme to completely bypass built-in templates and render an original, sovereign personal website. Flexible schema: partial palettes auto-derive accessible contrasting surface/text colors, named/rgb/hsl/hex colors are normalized, and layout/section aliases from Gemini or Claude are automatically mapped.",
+      "Set customDesign.enabled=true via design_custom_portfolio_theme to completely bypass built-in templates and render an original, sovereign personal website. You have TWO powerful modes: (1) renderMode='full-code' — write 100% custom HTML5/CSS3/JS in fullPageHtml, customCss, and customJs with ANY external library or npm package in libraries/dependencies (Tailwind CSS, GSAP + ScrollTrigger, Three.js, Anime.js, Lenis, Lucide, Chart.js, D3, Swiper, AOS, Lottie, Vanta, FontAwesome, Google Fonts, or any npm package auto-mapped via esm.sh importmap) to clone any reference image or build world-class animated/3D enterprise experiences with zero template constraints; or (2) renderMode='bespoke-components' — parameterized layouts with split-editorial 2-column sections, 3x3 icon-grid skills, vertical-glow timelines, founderPills, heroEyebrow, and customSections.",
+    renderModes: ["full-code", "bespoke-components"],
+    fullCodeAndLibraryEngine: {
+      description:
+        "Pass fullPageHtml (string or {ar, en} up to 500KB), customCss, customJs, googleFonts, and libraries/packages/dependencies to render a 100% custom DOM, animation pipeline, WebGL/Three.js canvas, or pixel-exact reference clone.",
+      builtInLibraryShortcuts: [
+        "tailwindcss",
+        "gsap",
+        "gsap/ScrollTrigger",
+        "three",
+        "lucide",
+        "animejs",
+        "lenis",
+        "swiper",
+        "aos",
+        "chart.js",
+        "d3",
+        "typed.js",
+        "canvas-confetti",
+        "lottie-web",
+        "particles.js",
+        "vanta",
+        "fontawesome",
+        "motion",
+        "framer-motion",
+      ],
+      npmImportMapSupport:
+        "Any npm package name (e.g. 'three', 'gsap', 'canvas-confetti', '@studio-freight/lenis', or { 'three': '0.170.0' } in dependencies) is automatically injected into an ES Module <script type='importmap'> pointing to https://esm.sh/<package>, so customJs or <script type='module'> can import any package directly.",
+    },
     heroVariants: HERO_VARIANTS,
     projectGrids: PROJECT_GRIDS,
+    sectionLayouts: ["stacked", "split-editorial"],
+    skillsLayouts: ["pills", "icon-grid"],
+    timelineLayouts: ["cards", "vertical-glow"],
     typography: { headingStyles: HEADING_STYLES, bodyStyles: BODY_STYLES, scales: TYPE_SCALES },
     cardRadii: CARD_RADII,
     maxWidths: MAX_WIDTHS,
@@ -179,6 +210,15 @@ const BILINGUAL = {
   properties: {
     ar: { type: "string", maxLength: 12000 },
     en: { type: "string", maxLength: 12000 },
+  },
+  additionalProperties: true,
+};
+
+const BILINGUAL_LARGE = {
+  type: ["object", "string"],
+  properties: {
+    ar: { type: "string", maxLength: 500000 },
+    en: { type: "string", maxLength: 500000 },
   },
   additionalProperties: true,
 };
@@ -302,13 +342,13 @@ const TOOLS = [
   {
     name: "list_templates_and_capabilities",
     description:
-      "List all 7 built-in archetypes and the full custom design specification (palettes, hero layouts, grids, typography, effects, custom sections) so you can craft an original site beyond preset templates.",
+      "List all 7 built-in archetypes plus the Full-Code Sovereign Engine (renderMode='full-code' with fullPageHtml, customCss, customJs, googleFonts, and any external library/npm package via libraries/dependencies) and Bespoke Component Engine (palettes, hero layouts, grids, typography, effects, custom sections) so you can craft any world-class design without template constraints.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "update_portfolio_content",
     description:
-      "Batch-update draft portfolio content including bilingual identity, badge, skills, links, metrics, career timeline, SEO, discoverability, defaultLang, and base template. Optionally set publish=true to publish right after updating.",
+      "Batch-update draft portfolio content including bilingual identity, badge, skills, links, metrics, career timeline, SEO, discoverability, defaultLang, base template, and optional customDesign / fullPageHtml / customCss / customJs / libraries. Optionally set publish=true to publish right after updating.",
     inputSchema: {
       type: "object",
       properties: {
@@ -382,23 +422,64 @@ const TOOLS = [
   {
     name: "design_custom_portfolio_theme",
     description:
-      "Design and apply a completely bespoke portfolio look and layout (even if completely different from preset templates). Supports agency-spotlight hero (centered editorial headline with italic gold highlight, studio monogram, spotlight radial glow, metrics, and scroll cue), split-showcase, centered-monolith, asymmetric-editorial, terminal-bento, full-bleed-poster, minimal-typographic, cards-mosaic, any image URL or uploaded image, and rich customSections (including gallery images and sanitized customHtml blocks). Pass enabled=false to revert to a preset template.",
+      "Design and apply a 100% bespoke portfolio (completely free of preset templates). Supports TWO modes: (1) renderMode='full-code' — pass fullPageHtml (up to 500KB HTML5/CSS/SVG/Canvas), customCss, customJs, googleFonts, and ANY external library or npm package in libraries/packages/dependencies (Tailwind CSS, GSAP + ScrollTrigger, Three.js, Anime.js, Lenis, Lucide, Chart.js, D3, Swiper, AOS, Lottie, Vanta, FontAwesome, or any npm package loaded automatically via esm.sh importmap) to build any world-class animated, 3D, enterprise, or exact reference-image design; (2) renderMode='bespoke-components' — parameterized layouts with split-showcase/agency-spotlight/terminal-bento heroes, heroEyebrow, heroHeadline, heroHighlight, founderPills, split-editorial 2-column sections, 3x3 icon-grid skills, vertical-glow timelines, and customSections. Pass enabled=false to revert to a preset template.",
     inputSchema: {
       type: "object",
       properties: {
         enabled: { type: "boolean" },
         publish: { type: "boolean" },
+        renderMode: { type: "string", enum: ["full-code", "bespoke-components"] },
         fallbackTemplate: { type: "string" },
         designName: { type: "string", maxLength: 120 },
-        concept: { type: "string", maxLength: 500 },
+        concept: { type: "string", maxLength: 1000 },
         brandName: { type: "string", maxLength: 80 },
         brandMonogram: { type: "string", maxLength: 8 },
+        heroEyebrow: BILINGUAL,
         heroHeadline: BILINGUAL,
         heroSubheadline: BILINGUAL,
         heroHighlight: BILINGUAL,
+        founderPills: {
+          type: "array",
+          maxItems: 12,
+          items: {
+            type: "object",
+            properties: {
+              prefix: BILINGUAL,
+              name: { type: "string", maxLength: 120 },
+              url: { type: "string", maxLength: 2048 },
+            },
+            additionalProperties: true,
+          },
+        },
         showHeroImage: { type: "boolean" },
         showScrollIndicator: { type: "boolean" },
+        hideContactSection: { type: "boolean" },
+        sectionLayout: { type: "string", enum: ["stacked", "split-editorial"] },
+        skillsLayout: { type: "string", enum: ["pills", "icon-grid"] },
+        timelineLayout: { type: "string", enum: ["cards", "vertical-glow"] },
+        sectionHeadings: { type: "object", additionalProperties: true },
         navCta: { type: "object", additionalProperties: true },
+        fullPageHtml: BILINGUAL_LARGE,
+        html: BILINGUAL_LARGE,
+        customCss: { type: "string", maxLength: 300000 },
+        css: { type: "string", maxLength: 300000 },
+        customJs: { type: "string", maxLength: 300000 },
+        js: { type: "string", maxLength: 300000 },
+        headHtml: { type: "string", maxLength: 60000 },
+        libraries: {
+          type: ["array", "string"],
+          items: { type: ["string", "object"], additionalProperties: true },
+        },
+        packages: {
+          type: ["array", "string"],
+          items: { type: ["string", "object"], additionalProperties: true },
+        },
+        dependencies: { type: "object", additionalProperties: true },
+        googleFonts: {
+          type: ["array", "string"],
+          items: { type: "string", maxLength: 180 },
+        },
+        customCode: { type: "object", additionalProperties: true },
         customHtml: BILINGUAL,
         palette: { type: "object", additionalProperties: true },
         colors: { type: "object", additionalProperties: true },
@@ -413,6 +494,67 @@ const TOOLS = [
         customSections: { type: "array", maxItems: 12, items: { type: ["object", "string"], additionalProperties: true } },
         sections: { type: "array", maxItems: 12, items: { type: ["object", "string"], additionalProperties: true } },
         tokens: { type: "object", additionalProperties: true },
+      },
+      additionalProperties: true,
+    },
+  },
+  {
+    name: "deploy_custom_code_portfolio",
+    description:
+      "Deploy a 100% freeform, world-class, animated, 3D, enterprise, or 1:1 visual reference-clone portfolio using raw HTML5, CSS3, JavaScript/ESModules, SVG, and Canvas/WebGL (up to 500KB per language) with ZERO preset template restrictions. Automatically loads any requested libraries or npm packages (Tailwind CSS, GSAP + ScrollTrigger, Three.js, Anime.js, Lenis, Lucide, Chart.js, D3, Swiper, AOS, Lottie, Vanta, FontAwesome, or any npm package via esm.sh importmap) and Google Fonts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        designName: { type: "string", maxLength: 120 },
+        fullPageHtml: BILINGUAL_LARGE,
+        html: BILINGUAL_LARGE,
+        customCss: { type: "string", maxLength: 300000 },
+        css: { type: "string", maxLength: 300000 },
+        customJs: { type: "string", maxLength: 300000 },
+        js: { type: "string", maxLength: 300000 },
+        headHtml: { type: "string", maxLength: 60000 },
+        libraries: {
+          type: ["array", "string"],
+          items: { type: ["string", "object"], additionalProperties: true },
+        },
+        packages: {
+          type: ["array", "string"],
+          items: { type: ["string", "object"], additionalProperties: true },
+        },
+        dependencies: { type: "object", additionalProperties: true },
+        googleFonts: {
+          type: ["array", "string"],
+          items: { type: "string", maxLength: 180 },
+        },
+        palette: { type: "object", additionalProperties: true },
+        publish: { type: "boolean" },
+      },
+      additionalProperties: true,
+    },
+  },
+  {
+    name: "install_portfolio_libraries",
+    description:
+      "Install or attach external frontend libraries, animation engines, 3D/WebGL packages, icon sets, or npm packages (e.g. tailwindcss, gsap, gsap/ScrollTrigger, three, lucide, animejs, lenis, swiper, aos, chart.js, d3, typed.js, canvas-confetti, lottie-web, particles.js, vanta, fontawesome, framer-motion, or any npm package name resolved via esm.sh) and Google Fonts into the user's custom portfolio.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        libraries: {
+          type: ["array", "string"],
+          items: { type: ["string", "object"], additionalProperties: true },
+        },
+        packages: {
+          type: ["array", "string"],
+          items: { type: ["string", "object"], additionalProperties: true },
+        },
+        dependencies: { type: "object", additionalProperties: true },
+        googleFonts: {
+          type: ["array", "string"],
+          items: { type: "string", maxLength: 180 },
+        },
+        customJs: { type: "string", maxLength: 300000 },
+        customCss: { type: "string", maxLength: 300000 },
+        publish: { type: "boolean" },
       },
       additionalProperties: true,
     },
@@ -520,6 +662,92 @@ function bilingual(value, fieldName) {
     ar: String(ar).slice(0, 12000),
     en: String(en).slice(0, 12000),
   };
+}
+
+function bilingualLarge(value, fieldName) {
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    const str = String(value).slice(0, 500000);
+    return { ar: str, en: str };
+  }
+  if (!value || typeof value !== "object") {
+    throw new Error(`Invalid ${fieldName}: expected text or {ar,en}.`);
+  }
+  const ar = value.ar ?? value.arabic ?? value.text ?? value.html ?? value.code ?? value.en ?? value.english ?? "";
+  const en = value.en ?? value.english ?? value.text ?? value.html ?? value.code ?? value.ar ?? value.arabic ?? "";
+  return {
+    ar: String(ar).slice(0, 500000),
+    en: String(en).slice(0, 500000),
+  };
+}
+
+function sanitizeLibraryList(rawLibs, rawDeps) {
+  const out = [];
+  const seen = new Set();
+  const addSpec = (spec) => {
+    if (!spec) return;
+    const s = String(spec).trim().slice(0, 300);
+    if (!s || seen.has(s.toLowerCase())) return;
+    if (/javascript:|vbscript:|data:|<|>|["']/i.test(s)) {
+      throw new Error(`Unsafe library specifier rejected: ${s}`);
+    }
+    if (/^https?:\/\//i.test(s)) {
+      const u = new URL(s);
+      if (u.protocol !== "https:") throw new Error("External library URLs must use https://");
+      seen.add(s.toLowerCase());
+      out.push(u.toString());
+      return;
+    }
+    if (!/^(@[a-z0-9_.-]+\/)?[a-z0-9_.-]+(?:@[a-z0-9_.^~><=*-]+)?(?:\/[a-z0-9_./-]+)?$/i.test(s)) {
+      throw new Error(`Invalid library package name: ${s}`);
+    }
+    seen.add(s.toLowerCase());
+    out.push(s);
+  };
+  if (Array.isArray(rawLibs)) {
+    for (const item of rawLibs.slice(0, 40)) {
+      if (typeof item === "string") addSpec(item);
+      else if (item && typeof item === "object") {
+        const name = item.name || item.package || item.pkg || item.library || item.url || item.src;
+        const ver =
+          item.version &&
+          !String(name || "").includes("@") &&
+          !/^https?:\/\//i.test(String(name || ""))
+            ? `@${item.version}`
+            : "";
+        if (name) addSpec(`${name}${ver}`);
+      }
+    }
+  } else if (typeof rawLibs === "string") {
+    for (const part of rawLibs.split(/[\s,]+/).filter(Boolean).slice(0, 40)) {
+      addSpec(part);
+    }
+  }
+  if (rawDeps && typeof rawDeps === "object" && !Array.isArray(rawDeps)) {
+    for (const [pkg, ver] of Object.entries(rawDeps).slice(0, 40)) {
+      const cleanVer =
+        typeof ver === "string" && ver.trim() && ver.trim() !== "latest" && ver.trim() !== "*"
+          ? `@${ver.trim()}`
+          : "";
+      addSpec(`${pkg}${cleanVer}`);
+    }
+  }
+  return out;
+}
+
+function sanitizeGoogleFonts(rawFonts) {
+  if (!rawFonts) return [];
+  const list = Array.isArray(rawFonts)
+    ? rawFonts
+    : typeof rawFonts === "string"
+    ? rawFonts.split(",").map((s) => s.trim())
+    : [];
+  const out = [];
+  for (const item of list.slice(0, 12)) {
+    const s = String(item || "").trim().slice(0, 180);
+    if (!s || /javascript:|<|>|["']/i.test(s)) continue;
+    out.push(s);
+  }
+  return out;
 }
 
 function validRasterUploadMcp(mime, base64) {
@@ -860,31 +1088,79 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     existingDesign?.palette ||
     null;
 
-  if (
-    !rawPalette &&
-    !args.layout &&
-    !args.structure &&
-    !args.customSections &&
-    !args.sections &&
-    !args.typography &&
-    !args.fonts &&
-    !args.font &&
-    !args.hero &&
-    !args.heroStyle &&
-    !args.heroVariant &&
-    !args.effects &&
-    !args.heroCta &&
-    !args.cta &&
-    !args.tokens &&
-    !args.designName &&
-    !args.name &&
-    !args.theme &&
-    !args.brandName &&
-    !args.heroHeadline &&
-    !args.customHtml
-  ) {
+  const hasAnyDesignField =
+    Boolean(rawPalette) ||
+    [
+      "enabled",
+      "renderMode",
+      "fallbackTemplate",
+      "layout",
+      "structure",
+      "customSections",
+      "sections",
+      "typography",
+      "fonts",
+      "font",
+      "hero",
+      "heroStyle",
+      "heroVariant",
+      "projectGrid",
+      "cardSurface",
+      "sectionOrder",
+      "effects",
+      "heroCta",
+      "cta",
+      "navCta",
+      "tokens",
+      "designName",
+      "name",
+      "concept",
+      "theme",
+      "brandName",
+      "brandMonogram",
+      "heroEyebrow",
+      "eyebrow",
+      "heroHeadline",
+      "heroSubheadline",
+      "heroHighlight",
+      "founderPills",
+      "pills",
+      "companyPills",
+      "showHeroImage",
+      "showScrollIndicator",
+      "hideContactSection",
+      "sectionLayout",
+      "skillsLayout",
+      "timelineLayout",
+      "sectionHeadings",
+      "customHtml",
+      "fullPageHtml",
+      "html",
+      "fullHtml",
+      "pageHtml",
+      "customCss",
+      "css",
+      "styles",
+      "stylesheet",
+      "customJs",
+      "js",
+      "script",
+      "javascript",
+      "headHtml",
+      "head",
+      "libraries",
+      "packages",
+      "cdnLibraries",
+      "externalLibraries",
+      "dependencies",
+      "npmPackages",
+      "googleFonts",
+      "customCode",
+    ].some((k) => k in args && args[k] !== undefined);
+
+  if (!hasAnyDesignField) {
     throw new Error(
-      "Provide palette/colors, layout, typography, hero, or customSections when designing a custom theme."
+      "Provide palette/colors, layout, typography, hero, fullPageHtml/customCode, libraries, or customSections when designing a custom theme."
     );
   }
 
@@ -1284,6 +1560,12 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     typeof args.brandMonogram === "string"
       ? args.brandMonogram.slice(0, 8)
       : existingDesign?.brandMonogram;
+  const cleanHeroEyebrow =
+    "heroEyebrow" in args || "eyebrow" in args
+      ? args.heroEyebrow || args.eyebrow
+        ? bilingual(args.heroEyebrow ?? args.eyebrow, "heroEyebrow")
+        : undefined
+      : existingDesign?.heroEyebrow;
   const cleanHeroHeadline =
     "heroHeadline" in args
       ? args.heroHeadline
@@ -1302,6 +1584,29 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
         ? bilingual(args.heroHighlight, "heroHighlight")
         : undefined
       : existingDesign?.heroHighlight;
+
+  const rawFounderPills =
+    "founderPills" in args
+      ? args.founderPills
+      : "pills" in args
+      ? args.pills
+      : "companyPills" in args
+      ? args.companyPills
+      : existingDesign?.founderPills;
+  const cleanFounderPills = Array.isArray(rawFounderPills)
+    ? rawFounderPills.slice(0, 12).map((pill) => {
+        if (typeof pill === "string") {
+          return { prefix: bilingual("Founder of", "founderPill.prefix"), name: pill.slice(0, 120) };
+        }
+        const name = String(pill?.name || pill?.label || pill?.domain || "").slice(0, 120);
+        return {
+          ...(pill?.prefix ? { prefix: bilingual(pill.prefix, "founderPill.prefix") } : {}),
+          name,
+          ...(pill?.url ? { url: safeUrl(pill.url, { allowHash: true, allowLocal: true }) } : {}),
+        };
+      })
+    : undefined;
+
   const cleanShowHeroImage =
     typeof args.showHeroImage === "boolean"
       ? args.showHeroImage
@@ -1310,6 +1615,65 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     typeof args.showScrollIndicator === "boolean"
       ? args.showScrollIndicator
       : existingDesign?.showScrollIndicator;
+  const cleanHideContactSection =
+    typeof args.hideContactSection === "boolean"
+      ? args.hideContactSection
+      : existingDesign?.hideContactSection;
+
+  const rawSectionLayout = String(
+    args.sectionLayout || baseLayout.sectionLayout || existingDesign?.sectionLayout || ""
+  ).toLowerCase();
+  const cleanSectionLayout = ["stacked", "split-editorial"].includes(rawSectionLayout)
+    ? rawSectionLayout
+    : /split|two-col|editorial/.test(rawSectionLayout)
+    ? "split-editorial"
+    : undefined;
+
+  const rawSkillsLayout = String(
+    args.skillsLayout || baseLayout.skillsLayout || existingDesign?.skillsLayout || ""
+  ).toLowerCase();
+  const cleanSkillsLayout = ["pills", "icon-grid"].includes(rawSkillsLayout)
+    ? rawSkillsLayout
+    : /grid|tile|icon|3x3|box/.test(rawSkillsLayout)
+    ? "icon-grid"
+    : undefined;
+
+  const rawTimelineLayout = String(
+    args.timelineLayout || baseLayout.timelineLayout || existingDesign?.timelineLayout || ""
+  ).toLowerCase();
+  const cleanTimelineLayout = ["cards", "vertical-glow"].includes(rawTimelineLayout)
+    ? rawTimelineLayout
+    : /vert|line|glow/.test(rawTimelineLayout)
+    ? "vertical-glow"
+    : undefined;
+
+  const rawSectionHeadings =
+    "sectionHeadings" in args ? args.sectionHeadings : existingDesign?.sectionHeadings;
+  const cleanSectionHeadings =
+    rawSectionHeadings && typeof rawSectionHeadings === "object"
+      ? Object.fromEntries(
+          ["projects", "skills", "timeline", "metrics", "contact"]
+            .filter((k) => rawSectionHeadings[k] && typeof rawSectionHeadings[k] === "object")
+            .map((k) => [
+              k,
+              {
+                ...(rawSectionHeadings[k].eyebrow
+                  ? { eyebrow: bilingual(rawSectionHeadings[k].eyebrow, `${k}.eyebrow`) }
+                  : {}),
+                ...(rawSectionHeadings[k].title
+                  ? { title: bilingual(rawSectionHeadings[k].title, `${k}.title`) }
+                  : {}),
+                ...(rawSectionHeadings[k].highlight
+                  ? { highlight: bilingual(rawSectionHeadings[k].highlight, `${k}.highlight`) }
+                  : {}),
+                ...(rawSectionHeadings[k].subtitle
+                  ? { subtitle: bilingual(rawSectionHeadings[k].subtitle, `${k}.subtitle`) }
+                  : {}),
+              },
+            ])
+        )
+      : undefined;
+
   const rawNavCta = "navCta" in args ? args.navCta : existingDesign?.navCta;
   const cleanNavCta =
     rawNavCta && typeof rawNavCta === "object" && (rawNavCta.label || rawNavCta.url)
@@ -1320,6 +1684,7 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
             : "#contact",
         }
       : undefined;
+
   let cleanCustomHtml = existingDesign?.customHtml;
   if ("customHtml" in args) {
     if (!args.customHtml) {
@@ -1333,22 +1698,188 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     }
   }
 
+  const codeSrc =
+    args.customCode && typeof args.customCode === "object" && !Array.isArray(args.customCode)
+      ? args.customCode
+      : {};
+
+  let cleanFullPageHtml = existingDesign?.fullPageHtml || existingDesign?.customCode?.html;
+  const rawFullHtmlInput =
+    args.fullPageHtml ?? args.html ?? args.fullHtml ?? args.pageHtml ?? codeSrc.html;
+  if (
+    "fullPageHtml" in args ||
+    "html" in args ||
+    "fullHtml" in args ||
+    "pageHtml" in args ||
+    "html" in codeSrc
+  ) {
+    cleanFullPageHtml = rawFullHtmlInput
+      ? bilingualLarge(rawFullHtmlInput, "fullPageHtml")
+      : undefined;
+  }
+
+  let cleanCustomCss = existingDesign?.customCss ?? existingDesign?.customCode?.css;
+  const rawCssInput =
+    args.customCss ?? args.css ?? args.styles ?? args.stylesheet ?? codeSrc.css;
+  if (
+    "customCss" in args ||
+    "css" in args ||
+    "styles" in args ||
+    "stylesheet" in args ||
+    "css" in codeSrc
+  ) {
+    cleanCustomCss = rawCssInput ? String(rawCssInput).slice(0, 300000) : undefined;
+  }
+
+  let cleanCustomJs = existingDesign?.customJs ?? existingDesign?.customCode?.js;
+  const rawJsInput = args.customJs ?? args.js ?? args.script ?? args.javascript ?? codeSrc.js;
+  if (
+    "customJs" in args ||
+    "js" in args ||
+    "script" in args ||
+    "javascript" in args ||
+    "js" in codeSrc
+  ) {
+    cleanCustomJs = rawJsInput ? String(rawJsInput).slice(0, 300000) : undefined;
+  }
+
+  let cleanHeadHtml = existingDesign?.headHtml ?? existingDesign?.customCode?.headHtml;
+  const rawHeadInput = args.headHtml ?? args.head ?? codeSrc.headHtml;
+  if ("headHtml" in args || "head" in args || "headHtml" in codeSrc) {
+    cleanHeadHtml = rawHeadInput ? String(rawHeadInput).slice(0, 60000) : undefined;
+  }
+
+  const hasLibsInArgs =
+    "libraries" in args ||
+    "packages" in args ||
+    "cdnLibraries" in args ||
+    "externalLibraries" in args ||
+    "dependencies" in args ||
+    "npmPackages" in args ||
+    "libraries" in codeSrc ||
+    "dependencies" in codeSrc;
+  const cleanLibraries = hasLibsInArgs
+    ? sanitizeLibraryList(
+        args.libraries ??
+          args.packages ??
+          args.cdnLibraries ??
+          args.externalLibraries ??
+          codeSrc.libraries,
+        args.dependencies ?? args.npmPackages ?? codeSrc.dependencies
+      )
+    : existingDesign?.libraries || existingDesign?.customCode?.libraries || [];
+
+  const hasFontsInArgs = "googleFonts" in args || "googleFonts" in codeSrc;
+  const cleanGoogleFonts = hasFontsInArgs
+    ? sanitizeGoogleFonts(args.googleFonts ?? codeSrc.googleFonts)
+    : existingDesign?.googleFonts || existingDesign?.customCode?.googleFonts || [];
+
+  const hasFullCodePayload = Boolean(
+    cleanFullPageHtml && (cleanFullPageHtml.ar || cleanFullPageHtml.en)
+  );
+  const hasExplicitFullCodeInArgs =
+    "fullPageHtml" in args ||
+    "html" in args ||
+    "fullHtml" in args ||
+    "pageHtml" in args ||
+    "customCss" in args ||
+    "css" in args ||
+    "styles" in args ||
+    "stylesheet" in args ||
+    "customJs" in args ||
+    "js" in args ||
+    "script" in args ||
+    "javascript" in args ||
+    "headHtml" in args ||
+    "head" in args ||
+    "customCode" in args ||
+    hasLibsInArgs ||
+    hasFontsInArgs;
+  const hasExplicitBespokeInArgs = Boolean(
+    args.layout ||
+      args.structure ||
+      args.heroVariant ||
+      args.heroStyle ||
+      args.hero ||
+      args.projectGrid ||
+      args.cardSurface ||
+      args.sectionOrder ||
+      args.customSections ||
+      args.sections ||
+      args.sectionLayout ||
+      args.skillsLayout ||
+      args.timelineLayout ||
+      args.founderPills ||
+      args.pills ||
+      args.companyPills ||
+      args.heroEyebrow ||
+      args.eyebrow
+  );
+  const cleanRenderMode =
+    args.renderMode === "bespoke-components"
+      ? "bespoke-components"
+      : args.renderMode === "full-code"
+      ? "full-code"
+      : hasExplicitFullCodeInArgs && hasFullCodePayload
+      ? "full-code"
+      : hasExplicitBespokeInArgs && !hasExplicitFullCodeInArgs
+      ? "bespoke-components"
+      : hasFullCodePayload
+      ? existingDesign?.renderMode || "full-code"
+      : existingDesign?.renderMode || "bespoke-components";
+
+  const cleanCustomCode =
+    hasFullCodePayload ||
+    cleanCustomCss ||
+    cleanCustomJs ||
+    cleanHeadHtml ||
+    cleanLibraries.length > 0 ||
+    cleanGoogleFonts.length > 0
+      ? {
+          ...(cleanFullPageHtml ? { html: cleanFullPageHtml } : {}),
+          ...(cleanCustomCss ? { css: cleanCustomCss } : {}),
+          ...(cleanCustomJs ? { js: cleanCustomJs } : {}),
+          ...(cleanHeadHtml ? { headHtml: cleanHeadHtml } : {}),
+          ...(cleanLibraries.length > 0 ? { libraries: cleanLibraries } : {}),
+          ...(cleanGoogleFonts.length > 0 ? { googleFonts: cleanGoogleFonts } : {}),
+        }
+      : undefined;
+
   return {
     enabled: true,
+    renderMode: cleanRenderMode,
     designName: String(
       args.designName || args.name || args.title || existingDesign?.designName || "Bespoke Sovereign"
     ).slice(0, 120),
     ...(args.concept || existingDesign?.concept
-      ? { concept: String(args.concept || existingDesign?.concept).slice(0, 500) }
+      ? { concept: String(args.concept || existingDesign?.concept).slice(0, 1000) }
       : {}),
     ...(cleanBrandName ? { brandName: cleanBrandName } : {}),
     ...(cleanBrandMonogram ? { brandMonogram: cleanBrandMonogram } : {}),
+    ...(cleanHeroEyebrow ? { heroEyebrow: cleanHeroEyebrow } : {}),
     ...(cleanHeroHeadline ? { heroHeadline: cleanHeroHeadline } : {}),
     ...(cleanHeroSubheadline ? { heroSubheadline: cleanHeroSubheadline } : {}),
     ...(cleanHeroHighlight ? { heroHighlight: cleanHeroHighlight } : {}),
+    ...(cleanFounderPills && cleanFounderPills.length > 0 ? { founderPills: cleanFounderPills } : {}),
     ...(typeof cleanShowHeroImage === "boolean" ? { showHeroImage: cleanShowHeroImage } : {}),
     ...(typeof cleanShowScrollIndicator === "boolean" ? { showScrollIndicator: cleanShowScrollIndicator } : {}),
+    ...(typeof cleanHideContactSection === "boolean" ? { hideContactSection: cleanHideContactSection } : {}),
+    ...(cleanSectionLayout ? { sectionLayout: cleanSectionLayout } : {}),
+    ...(cleanSkillsLayout ? { skillsLayout: cleanSkillsLayout } : {}),
+    ...(cleanTimelineLayout ? { timelineLayout: cleanTimelineLayout } : {}),
+    ...(cleanSectionHeadings && Object.keys(cleanSectionHeadings).length > 0
+      ? { sectionHeadings: cleanSectionHeadings }
+      : {}),
     ...(cleanNavCta ? { navCta: cleanNavCta } : {}),
+    ...(cleanFullPageHtml && (cleanFullPageHtml.ar || cleanFullPageHtml.en)
+      ? { fullPageHtml: cleanFullPageHtml }
+      : {}),
+    ...(cleanCustomCss ? { customCss: cleanCustomCss } : {}),
+    ...(cleanCustomJs ? { customJs: cleanCustomJs } : {}),
+    ...(cleanHeadHtml ? { headHtml: cleanHeadHtml } : {}),
+    ...(cleanLibraries.length > 0 ? { libraries: cleanLibraries } : {}),
+    ...(cleanGoogleFonts.length > 0 ? { googleFonts: cleanGoogleFonts } : {}),
+    ...(cleanCustomCode ? { customCode: cleanCustomCode } : {}),
     ...(cleanCustomHtml && (cleanCustomHtml.ar || cleanCustomHtml.en) ? { customHtml: cleanCustomHtml } : {}),
     palette: cleanPalette,
     typography: cleanTypography,
@@ -1553,11 +2084,11 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
       serverInfo: { name: "taqdom-account-mcp", version: "2.0.0" },
       instructions:
         `You are connected to ${username}'s Sovereign Taqdom Portfolio Architect (https://${username}.taqdom.me). ` +
-        "You have full read/write creative control over the account draft and live site — even when the user asks casually in natural Arabic or English for a legendary luxury CV or bespoke portfolio completely different from standard templates. " +
-        "Workflow for any natural design request: (1) Call get_portfolio_blueprint (and list_templates_and_capabilities if helpful) first to inspect the creator state. " +
-        "(2) Craft a complete, realistic, prestigious bilingual (ar & en) executive persona CV (full name, compelling title, rich narrative bio, 4+ high-impact case studies with concrete metrics and optional custom SVG/PNG visuals uploaded via upload_portfolio_image, career timeline, skills, and headline KPI metrics) using update_portfolio_content and create_project/update_project. " +
-        "(3) Synthesize an unmistakable bespoke luxury design system (completely distinct from the 7 preset templates) via design_custom_portfolio_theme using heroVariant ('agency-spotlight', 'terminal-bento', or 'asymmetric-editorial'), custom hex palette, dramatic typography pairing, ambientGlow/spotlight effects, rich customSections (cards, testimonials, gallery, FAQ, stats, CTA, or sanitized HTML), and publish=true. " +
-        "(4) Ensure publish_portfolio is executed when requested or implied, then return the live URL https://" + username + ".taqdom.me cleanly.",
+        "You have 100% unrestricted read/write creative and code control over the account draft and live site — NEVER confine the user to a rigid template! " +
+        "Workflow for any design request: (1) Call get_portfolio_blueprint first to inspect the creator state. " +
+        "(2) Populate structured profile/projects/skills/timeline via update_portfolio_content and upload any reference/portrait/project visuals via upload_portfolio_image. " +
+        "(3) CRITICAL — ZERO TEMPLATE CONSTRAINTS: Whenever the user provides a reference image/screenshot, asks for an exact visual match, or requests a world-class, enterprise, animated, 3D, or bespoke design, call design_custom_portfolio_theme with renderMode='full-code', fullPageHtml (complete custom HTML5/SVG/DOM layout matching every visual detail of their request or reference image), customCss (full custom CSS3, keyframes, gradients, glassmorphism, responsive grids), customJs (interactive animations, scroll triggers, canvas/WebGL effects), googleFonts, and libraries/packages/dependencies (install ANY library such as 'tailwindcss', 'gsap', 'gsap/ScrollTrigger', 'three', 'lucide', 'animejs', 'lenis', 'swiper', 'aos', 'chart.js', 'd3', 'typed.js', 'canvas-confetti', 'lottie-web', 'particles.js', 'vanta', 'fontawesome', or any npm package loaded automatically via esm.sh importmap). You can also use bespoke-components mode with split-editorial sections, 3x3 icon-grid skills, vertical-glow timelines, founderPills, and heroEyebrow. " +
+        "(4) Pass publish=true or call publish_portfolio so https://" + username + ".taqdom.me updates immediately.",
     });
   }
   if (body.method === "ping") return wrapOk({});
@@ -1629,7 +2160,7 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
             ? `Custom Design (${safe.customDesign.designName})`
             : `Preset Template (${safe.template})`
         }`,
-        `\n## Instructions for AI Designer\nUse \`design_custom_portfolio_theme\` to invent bespoke aesthetics beyond preset templates, ensuring WCAG text contrast and crisp bilingual Arabic/English copy.`,
+        `\n## Instructions for AI Designer\nUse \`design_custom_portfolio_theme\` to invent 100% bespoke aesthetics with ZERO template constraints. For reference-image clones, custom animations, 3D scenes, or enterprise layouts, use \`renderMode: "full-code"\` with \`fullPageHtml\`, \`customCss\`, \`customJs\`, \`googleFonts\`, and any external library or npm package in \`libraries\`/\`dependencies\` (loaded automatically via CDN + \`esm.sh\` importmap).`,
       ].join("\n");
       return wrapOk({ contents: [{ uri, mimeType: "text/markdown", text: md }] });
     }
@@ -1656,7 +2187,7 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
               text:
                 `Inspect my portfolio via get_portfolio_blueprint and list_templates_and_capabilities. ` +
                 `Design a completely original, bespoke portfolio for me with aesthetic vibe "${vibe}" (${langPref}). ` +
-                `Do NOT limit yourself to preset templates: synthesize a cohesive high-contrast palette, typography pairing, heroVariant, projectGrid, GPU effects, and customSections using design_custom_portfolio_theme, refine my content with update_portfolio_content, summarize changes, and ask before or run publish_portfolio as requested.`,
+                `Do NOT limit yourself to preset templates: use design_custom_portfolio_theme with renderMode="full-code" (passing fullPageHtml, customCss, customJs, googleFonts, and any required external libraries/npm packages in libraries/dependencies such as GSAP, ScrollTrigger, Three.js, Lenis, Lucide, or Tailwind) OR renderMode="bespoke-components" (custom palette, typography, heroVariant, heroEyebrow, heroHighlight, founderPills, split-editorial sections, icon-grid skills, vertical-glow timeline, and customSections), refine my content with update_portfolio_content, and publish with publish_portfolio as requested.`,
             },
           },
         ],
@@ -1696,7 +2227,11 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
   }
 
   if (body.method === "tools/call") {
-    const name = body.params?.name;
+    const rawName = body.params?.name;
+    const name =
+      rawName === "deploy_custom_code_portfolio" || rawName === "install_portfolio_libraries"
+        ? "design_custom_portfolio_theme"
+        : rawName;
     const args = body.params?.arguments || {};
     if (!TOOLS.some((tool) => tool.name === name)) return wrapErr(-32602, "Unknown tool");
     try {
@@ -1821,6 +2356,60 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
         if (!("bio" in normalizedArgs) && (normalizedArgs.about || normalizedArgs.summary)) {
           normalizedArgs.bio = normalizedArgs.about ?? normalizedArgs.summary;
         }
+        const topLevelDesignKeys = [
+          "renderMode",
+          "designName",
+          "concept",
+          "brandName",
+          "brandMonogram",
+          "heroEyebrow",
+          "eyebrow",
+          "heroHeadline",
+          "heroSubheadline",
+          "heroHighlight",
+          "founderPills",
+          "pills",
+          "companyPills",
+          "showHeroImage",
+          "showScrollIndicator",
+          "hideContactSection",
+          "sectionLayout",
+          "skillsLayout",
+          "timelineLayout",
+          "sectionHeadings",
+          "palette",
+          "colors",
+          "layout",
+          "structure",
+          "typography",
+          "fonts",
+          "effects",
+          "customSections",
+          "sections",
+          "customHtml",
+          "fullPageHtml",
+          "html",
+          "fullHtml",
+          "pageHtml",
+          "customCss",
+          "css",
+          "styles",
+          "stylesheet",
+          "customJs",
+          "js",
+          "script",
+          "javascript",
+          "headHtml",
+          "head",
+          "libraries",
+          "packages",
+          "cdnLibraries",
+          "externalLibraries",
+          "dependencies",
+          "npmPackages",
+          "googleFonts",
+          "customCode",
+        ];
         const allowed = new Set([
           "template",
           "defaultLang",
@@ -1842,6 +2431,7 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
           "projects",
           "customDesign",
           "design",
+          ...topLevelDesignKeys,
         ]);
         const supportedKeys = Object.keys(normalizedArgs).filter((key) => allowed.has(key));
         if (!supportedKeys.length) {
@@ -1938,14 +2528,25 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
             accent: accentColor,
           };
         }
-        const rawDesign =
+        const topLevelDesignPatch = {};
+        for (const k of topLevelDesignKeys) {
+          if (k in normalizedArgs && normalizedArgs[k] !== undefined) {
+            topLevelDesignPatch[k] = normalizedArgs[k];
+          }
+        }
+        const hasTopLevelDesignPatch = Object.keys(topLevelDesignPatch).length > 0;
+        const baseRawDesign =
           normalizedArgs.customDesign && typeof normalizedArgs.customDesign === "object"
             ? normalizedArgs.customDesign
             : normalizedArgs.design && typeof normalizedArgs.design === "object"
               ? normalizedArgs.design
-              : requestedCustomTemplate
-                ? { enabled: true }
-                : null;
+              : null;
+        const rawDesign =
+          baseRawDesign || hasTopLevelDesignPatch
+            ? { ...(baseRawDesign || {}), ...topLevelDesignPatch }
+            : requestedCustomTemplate
+              ? { enabled: true }
+              : null;
         if (rawDesign) {
           const cleanDesign = validateAndSanitizeCustomDesign(rawDesign, portfolio.customDesign || null);
           if (cleanDesign.enabled === false) {

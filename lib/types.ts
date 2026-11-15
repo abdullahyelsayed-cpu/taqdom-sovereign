@@ -167,19 +167,58 @@ export type CustomPortfolioSection = {
   items?: CustomPortfolioSectionItem[];
 };
 
+export type CustomPortfolioCode = {
+  html?: BilingualText;
+  css?: string;
+  js?: string;
+  headHtml?: string;
+  libraries?: string[];
+  googleFonts?: string[];
+};
+
+export type CustomPortfolioFounderPill = {
+  prefix?: BilingualText;
+  name?: string;
+  label?: BilingualText;
+  url?: string;
+  icon?: string;
+};
+
+export type CustomPortfolioSectionHeading = {
+  eyebrow?: BilingualText;
+  title?: BilingualText;
+  highlight?: BilingualText;
+  subtitle?: BilingualText;
+};
+
 export type CustomPortfolioDesign = {
   enabled: boolean;
+  renderMode?: "full-code" | "bespoke-components";
   designName?: string;
   concept?: string;
   brandName?: string;
   brandMonogram?: string;
+  heroEyebrow?: BilingualText;
   heroHeadline?: BilingualText;
   heroSubheadline?: BilingualText;
   heroHighlight?: BilingualText;
+  founderPills?: CustomPortfolioFounderPill[];
   showHeroImage?: boolean;
   showScrollIndicator?: boolean;
   navCta?: { label: BilingualText; url: string };
   customHtml?: BilingualText;
+  fullPageHtml?: BilingualText;
+  customCss?: string;
+  customJs?: string;
+  headHtml?: string;
+  libraries?: string[];
+  googleFonts?: string[];
+  customCode?: CustomPortfolioCode;
+  sectionLayout?: "stacked" | "split-editorial";
+  skillsLayout?: "pills" | "icon-grid";
+  timelineLayout?: "cards" | "vertical-glow";
+  sectionHeadings?: Partial<Record<CanvasSectionId, CustomPortfolioSectionHeading>>;
+  hideContactSection?: boolean;
   palette: CustomPortfolioPalette;
   typography?: CustomPortfolioTypography;
   layout?: CustomPortfolioLayout;

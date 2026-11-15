@@ -101,8 +101,10 @@ export function PortfolioRenderer({
   useEffect(() => {
     if (previewLang) {
       setLang(previewLang);
+    } else if (data.defaultLang === "ar" || data.defaultLang === "en") {
+      setLang(data.defaultLang);
     }
-  }, [previewLang]);
+  }, [previewLang, data.username, data.defaultLang]);
 
   useEffect(() => {
     setSelectedSkillFilter("ALL");

@@ -110,14 +110,39 @@ export function PublishedPortfolioClient({
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    if (portfolio) {
-      document.title = formatStandalonePortfolioTitle(portfolio, activeUsername);
-    } else if (!isLoading && activeUsername) {
-      document.title = `${activeUsername}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`;
-      document.querySelectorAll('meta[name="robots"]').forEach((el) => {
-        el.setAttribute("content", "noindex, nofollow");
-      });
-    }
+    const applyHeadMeta = () => {
+      if (portfolio) {
+        const nextTitle = formatStandalonePortfolioTitle(portfolio, activeUsername);
+        document.title = nextTitle;
+        const setMeta = (selector: string, val: string) => {
+          document.querySelectorAll(selector).forEach((el) => {
+            el.setAttribute("content", val);
+          });
+        };
+        setMeta('meta[property="og:title"]', nextTitle);
+        setMeta('meta[name="twitter:title"]', nextTitle);
+        const desc = portfolio.seo?.description || portfolio.bio?.en || portfolio.bio?.ar || "";
+        if (desc) {
+          setMeta('meta[name="description"]', desc);
+          setMeta('meta[property="og:description"]', desc);
+          setMeta('meta[name="twitter:description"]', desc);
+        }
+        const img = portfolio.cover || portfolio.avatar || "";
+        if (img) {
+          const fullImg = img.startsWith("/") ? `https://taqdom.me${img}` : img;
+          setMeta('meta[property="og:image"]', fullImg);
+          setMeta('meta[name="twitter:image"]', fullImg);
+        }
+      } else if (!isLoading && activeUsername) {
+        document.title = `${activeUsername}.taqdom.me — هذا النطاق متاح للحجز | تَقَدُّم`;
+        document.querySelectorAll('meta[name="robots"]').forEach((el) => {
+          el.setAttribute("content", "noindex, nofollow");
+        });
+      }
+    };
+    applyHeadMeta();
+    const timer = window.setTimeout(applyHeadMeta, 60);
+    return () => window.clearTimeout(timer);
   }, [portfolio, activeUsername, isLoading]);
 
   if (isLoading) {
