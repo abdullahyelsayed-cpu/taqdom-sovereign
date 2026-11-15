@@ -23,11 +23,6 @@ export async function GET() {
       {
         ok,
         status: ok ? "healthy" : "degraded",
-        checks: {
-          db: dbOk,
-          authSecret: hasAuthSecret,
-          pbkdf2: pbkdf2Ok,
-        },
       },
       { status: ok ? 200 : 503 }
     );

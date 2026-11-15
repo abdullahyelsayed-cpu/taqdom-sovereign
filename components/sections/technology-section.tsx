@@ -12,9 +12,9 @@ const TECH_SPECS = [
     titleAr: "نطاقات فرعية مستقلة لكل معرض",
     titleEn: "A Dedicated Subdomain for Every Portfolio",
     descAr:
-      "يربط توجيه النطاقات كل معرض بعنوان مستقل مثل username.taqdom.me، مع إدارة المسارات والتحويلات عبر Cloudflare Workers وتخزين البيانات في D1.",
+      "يربط توجيه النطاقات كل معرض بعنوان مستقل مثل username.taqdom.me، مع إدارة فورية للمسارات والتحويلات وحفظ البيانات بأعلى درجات الموثوقية.",
     descEn:
-      "Wildcard routing maps each portfolio to an address such as username.taqdom.me, with request handling through Cloudflare Workers and persistence in D1.",
+      "Wildcard routing maps each portfolio to an address such as username.taqdom.me, with instant edge routing and reliable cloud persistence.",
     image: "/images/ultra/madar-hero.webp",
   },
   {
@@ -68,8 +68,8 @@ export function TechnologySection() {
           </h2>
           <p className="mt-4 text-base leading-8 text-muted-foreground sm:text-lg">
             {t(
-              "بُنيت تَقَدُّم باستخدام Next.js وCloudflare Workers وD1 وGSAP؛ لتجمع بين بنية ويب حديثة وتجربة عرض قابلة للتطوير.",
-              "Taqdom uses Next.js, Cloudflare Workers, D1, and GSAP to bring a modern web foundation together with a flexible presentation experience."
+              "بُنيت تَقَدُّم لتجمع بين بنية ويب سحابية فائقة السرعة وتجربة عرض بصرية متطورة وقابلة للتخصيص.",
+              "Taqdom combines a high-speed modern web foundation with a flexible, customisable presentation experience."
             )}
           </p>
         </div>
@@ -103,7 +103,7 @@ export function TechnologySection() {
                     </p>
                   </div>
                   <div className="mt-5 flex items-center justify-between border-t border-border/50 pt-4 font-mono text-xs text-[#B68C51] dark:text-[#D7B77B]">
-                    <span>NEXT.JS • CLOUDFLARE • GSAP</span>
+                    <span>SOVEREIGN ARCHITECTURE • TAQDOM</span>
                     <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                   </div>
                 </div>

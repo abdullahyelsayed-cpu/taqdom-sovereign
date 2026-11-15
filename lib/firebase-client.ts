@@ -15,7 +15,6 @@ export const FIREBASE_CONFIG = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDgQ-xxvD94Ob_JJyyOg_efPqnU2GDm4C8",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "taqdom.me",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "inspirational-terra-rtn3v",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "inspirational-terra-rtn3v.firebasestorage.app",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "212163183351",
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:212163183351:web:1143a20c02d73ab83089f2",
 };

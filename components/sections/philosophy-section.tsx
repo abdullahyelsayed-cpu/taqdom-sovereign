@@ -58,8 +58,8 @@ export function PhilosophySection() {
           <div className="lg:col-span-5">
             <p className="text-base sm:text-lg leading-relaxed text-muted-foreground">
               {t(
-                "صُممت «تَقَدُّم» لترتقي بالهوية الرقمية لجيل Z وجيل Alpha إلى مصافّ أرقى المواقع الفائزة عالمياً، جامعةً بين الفخامة الهادئة وسرعة الحافة السحابية.",
-                "Engineered for Gen-Z and Gen-Alpha pioneers, Taqdom transforms static resumes into living digital monographs powered by Cloudflare Edge."
+                "صُممت «تَقَدُّم» لترتقي بالهوية الرقمية لجيل Z وجيل Alpha إلى مصافّ أرقى المواقع الفائزة عالمياً، جامعةً بين الفخامة الهادئة والسرعة الفائقة.",
+                "Engineered for Gen-Z and Gen-Alpha pioneers, Taqdom transforms static resumes into living digital monographs with sovereign speed and elegance."
               )}
             </p>
           </div>

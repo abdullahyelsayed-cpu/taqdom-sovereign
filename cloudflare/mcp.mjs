@@ -607,7 +607,7 @@ const TOOLS = [
   {
     name: "upload_portfolio_image",
     description:
-      "Upload an image (JPG, PNG, WebP, GIF, AVIF, or sanitized SVG up to 20MB) via dataUrl or base64+mime, persist it to Taqdom D1 media storage, and optionally assign its hosted /api/media/... URL to avatar, cover, canvas backgroundImage, or a project.",
+      "Upload an image (JPG, PNG, WebP, GIF, AVIF, or sanitized SVG up to 20MB) via dataUrl or base64+mime, persist it to Taqdom media storage, and optionally assign its hosted /api/media/... URL to avatar, cover, canvas backgroundImage, or a project.",
     inputSchema: {
       type: "object",
       properties: {
@@ -2866,7 +2866,11 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
       }
       return wrapErr(-32602, "Unsupported tool");
     } catch (error) {
-      return wrapOk(toolError(error instanceof Error ? error.message : "MCP tool failed."));
+      const msg = error instanceof Error ? error.message : "MCP tool failed.";
+      const safeMsg = /SQLITE|D1_ERROR|d1_|syntax error|table\s+\w+/i.test(msg)
+        ? "Operation could not be completed. Please verify your parameters and try again."
+        : msg;
+      return wrapOk(toolError(safeMsg));
     }
   }
   void negotiatedProtocol;

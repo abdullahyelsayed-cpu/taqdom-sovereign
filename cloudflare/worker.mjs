@@ -72,6 +72,8 @@ function jsonResponse(data, status = 200, extraHeaders = {}) {
 
 function applySecurityHeaders(response, allowCrossOrigin = false) {
   const headers = new Headers(response.headers);
+  headers.delete("server");
+  headers.delete("x-powered-by");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
@@ -855,9 +857,8 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
       )
       .run();
   } catch (error) {
-    throw new Error(
-      `Cloudflare D1 persistence failed: ${error instanceof Error ? error.message : "Unknown database error"}`
-    );
+    console.error("Persistence error:", error instanceof Error ? error.message : error);
+    throw new Error("Cloudflare D1 persistence failed");
   }
 
   // Update isolate-local cache only after the durable D1 write succeeds.
@@ -1132,11 +1133,6 @@ async function handleApiRequest(request, url, env) {
         {
           ok,
           status: ok ? "healthy" : "degraded",
-          checks: {
-            db: dbOk,
-            authSecret: hasAuthSecret,
-            pbkdf2: pbkdf2Ok,
-          },
         },
         status
       );
@@ -2298,6 +2294,18 @@ export default {
         redirect: "manual",
       });
       const resHeaders = new Headers(upstreamRes.headers);
+      for (const internalHeader of [
+        "x-served-by",
+        "x-cache",
+        "x-cache-hits",
+        "x-timer",
+        "vary",
+        "server",
+        "x-powered-by",
+        "via",
+      ]) {
+        resHeaders.delete(internalHeader);
+      }
       resHeaders.set("X-Content-Type-Options", "nosniff");
       resHeaders.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
       resHeaders.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");

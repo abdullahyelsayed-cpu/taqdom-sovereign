@@ -236,7 +236,7 @@ Build a 100% freeform, world-class personal portfolio for me — completely unco
     ["deploy_custom_code_portfolio", t("بناء أي تصميم عالمي حر بالكامل (HTML/CSS/JS/WebGL حتى 6MB+ لكل لغة) بدون أي قوالب", "Deploy 100% freeform HTML5/CSS3/JS/WebGL portfolio (up to 6MB+ per language) with zero template limits")],
     ["install_portfolio_libraries", t("تثبيت أي مكتبة خارجية أو حزمة npm (GSAP, Three.js, Tailwind, Lucide...)", "Install external libraries & npm packages (GSAP, Three.js, Tailwind, esm.sh)")],
     ["design_custom_portfolio_theme", t("تصميم ثيم وتخطيط وأقسام مخصصة بالكامل (Full-Code أو Bespoke Components)", "Design bespoke full-code or parameterized portfolio themes beyond presets")],
-    ["upload_portfolio_image", t("رفع الصور والخلفيات والشعارات حتى 20MB مباشرة إلى قاعدة البيانات", "Upload portfolio & project images up to 20MB to D1 media storage")],
+    ["upload_portfolio_image", t("رفع الصور والخلفيات والشعارات حتى 20MB مباشرة إلى المنصة", "Upload portfolio & project images up to 20MB to cloud media storage")],
     ["get_portfolio_blueprint", t("قراءة المخطط الكامل للمعرض وقدرات التصميم المخصص", "Inspect full portfolio blueprint, design state & publication status")],
     ["list_templates_and_capabilities", t("استعراض القوالب السبعة + كل قدرات محرك التصميم المخصص", "Inspect 7 presets + full bespoke design-engine specification")],
     ["update_portfolio_content", t("تحديث شامل للمحتوى والمهارات والإنجازات والمسار وSEO", "Batch-update bilingual content, skills, metrics, timeline & SEO")],
@@ -314,8 +314,8 @@ Build a 100% freeform, world-class personal portfolio for me — completely unco
           </div>
           <p className="mt-2 text-sm leading-7 text-muted-foreground">
             {t(
-              "الاتصال يتيح القراءة والكتابة على مسودة حسابك فقط، بما يشمل تصميم ثيمات وأقسام مخصصة عبر design_custom_portfolio_theme وتعديل المحتوى والمشاريع. النشر العام لا يحدث تلقائيًا؛ بل يتطلب استدعاء أداة publish_portfolio صراحةً ليظهر موقعك المستقل دون أي علامات مزعجة. كل مفتاح مشفر بـ SHA-256 ومعزول بحسابك، ويمكنك إلغاؤه في أي لحظة.",
-              "Tokens grant read/write access strictly to your own account draft, including custom design tools and bilingual content editing. Public changes remain private until publish_portfolio is explicitly called. Tokens are SHA-256 hashed and revocable at any instant."
+              "الاتصال يتيح القراءة والكتابة على مسودة حسابك فقط، بما يشمل تصميم ثيمات وأقسام مخصصة عبر design_custom_portfolio_theme وتعديل المحتوى والمشاريع. النشر العام لا يحدث تلقائيًا؛ بل يتطلب استدعاء أداة publish_portfolio صراحةً ليظهر موقعك المستقل دون أي علامات مزعجة. كل مفتاح مشفر ومعزول بحسابك، ويمكنك إلغاؤه في أي لحظة.",
+              "Tokens grant read/write access strictly to your own account draft, including custom design tools and bilingual content editing. Public changes remain private until publish_portfolio is explicitly called. Tokens are cryptographically secured and revocable at any instant."
             )}
           </p>
         </div>
@@ -643,8 +643,8 @@ Build a 100% freeform, world-class personal portfolio for me — completely unco
 
           <p className="text-xs leading-6 text-muted-foreground">
             {t(
-              "يدعم الخادم الآن OAuth 2.1 التفاعلي مع تسجيل الدخول بحساب Google أو تَقَدُّم (PKCE S256)، والروابط المباشرة الجاهزة، ومفاتيح Bearer المشفرة بـ SHA-256 عبر MCP Streamable HTTP. تظل التعديلات محفوظة في مسودتك الخاصة حتى تطلب النشر عبر publish_portfolio.",
-              "Supports interactive OAuth 2.1 browser consent (PKCE S256 with Taqdom or Google Sign-In), pre-authenticated direct URLs, and SHA-256 hashed Bearer tokens over MCP Streamable HTTP. Edits stay private in draft until publish_portfolio is called."
+              "يدعم الخادم الآن OAuth 2.1 التفاعلي مع تسجيل الدخول بحساب Google أو تَقَدُّم، والروابط المباشرة الجاهزة، ومفاتيح الوصول المشفرة والمعزولة عبر MCP Streamable HTTP. تظل التعديلات محفوظة في مسودتك الخاصة حتى تطلب النشر عبر publish_portfolio.",
+              "Supports interactive OAuth 2.1 browser consent (with Taqdom or Google Sign-In), pre-authenticated direct URLs, and cryptographically secured Bearer tokens over MCP Streamable HTTP. Edits stay private in draft until publish_portfolio is called."
             )}
           </p>
         </div>
