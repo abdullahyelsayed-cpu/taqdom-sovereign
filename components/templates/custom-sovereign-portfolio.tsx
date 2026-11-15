@@ -93,6 +93,7 @@ interface CustomSovereignPortfolioProps {
   canvasEditMode?: boolean;
   selectedCanvasSection?: CanvasSectionId;
   onSelectProject: (project: PortfolioProject) => void;
+  isLiveSubdomain?: boolean;
 }
 
 function parseHexRgb(hex: string): [number, number, number] | null {
@@ -163,25 +164,6 @@ function sanitizeSafeCssGradient(value?: string): string | undefined {
   return undefined;
 }
 
-function normalizeIframeViewportUnits(cssText: string): string {
-  if (!cssText) return "";
-  return cssText.replace(
-    /(-?\d+(?:\.\d+)?)\s*(?:d|s|l)?vh\b/gi,
-    "calc(var(--taqdom-vh, 900px) * $1 / 100)"
-  );
-}
-
-function normalizeHtmlViewportUnits(htmlText: string): string {
-  if (!htmlText) return "";
-  return htmlText
-    .replace(/<style(\b[^>]*)>([\s\S]*?)<\/style>/gi, (_m, attrs, cssBody) => {
-      return `<style${attrs}>${normalizeIframeViewportUnits(cssBody)}</style>`;
-    })
-    .replace(/\bstyle=(["'])([\s\S]*?)\1/gi, (_m, quote, styleBody) => {
-      return `style=${quote}${normalizeIframeViewportUnits(styleBody)}${quote}`;
-    });
-}
-
 function resolveLibraryTags(
   libraries: string[] | undefined,
   htmlCode = "",
@@ -190,6 +172,10 @@ function resolveLibraryTags(
   const headParts: string[] = [];
   const bodyParts: string[] = [];
   const seen = new Set<string>();
+  const combinedSource = `${htmlCode}\n${jsCode}`;
+  const usesEsmThree =
+    /\bfrom\s*["']three(?:\/|["'])/.test(combinedSource) ||
+    /<script[^>]*type=["']module["'][^>]*>[\s\S]*?\bthree\b/i.test(htmlCode);
 
   const importMapImports: Record<string, string> = {
     three: "https://esm.sh/three@0.160.0",
@@ -260,7 +246,7 @@ function resolveLibraryTags(
         headParts.push(`<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>`);
       }
     } else if (bareKey === "three" || bareKey === "three.js" || bareKey === "threejs") {
-      if (!seen.has("cdn:three")) {
+      if (!usesEsmThree && !seen.has("cdn:three")) {
         seen.add("cdn:three");
         headParts.push(`<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>`);
       }
@@ -379,6 +365,27 @@ function resolveLibraryTags(
   };
 }
 
+function wrapModuleJsSafely(code: string): string {
+  const trimmed = code.trim();
+  if (!trimmed) return "";
+  const leadingImportsRe =
+    /^((?:\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*\s*import(?:\s+[\s\S]*?\s+from\s+|\s+)["'][^"']+["']\s*;?\s*\n?)+)([\s\S]*)$/;
+  const match = trimmed.match(leadingImportsRe);
+  if (match) {
+    const imports = match[1].trimEnd();
+    const rest = match[2].trim();
+    if (!rest) return imports;
+    if (!/\b(?:import|export)\b/.test(rest)) {
+      return `${imports}\ntry {\n${rest}\n} catch (err) { console.error("[Taqdom customJs error]", err); }`;
+    }
+    return trimmed;
+  }
+  if (!/\b(?:import|export)\b/.test(trimmed)) {
+    return `try {\n${trimmed}\n} catch (err) { console.error("[Taqdom customJs error]", err); }`;
+  }
+  return trimmed;
+}
+
 function buildFullCustomDocument(
   data: PortfolioData,
   design: CustomPortfolioDesign,
@@ -408,31 +415,28 @@ function buildFullCustomDocument(
     : avatarUrl;
 
   rawHtml = rawHtml
-    .replace(/\{\{\s*name\s*\}\}/gi, nameStr || "")
-    .replace(/\{\{\s*title\s*\}\}/gi, titleStr || "")
-    .replace(/\{\{\s*bio\s*\}\}/gi, bioStr || "")
-    .replace(/\{\{\s*city\s*\}\}/gi, cityStr || "")
-    .replace(/\{\{\s*avatar\s*\}\}/gi, avatarUrl)
-    .replace(/\{\{\s*cover\s*\}\}/gi, coverUrl)
-    .replace(/\{\{\s*username\s*\}\}/gi, data.username || "");
+    .replace(/\{\{\s*name\s*\}\}/gi, () => nameStr || "")
+    .replace(/\{\{\s*title\s*\}\}/gi, () => titleStr || "")
+    .replace(/\{\{\s*bio\s*\}\}/gi, () => bioStr || "")
+    .replace(/\{\{\s*city\s*\}\}/gi, () => cityStr || "")
+    .replace(/\{\{\s*avatar\s*\}\}/gi, () => avatarUrl)
+    .replace(/\{\{\s*cover\s*\}\}/gi, () => coverUrl)
+    .replace(/\{\{\s*username\s*\}\}/gi, () => data.username || "");
 
   if (origin) {
     rawHtml = rawHtml
-      .replace(/(src|href)=["'](\/api\/media\/[^"']+)["']/gi, `$1="${origin}$2"`)
-      .replace(/(src|href)=["'](\/images\/[^"']+)["']/gi, `$1="${origin}$2"`)
-      .replace(/url\((["']?)(\/api\/media\/[^)"']+)\1\)/gi, `url("${origin}$2")`)
-      .replace(/url\((["']?)(\/images\/[^)"']+)\1\)/gi, `url("${origin}$2")`);
+      .replace(/(src|href)=["'](\/api\/media\/[^"']+)["']/gi, (_m, attr, pathVal) => `${attr}="${origin}${pathVal}"`)
+      .replace(/(src|href)=["'](\/images\/[^"']+)["']/gi, (_m, attr, pathVal) => `${attr}="${origin}${pathVal}"`)
+      .replace(/url\((["']?)(\/api\/media\/[^)"']+)\1\)/gi, (_m, _q, pathVal) => `url("${origin}${pathVal}")`)
+      .replace(/url\((["']?)(\/images\/[^)"']+)\1\)/gi, (_m, _q, pathVal) => `url("${origin}${pathVal}")`);
   }
-
-  rawHtml = normalizeHtmlViewportUnits(rawHtml);
 
   let css = design.customCss || design.customCode?.css || "";
   if (origin && css) {
     css = css
-      .replace(/url\((["']?)(\/api\/media\/[^)"']+)\1\)/gi, `url("${origin}$2")`)
-      .replace(/url\((["']?)(\/images\/[^)"']+)\1\)/gi, `url("${origin}$2")`);
+      .replace(/url\((["']?)(\/api\/media\/[^)"']+)\1\)/gi, (_m, _q, pathVal) => `url("${origin}${pathVal}")`)
+      .replace(/url\((["']?)(\/images\/[^)"']+)\1\)/gi, (_m, _q, pathVal) => `url("${origin}${pathVal}")`);
   }
-  css = normalizeIframeViewportUnits(css);
 
   const js = design.customJs || design.customCode?.js || "";
   const extraHead = design.headHtml || design.customCode?.headHtml || "";
@@ -452,7 +456,7 @@ function buildFullCustomDocument(
     }),
   ].join("\n");
 
-  rawHtml = rawHtml.replace(/\bloading=(["'])lazy\1/gi, 'loading="eager"');
+  rawHtml = rawHtml.replace(/\bloading=(["'])lazy\1/gi, () => 'loading="eager"');
 
   const textOnly = rawHtml
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -467,10 +471,12 @@ function buildFullCustomDocument(
 
   const safeVh = Math.max(320, Math.min(4000, Math.round(viewportHeight || 900)));
   const viewportGuardCss = `
-  :root { --taqdom-vh: ${safeVh}px; }
-  html, body { height: auto !important; min-height: 0 !important; }
-  .min-h-screen, .min-h-dvh, .min-h-svh, .min-h-\\[100vh\\], .min-h-\\[100dvh\\] { min-height: var(--taqdom-vh, ${safeVh}px) !important; }
-  .h-screen, .h-dvh, .h-svh, .h-\\[100vh\\], .h-\\[100dvh\\] { height: var(--taqdom-vh, ${safeVh}px) !important; }`;
+  :root { --taqdom-vh: ${safeVh}px; }`;
+
+  const storageShimTag = `<script>(function(){var mk=function(){var s=Object.create(null);return{getItem:function(k){return Object.prototype.hasOwnProperty.call(s,String(k))?s[String(k)]:null;},setItem:function(k,v){s[String(k)]=String(v);},removeItem:function(k){delete s[String(k)];},clear:function(){s=Object.create(null);},key:function(i){return Object.keys(s)[i]||null;},get length(){return Object.keys(s).length;}};};try{var ls=window.localStorage;ls.setItem("__tq","1");ls.removeItem("__tq");}catch(_){try{Object.defineProperty(window,"localStorage",{value:mk(),configurable:true});}catch(__){}}try{var ss=window.sessionStorage;ss.setItem("__tq","1");ss.removeItem("__tq");}catch(_){try{Object.defineProperty(window,"sessionStorage",{value:mk(),configurable:true});}catch(__){}}})();</script>`;
+
+  const avatarFallbackUrl = `${origin}/images/taqdom-avatar-placeholder.svg`;
+  const heroFallbackUrl = `${origin}/images/ultra/haven-hero.webp`;
 
   const helperScript = `<script>
 (function(){
@@ -488,47 +494,15 @@ function buildFullCustomDocument(
     avatar: avatarUrl,
     cover: coverUrl,
   })};
-  var lastReportedHeight = 0;
-  function updateParentVh(vh) {
-    if (typeof vh === "number" && vh >= 320 && vh <= 4000) {
-      document.documentElement.style.setProperty("--taqdom-vh", Math.round(vh) + "px");
-    }
-  }
-  window.addEventListener("message", function(e) {
-    if (e.data && e.data.type === "taqdom-parent-viewport" && typeof e.data.vh === "number") {
-      updateParentVh(e.data.vh);
-      reportHeight();
-    }
-  });
-  function reportHeight() {
-    try {
-      var body = document.body;
-      if (!body) return;
-      var bodyRect = body.getBoundingClientRect();
-      var maxBottom = Math.max(body.offsetHeight || 0, Math.ceil(bodyRect.height || 0));
-      var children = body.children;
-      for (var i = 0; i < children.length; i++) {
-        var el = children[i];
-        if (!el || el.tagName === "SCRIPT" || el.tagName === "STYLE" || el.tagName === "LINK") continue;
-        var style = window.getComputedStyle(el);
-        if (style.position === "fixed") continue;
-        var rect = el.getBoundingClientRect();
-        var mb = parseFloat(style.marginBottom) || 0;
-        var bottom = Math.ceil(rect.bottom - bodyRect.top + mb);
-        if (bottom > maxBottom) maxBottom = bottom;
-        if (el.scrollHeight && style.overflowY !== "scroll" && style.overflowY !== "auto" && style.overflowY !== "hidden") {
-          var sh = Math.ceil((rect.top - bodyRect.top) + el.scrollHeight + mb);
-          if (sh > maxBottom) maxBottom = sh;
-        }
-      }
-      var padBottom = parseFloat(window.getComputedStyle(body).paddingBottom) || 0;
-      var h = Math.max(maxBottom, Math.ceil(padBottom));
-      if (h > 100 && Math.abs(h - lastReportedHeight) > 2 && window.parent && window.parent !== window) {
-        lastReportedHeight = h;
-        window.parent.postMessage({ type: "taqdom-iframe-height", height: h }, "*");
-      }
-    } catch (_) {}
-  }
+  window.addEventListener("error", function(e) {
+    var t = e && e.target;
+    if (!t || t.tagName !== "IMG") return;
+    if (t.dataset && t.dataset.taqdomFallbackApplied) return;
+    if (t.dataset) t.dataset.taqdomFallbackApplied = "1";
+    var cls = String(t.className || "") + " " + String(t.alt || "");
+    var isPortrait = /portrait|avatar|headshot|profile|creator|founder|person/i.test(cls);
+    t.src = isPortrait ? ${JSON.stringify(avatarFallbackUrl)} : ${JSON.stringify(heroFallbackUrl)};
+  }, true);
   document.addEventListener("click", function(e) {
     var a = e.target && e.target.closest ? e.target.closest("a") : null;
     if (!a) return;
@@ -546,29 +520,6 @@ function buildFullCustomDocument(
       a.setAttribute("rel", "noopener noreferrer");
     }
   });
-  function bindMediaAndObservers() {
-    reportHeight();
-    var imgs = document.querySelectorAll("img");
-    for (var i = 0; i < imgs.length; i++) {
-      imgs[i].addEventListener("load", reportHeight);
-    }
-    if (typeof ResizeObserver !== "undefined") {
-      try {
-        var ro = new ResizeObserver(reportHeight);
-        if (document.body) ro.observe(document.body);
-        if (document.body && document.body.firstElementChild) ro.observe(document.body.firstElementChild);
-      } catch (_) {}
-    }
-    setTimeout(reportHeight, 100);
-    setTimeout(reportHeight, 400);
-    setTimeout(reportHeight, 1000);
-    setTimeout(reportHeight, 2200);
-  }
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bindMediaAndObservers);
-  } else {
-    bindMediaAndObservers();
-  }
   window.addEventListener("load", function() {
     if (window.lucide && typeof window.lucide.createIcons === "function") {
       try { window.lucide.createIcons(); } catch (_) {}
@@ -576,11 +527,7 @@ function buildFullCustomDocument(
     if (window.AOS && typeof window.AOS.init === "function") {
       try { window.AOS.init({ duration: 800, once: true }); } catch (_) {}
     }
-    reportHeight();
-    setTimeout(reportHeight, 300);
-    setTimeout(reportHeight, 1200);
   });
-  window.addEventListener("resize", reportHeight);
 })();
 </script>`;
 
@@ -588,7 +535,7 @@ function buildFullCustomDocument(
     /\bimport\s*(?:["'(]|[\w*{][\s\S]*?\bfrom\s*["'])|\bexport\s+/.test(js);
   const customJsTag = js
     ? isEsModuleJs
-      ? `<script type="module">\n${js}\n</script>`
+      ? `<script type="module">\n${wrapModuleJsSafely(js)}\n</script>`
       : `<script>\ntry {\n${js}\n} catch (err) { console.error(err); }\n</script>`
     : "";
 
@@ -597,26 +544,31 @@ function buildFullCustomDocument(
     let doc = rawHtml;
     if (/<html\b/i.test(doc)) {
       if (!/<html[^>]*\blang=/i.test(doc)) {
-        doc = doc.replace(/<html(\b[^>]*)>/i, `<html lang="${docLang}"$1>`);
+        doc = doc.replace(/<html(\b[^>]*)>/i, (_m, attrs) => `<html lang="${docLang}"${attrs}>`);
       }
       if (!/<html[^>]*\bdir=/i.test(doc)) {
-        doc = doc.replace(/<html(\b[^>]*)>/i, `<html dir="${docDir}"$1>`);
+        doc = doc.replace(/<html(\b[^>]*)>/i, (_m, attrs) => `<html dir="${docDir}"${attrs}>`);
       }
     }
-    if (/<head(\b[^>]*)>/i.test(doc)) {
-      doc = doc.replace(/<head(\b[^>]*)>/i, `<head$1>\n${importMapTag}`);
+    const hasHead = /<head(\b[^>]*)>/i.test(doc);
+    if (hasHead) {
+      doc = doc.replace(/<head(\b[^>]*)>/i, (_m, attrs) => `<head${attrs}>\n${importMapTag}\n${storageShimTag}`);
+    } else if (/<html(\b[^>]*)>/i.test(doc)) {
+      doc = doc.replace(/<html(\b[^>]*)>/i, (_m, attrs) => `<html${attrs}>\n<head>\n${importMapTag}\n${storageShimTag}\n</head>`);
+    } else if (/<!doctype\s+html[^>]*>/i.test(doc)) {
+      doc = doc.replace(/<!doctype\s+html[^>]*>/i, (dt) => `${dt}\n<head>\n${importMapTag}\n${storageShimTag}\n</head>`);
     } else {
-      doc = `${importMapTag}\n${doc}`;
+      doc = `${importMapTag}\n${storageShimTag}\n${doc}`;
     }
     const headInsert = `${fontLinks}\n${headTags}\n${extraHead}\n<style>${viewportGuardCss}\n${css}</style>`;
     if (/<\/head>/i.test(doc)) {
-      doc = doc.replace(/<\/head>/i, `${headInsert}\n</head>`);
+      doc = doc.replace(/<\/head>/i, () => `${headInsert}\n</head>`);
     } else {
       doc = `${headInsert}\n${doc}`;
     }
     const bodyInsert = `${bodyEndTags}\n${helperScript}\n${customJsTag}`;
     if (/<\/body>/i.test(doc)) {
-      doc = doc.replace(/<\/body>/i, `${bodyInsert}\n</body>`);
+      doc = doc.replace(/<\/body>/i, () => `${bodyInsert}\n</body>`);
     } else {
       doc = `${doc}\n${bodyInsert}`;
     }
@@ -633,6 +585,7 @@ function buildFullCustomDocument(
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${(nameStr || data.username || "Portfolio").replace(/[<>&]/g, "")}</title>
 ${importMapTag}
+${storageShimTag}
 ${fontLinks}
 ${headTags}
 ${extraHead}
@@ -676,9 +629,9 @@ export function CustomSovereignPortfolio({
   canvasEditMode = false,
   selectedCanvasSection,
   onSelectProject,
+  isLiveSubdomain = false,
 }: CustomSovereignPortfolioProps) {
   const [openFaqKey, setOpenFaqKey] = useState<string | null>(null);
-  const [iframeHeight, setIframeHeight] = useState<number | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const t = (ar?: string, en?: string) => (lang === "ar" ? ar || en || "" : en || ar || "");
   const dir = lang === "ar" ? "rtl" : "ltr";
@@ -700,29 +653,6 @@ export function CustomSovereignPortfolio({
   const initialVh =
     typeof window !== "undefined" && window.innerHeight ? window.innerHeight : 900;
 
-  useEffect(() => {
-    if (!hasFullCode) return;
-    const onMsg = (e: MessageEvent) => {
-      if (e.data && e.data.type === "taqdom-iframe-height" && typeof e.data.height === "number") {
-        setIframeHeight(Math.max(400, Math.min(20000, Math.ceil(e.data.height))));
-      }
-    };
-    const onResize = () => {
-      try {
-        iframeRef.current?.contentWindow?.postMessage(
-          { type: "taqdom-parent-viewport", vh: window.innerHeight || 900 },
-          "*"
-        );
-      } catch (_) {}
-    };
-    window.addEventListener("message", onMsg);
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("message", onMsg);
-      window.removeEventListener("resize", onResize);
-    };
-  }, [hasFullCode]);
-
   const fullCodeDoc = useMemo(() => {
     if (!hasFullCode) return "";
     return buildFullCustomDocument(data, design, lang, origin, initialVh);
@@ -739,7 +669,9 @@ export function CustomSovereignPortfolio({
         data-render-mode="full-code"
         data-design-name={design.designName || "Bespoke Full-Code Sovereign"}
         style={{ backgroundColor: design.palette?.background || "#040814" }}
-        className="portfolio-custom-sovereign relative min-h-screen w-full"
+        className={`portfolio-custom-sovereign relative w-full overflow-hidden ${
+          isLiveSubdomain ? "h-[100dvh]" : "h-[min(86vh,880px)]"
+        }`}
       >
         {hasDistinctBilingualHtml && (
           <div className="fixed top-3.5 end-4 z-50">
@@ -760,19 +692,7 @@ export function CustomSovereignPortfolio({
           title={t(data.name.ar, data.name.en) || data.username || "Portfolio"}
           sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals"
           srcDoc={fullCodeDoc}
-          onLoad={() => {
-            try {
-              iframeRef.current?.contentWindow?.postMessage(
-                { type: "taqdom-parent-viewport", vh: window.innerHeight || 900 },
-                "*"
-              );
-            } catch (_) {}
-          }}
-          style={{
-            height: iframeHeight ? `${iframeHeight}px` : "100vh",
-            minHeight: "100vh",
-          }}
-          className="w-full border-0 block"
+          className="w-full h-full border-0 block"
         />
         {/* Semantic Accessibility & SEO Mirror */}
         <div className="sr-only" aria-hidden="false">

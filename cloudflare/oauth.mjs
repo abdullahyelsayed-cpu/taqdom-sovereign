@@ -15,6 +15,7 @@ const SHOWCASE_USERNAMES = new Set([
 const encoder = new TextEncoder();
 
 export const SUPPORTED_SCOPES = ["portfolio:read", "portfolio:write", "portfolio:publish"];
+const MAX_ACTIVE_TOKENS = 100;
 
 const ALLOWED_NATIVE_SCHEMES = new Set([
   "cursor:",
@@ -154,9 +155,15 @@ export async function ensureOAuthSchema(env) {
       scope TEXT NOT NULL,
       created_at INTEGER NOT NULL,
       expires_at INTEGER NOT NULL,
-      revoked_at INTEGER
+      revoked_at INTEGER,
+      access_token_id TEXT
     )
   `).run();
+  try {
+    await env.DB.prepare("ALTER TABLE oauth_refresh_tokens ADD COLUMN access_token_id TEXT").run();
+  } catch {
+    // Column already exists
+  }
   initializedOAuthDbs.add(env.DB);
 }
 
@@ -207,17 +214,25 @@ export function isMatchingRedirectUri(registeredUri, requestedUri) {
   return false;
 }
 
-function isPublicSafeHttpsUrl(rawUrl) {
+export function isPublicSafeHttpsUrl(rawUrl) {
   try {
     const u = new URL(rawUrl);
     if (u.protocol !== "https:") return false;
-    const h = u.hostname.toLowerCase();
+    if (u.username || u.password) return false;
+    const h = u.hostname.toLowerCase().replace(/\.+$/g, "");
+    if (!h || !h.includes(".")) return false;
     if (
       h === "localhost" ||
+      h.endsWith(".localhost") ||
       h.endsWith(".local") ||
       h.endsWith(".internal") ||
-      /^(\d{1,3}\.){3}\d{1,3}$/.test(h) ||
-      h.includes(":")
+      h.endsWith(".localdomain") ||
+      h.endsWith(".arpa") ||
+      h.includes(":") ||
+      h.startsWith("[") ||
+      /^\d+$/.test(h) ||
+      /^0x[0-9a-f]+$/i.test(h) ||
+      /^(?:(?:\d+|0x[0-9a-f]+)\.){1,3}(?:\d+|0x[0-9a-f]+)$/i.test(h)
     ) {
       return false;
     }
@@ -262,6 +277,7 @@ export async function resolveOAuthClient(env, clientId) {
     try {
       const res = await fetch(id, {
         headers: { Accept: "application/json" },
+        redirect: "error",
         signal: AbortSignal.timeout(5000),
       });
       if (res.ok) {
@@ -799,6 +815,18 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
         }
       }
 
+      const countRow = await env.DB.prepare(
+        "SELECT COUNT(*) AS total FROM mcp_access_tokens WHERE user_id = ?1 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?2)"
+      )
+        .bind(record.user_id, now)
+        .first();
+      if (Number(countRow?.total || 0) >= MAX_ACTIVE_TOKENS) {
+        return oauthError(
+          "invalid_grant",
+          "Maximum 100 active MCP connections reached. Revoke unused connections in your dashboard."
+        );
+      }
+
       const consumeResult = await env.DB.prepare(
         "UPDATE oauth_codes SET used_at = ?1 WHERE code_hash = ?2 AND used_at IS NULL"
       )
@@ -808,6 +836,7 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
         return oauthError("invalid_grant", "Authorization code already consumed");
       }
 
+      const accessTokenId = crypto.randomUUID();
       const accessToken = "tqd_oat_" + hex(crypto.getRandomValues(new Uint8Array(32)));
       const refreshToken = "tqd_rt_" + hex(crypto.getRandomValues(new Uint8Array(32)));
       const accessExpiresIn = 30 * 24 * 60 * 60;
@@ -819,7 +848,7 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
       )
         .bind(
-          crypto.randomUUID(),
+          accessTokenId,
           record.user_id,
           record.username,
           await digestHex(accessToken),
@@ -832,8 +861,8 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
         .run();
 
       await env.DB.prepare(
-        `INSERT INTO oauth_refresh_tokens (token_hash, client_id, user_id, username, scope, created_at, expires_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+        `INSERT INTO oauth_refresh_tokens (token_hash, client_id, user_id, username, scope, created_at, expires_at, access_token_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
       )
         .bind(
           await digestHex(refreshToken),
@@ -842,7 +871,8 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
           record.username,
           record.scope,
           now,
-          refreshExpiresAt
+          refreshExpiresAt,
+          accessTokenId
         )
         .run();
 
@@ -864,7 +894,7 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
       }
       const rtHash = await digestHex(refreshToken);
       const record = await env.DB.prepare(
-        "SELECT token_hash, client_id, user_id, username, scope, expires_at, revoked_at FROM oauth_refresh_tokens WHERE token_hash = ?1"
+        "SELECT token_hash, client_id, user_id, username, scope, expires_at, revoked_at, access_token_id FROM oauth_refresh_tokens WHERE token_hash = ?1"
       )
         .bind(rtHash)
         .first();
@@ -888,6 +918,21 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
         return oauthError("invalid_grant", "Refresh token already rotated");
       }
 
+      if (record.access_token_id) {
+        await env.DB.prepare(
+          "UPDATE mcp_access_tokens SET revoked_at = ?1 WHERE id = ?2 AND revoked_at IS NULL"
+        )
+          .bind(now, record.access_token_id)
+          .run();
+      } else {
+        await env.DB.prepare(
+          "UPDATE mcp_access_tokens SET revoked_at = ?1 WHERE user_id = ?2 AND client_id = ?3 AND revoked_at IS NULL"
+        )
+          .bind(now, record.user_id, client.clientId)
+          .run();
+      }
+
+      const nextAccessId = crypto.randomUUID();
       const nextAccess = "tqd_oat_" + hex(crypto.getRandomValues(new Uint8Array(32)));
       const nextRefresh = "tqd_rt_" + hex(crypto.getRandomValues(new Uint8Array(32)));
       const accessExpiresIn = 30 * 24 * 60 * 60;
@@ -899,7 +944,7 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)`
       )
         .bind(
-          crypto.randomUUID(),
+          nextAccessId,
           record.user_id,
           record.username,
           await digestHex(nextAccess),
@@ -912,8 +957,8 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
         .run();
 
       await env.DB.prepare(
-        `INSERT INTO oauth_refresh_tokens (token_hash, client_id, user_id, username, scope, created_at, expires_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`
+        `INSERT INTO oauth_refresh_tokens (token_hash, client_id, user_id, username, scope, created_at, expires_at, access_token_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`
       )
         .bind(
           await digestHex(nextRefresh),
@@ -922,7 +967,8 @@ async function handleOAuthRequestInner(request, url, env, opts = {}) {
           record.username,
           record.scope,
           now,
-          nextRefreshExpiresAt
+          nextRefreshExpiresAt,
+          nextAccessId
         )
         .run();
 

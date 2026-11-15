@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { SafeImage } from "@/components/safe-image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -64,11 +64,16 @@ export default function DashboardPage() {
   const subdomainUrl = getSubdomainUrl(activeUsername, host);
   const canonicalDisplay = `https://${activeUsername}.taqdom.me`;
 
-  const handleCopy = () => {
-    navigator.clipboard?.writeText(canonicalDisplay);
-    setCopied(true);
-    toast.success(t("تم نسخ الرابط المستقل!", "Subdomain link copied!"));
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("unavailable");
+      await navigator.clipboard.writeText(canonicalDisplay);
+      setCopied(true);
+      toast.success(t("تم نسخ الرابط المستقل!", "Subdomain link copied!"));
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error(t("تعذر النسخ التلقائي — انسخ الرابط يدوياً", "Clipboard unavailable — copy the URL manually"));
+    }
   };
 
   const handleRestoreShowcase = async () => {
@@ -97,8 +102,9 @@ export default function DashboardPage() {
           <div className="glass-panel rounded-3xl p-8 border border-[#9A7B4F]/50 dark:border-[#C89D66]/50 shadow-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
             <div className="flex items-center gap-5">
               <div className="relative h-20 w-20 rounded-3xl overflow-hidden border-2 border-[#9A7B4F] dark:border-[#C89D66] shrink-0">
-                <Image
+                <SafeImage
                   src={draft.avatar || "/images/taqdom-avatar-placeholder.svg"}
+                  fallbackSrc="/images/taqdom-avatar-placeholder.svg"
                   alt={t(draft.name.ar, draft.name.en)}
                   fill
                   className="object-cover"
@@ -220,14 +226,16 @@ export default function DashboardPage() {
                 <span>{t("إعدادات الحساب", "Account Settings")}</span>
               </Link>
 
-              <button
-                type="button"
-                onClick={handleRestoreShowcase}
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2.5 text-xs font-bold hover:border-[#9A7B4F] cursor-pointer"
-              >
-                <RefreshCw className="h-3.5 w-3.5 text-[#9A7B4F] dark:text-[#C89D66]" />
-                <span>{t("استعادة بيانات المثال", "Restore sample data")}</span>
-              </button>
+              {(user?.isFlagshipAccount || user?.isTestAccount) && (
+                <button
+                  type="button"
+                  onClick={handleRestoreShowcase}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-secondary px-4 py-2.5 text-xs font-bold hover:border-[#9A7B4F] cursor-pointer"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 text-[#9A7B4F] dark:text-[#C89D66]" />
+                  <span>{t("استعادة بيانات المثال", "Restore sample data")}</span>
+                </button>
+              )}
 
               <button
                 type="button"

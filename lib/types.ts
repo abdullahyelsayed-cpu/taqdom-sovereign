@@ -254,7 +254,7 @@ export type PortfolioData = {
   customDesign?: CustomPortfolioDesign;
   seo: PortfolioSEO;
   defaultLang: "ar" | "en";
-  publishedAt?: number;
+  publishedAt?: number | null;
   updatedAt?: number;
   views?: number;
 };

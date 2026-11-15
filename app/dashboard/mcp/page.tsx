@@ -141,10 +141,15 @@ export default function McpConnectionsPage() {
   };
 
   const copyText = async (value: string, key: string) => {
-    await navigator.clipboard?.writeText(value);
-    setCopiedKey(key);
-    toast.success(t("تم النسخ إلى الحافظة", "Copied to clipboard"));
-    setTimeout(() => setCopiedKey(null), 1800);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(value);
+      setCopiedKey(key);
+      toast.success(t("تم النسخ إلى الحافظة", "Copied to clipboard"));
+      setTimeout(() => setCopiedKey(null), 1800);
+    } catch {
+      toast.error(t("تعذر النسخ التلقائي — انسخ النص يدوياً", "Clipboard unavailable — copy manually"));
+    }
   };
 
   const oauthSnippet = JSON.stringify(
@@ -223,13 +228,15 @@ export default function McpConnectionsPage() {
 أريد تصميم بورتفوليو أسطوري وحر بالكامل (100% Freeform Full-Code) غير مقيد بأي قالب جاهز:
 1. استخدم أداة deploy_custom_code_portfolio (أو design_custom_portfolio_theme مع renderMode="full-code") لكتابة كود HTML5 و CSS3 و JavaScript مخصص بالكامل عبر fullPageHtml و customCss و customJs، أو مطابقة أي صورة مرجعية أرفقها لك بنسبة 1:1.
 2. ثبّت أي مكتبات أو حزم npm عالمية تحتاجها عبر حقل libraries (مثل: gsap، و gsap/ScrollTrigger، و three، و tailwindcss، و lucide، و animejs، و lenis، أو أي حزمة npm عبر esm.sh) مع خطوط Google Fonts.
-3. حدّث بياناتي ومشاريعي ومهاراتي عبر update_portfolio_content و create_project/update_project، ثم انشر الموقع مباشرة عبر publish_portfolio ليظهر كموقع شخصي مستقل على https://${activeUsername}.taqdom.me.`,
+3. لرفع أي صورة شخصية أو صورة مشروع أو خلفية، استخدم أداة upload_portfolio_image (ويُفضّل تمرير sourceUrl لصورة متاحة أو بيانات صورة Base64 كاملة وسليمة) ثم استخدم الرابط المُرجَع فقط، ولا تخترع أبداً مسارات /api/media/... غير مرفوعة أو روابط وهمية.
+4. حدّث بياناتي ومشاريعي ومهاراتي عبر update_portfolio_content و create_project/update_project، ثم انشر الموقع مباشرة عبر publish_portfolio ليظهر كموقع شخصي مستقل على https://${activeUsername}.taqdom.me.`,
     `You are an elite Art Director & Creative Technologist. Connect to my Taqdom MCP server, inspect my current draft via get_portfolio_blueprint and check list_templates_and_capabilities.
 
 Build a 100% freeform, world-class personal portfolio for me — completely unconstrained by preset templates:
 1. Use deploy_custom_code_portfolio (or design_custom_portfolio_theme with renderMode="full-code") to write bespoke HTML5, CSS3, SVG, Canvas/WebGL, and JavaScript via fullPageHtml, customCss, and customJs — or clone any reference image I upload 1:1.
 2. Install any external libraries or npm packages via libraries/install_portfolio_libraries (e.g., gsap, gsap/ScrollTrigger, three, tailwindcss, lucide, animejs, lenis, chart.js, d3, or any npm package loaded via esm.sh) and googleFonts.
-3. Sync my bilingual profile, projects, skills, and timeline via update_portfolio_content and create_project/update_project, then publish live to https://${activeUsername}.taqdom.me using publish_portfolio.`
+3. For any portrait, hero, or project image, always use upload_portfolio_image (preferably passing a reachable sourceUrl or complete, valid image data) and reference the returned URL — never invent unuploaded /api/media/... paths or placeholder links.
+4. Sync my bilingual profile, projects, skills, and timeline via update_portfolio_content and create_project/update_project, then publish live to https://${activeUsername}.taqdom.me using publish_portfolio.`
   );
 
   const toolsCatalog = [
@@ -360,8 +367,8 @@ Build a 100% freeform, world-class personal portfolio for me — completely unco
             ) : (
               <p className="mt-3 text-xs leading-6 text-muted-foreground">
                 {t(
-                  "يمكنك إنشاء حتى 10 مفاتيح نشطة، لكل أداة ذكاء اصطناعي مفتاحها المستقل.",
-                  "Up to 10 active connections per account so you can isolate Gemini, Claude, and custom agents."
+                  "يمكنك إنشاء حتى 100 مفتاح نشط، لكل أداة ذكاء اصطناعي مفتاحها المستقل.",
+                  "Up to 100 active connections per account so you can isolate Gemini, Claude, and custom agents."
                 )}
               </p>
             )}
@@ -593,7 +600,10 @@ Build a 100% freeform, world-class personal portfolio for me — completely unco
             <div className="flex items-center gap-2">
               <Palette className="h-5 w-5 text-[#9A7B4F] dark:text-[#E4B66F]" />
               <h2 className="text-xl font-extrabold">
-                {t("قدرات MCP المتكاملة (12 أداة + موارد + برومبتات)", "Full MCP Capabilities (12 Tools, Resources & Prompts)")}
+                {t(
+                  `قدرات MCP المتكاملة (${toolsCatalog.length} أداة + موارد + برومبتات)`,
+                  `Full MCP Capabilities (${toolsCatalog.length} Tools, Resources & Prompts)`
+                )}
               </h2>
             </div>
             <span className="rounded-full border border-[#C99750]/40 bg-[#C99750]/10 px-3 py-1 font-mono text-[11px] font-bold text-[#9A7B4F] dark:text-[#E4B66F]">

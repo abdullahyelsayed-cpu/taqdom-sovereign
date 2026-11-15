@@ -1,5 +1,5 @@
 import { normalizeUsername } from "../lib/types.ts";
-import { ensureOAuthSchema, oauthCorsHeaders } from "./oauth.mjs";
+import { ensureOAuthSchema, isPublicSafeHttpsUrl, oauthCorsHeaders } from "./oauth.mjs";
 
 const encoder = new TextEncoder();
 
@@ -43,6 +43,9 @@ async function ensureMcpMediaSchema(env) {
   ).run();
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS portfolio_chunks (username TEXT NOT NULL, kind TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (username, kind, seq))"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, user_id TEXT, key TEXT, mime TEXT, size INTEGER, created_at INTEGER)"
   ).run();
   initializedMcpMediaDbs.add(env.DB);
 }
@@ -100,7 +103,7 @@ export async function handleMcpTokenApi(request, url, env, session) {
 
   if (request.method === "GET") {
     const { results = [] } = await env.DB.prepare(
-      "SELECT id, label, created_at, last_used_at, revoked_at FROM mcp_access_tokens WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 30"
+      "SELECT id, label, created_at, last_used_at, revoked_at FROM mcp_access_tokens WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 100"
     )
       .bind(userId)
       .all();
@@ -546,12 +549,13 @@ const TOOLS = [
   {
     name: "deploy_custom_code_portfolio",
     description:
-      "Deploy a 100% freeform, world-class, animated, 3D, enterprise, or 1:1 visual reference-clone portfolio using raw HTML5, CSS3, JavaScript/ESModules, SVG, and Canvas/WebGL (up to 6MB+ / 6,500,000 chars per language) with ZERO preset template restrictions. Automatically loads any requested libraries or npm packages (Tailwind CSS, GSAP + ScrollTrigger, Three.js, Anime.js, Lenis, Lucide, Chart.js, D3, Swiper, AOS, Lottie, Vanta, FontAwesome, or any npm package via esm.sh importmap) and Google Fonts.",
+      "Deploy a 100% freeform, world-class, animated, 3D, enterprise, or 1:1 visual reference-clone portfolio using raw HTML5, CSS3, JavaScript/ESModules, SVG, and Canvas/WebGL (up to 6MB+ / 6,500,000 chars per language) with ZERO preset template restrictions. Automatically loads any requested libraries or npm packages (Tailwind CSS, GSAP + ScrollTrigger, Three.js, Anime.js, Lenis, Lucide, Chart.js, D3, Swiper, AOS, Lottie, Vanta, FontAwesome, or any npm package via esm.sh importmap) and Google Fonts. IMPORTANT: Only reference real media URLs returned by upload_portfolio_image (or valid https:// images)—never guess unuploaded /api/media/... paths.",
     inputSchema: {
       type: "object",
       properties: {
         designName: { type: "string", maxLength: 120 },
         fullPageHtml: BILINGUAL_LARGE,
+        customHtml: BILINGUAL_LARGE,
         html: BILINGUAL_LARGE,
         customCss: { type: "string", maxLength: 6000000 },
         css: { type: "string", maxLength: 6000000 },
@@ -607,10 +611,11 @@ const TOOLS = [
   {
     name: "upload_portfolio_image",
     description:
-      "Upload an image (JPG, PNG, WebP, GIF, AVIF, or sanitized SVG up to 20MB) via dataUrl or base64+mime, persist it to Taqdom media storage, and optionally assign its hosted /api/media/... URL to avatar, cover, canvas backgroundImage, or a project.",
+      "Upload an image (JPG, PNG, WebP, GIF, AVIF, or sanitized SVG up to 20MB) via sourceUrl (preferred public https:// URL fetched server-side without base64 truncation), dataUrl, or complete base64+mime, persist it to Taqdom media storage, and optionally assign its hosted /api/media/... URL to avatar, cover, canvas backgroundImage, or a project.",
     inputSchema: {
       type: "object",
       properties: {
+        sourceUrl: { type: "string", maxLength: 2048 },
         dataUrl: { type: "string", maxLength: 28000000 },
         base64: { type: "string", maxLength: 28000000 },
         mime: { type: "string", maxLength: 40 },
@@ -795,29 +800,203 @@ function sanitizeGoogleFonts(rawFonts) {
   return out;
 }
 
+function validJpegBytesMcp(bytes) {
+  if (bytes.length < 16 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return false;
+  let pos = 2;
+  let sawSof = false;
+  let sawSos = false;
+  let sawEoi = false;
+  while (pos < bytes.length - 1) {
+    if (bytes[pos] !== 0xff) {
+      pos++;
+      continue;
+    }
+    while (pos < bytes.length && bytes[pos] === 0xff) pos++;
+    if (pos >= bytes.length) break;
+    const marker = bytes[pos++];
+    if (marker === 0x00 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) continue;
+    if (marker === 0xd9) {
+      sawEoi = true;
+      break;
+    }
+    if (pos + 1 >= bytes.length) return false;
+    const segLen = (bytes[pos] << 8) | bytes[pos + 1];
+    if (segLen < 2 || pos + segLen > bytes.length) return false;
+    if (
+      (marker >= 0xc0 && marker <= 0xc3) ||
+      (marker >= 0xc5 && marker <= 0xc7) ||
+      (marker >= 0xc9 && marker <= 0xcb) ||
+      (marker >= 0xcd && marker <= 0xcf)
+    ) {
+      if (segLen < 7) return false;
+      const h = (bytes[pos + 3] << 8) | bytes[pos + 4];
+      const w = (bytes[pos + 5] << 8) | bytes[pos + 6];
+      if (w < 1 || h < 1) return false;
+      sawSof = true;
+    } else if (marker === 0xda) {
+      sawSos = true;
+      for (let j = bytes.length - 2; j >= pos + segLen; j--) {
+        if (bytes[j] === 0xff && bytes[j + 1] === 0xd9) {
+          sawEoi = true;
+          break;
+        }
+      }
+      break;
+    }
+    pos += segLen;
+  }
+  return sawSof && sawSos && sawEoi;
+}
+
+function validPngBytesMcp(bytes) {
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (bytes.length < 45 || !sig.every((b, i) => bytes[i] === b)) return false;
+  let pos = 8;
+  let sawIhdr = false;
+  let sawIdat = false;
+  let sawIend = false;
+  while (pos + 12 <= bytes.length) {
+    const len = ((bytes[pos] << 24) >>> 0) + (bytes[pos + 1] << 16) + (bytes[pos + 2] << 8) + bytes[pos + 3];
+    if (len > bytes.length - pos - 12) return false;
+    const type = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
+    if (type === "IHDR") {
+      if (len < 13) return false;
+      const w = ((bytes[pos + 8] << 24) >>> 0) + (bytes[pos + 9] << 16) + (bytes[pos + 10] << 8) + bytes[pos + 11];
+      const h = ((bytes[pos + 12] << 24) >>> 0) + (bytes[pos + 13] << 16) + (bytes[pos + 14] << 8) + bytes[pos + 15];
+      if (w < 1 || h < 1) return false;
+      sawIhdr = true;
+    } else if (type === "IDAT") {
+      if (len < 1) return false;
+      sawIdat = true;
+    } else if (type === "IEND") {
+      sawIend = true;
+      break;
+    }
+    pos += 12 + len;
+  }
+  return sawIhdr && sawIdat && sawIend;
+}
+
+function validWebpBytesMcp(bytes) {
+  if (bytes.length < 20) return false;
+  if (
+    bytes[0] !== 0x52 || bytes[1] !== 0x49 || bytes[2] !== 0x46 || bytes[3] !== 0x46 ||
+    bytes[8] !== 0x57 || bytes[9] !== 0x45 || bytes[10] !== 0x42 || bytes[11] !== 0x50
+  ) return false;
+  const riffSize = (bytes[4] | (bytes[5] << 8) | (bytes[6] << 16) | (bytes[7] << 24)) >>> 0;
+  if (riffSize < 12 || riffSize + 8 > bytes.length) return false;
+  const end = 8 + riffSize;
+  let pos = 12;
+  let hasFrame = false;
+  while (pos + 8 <= end) {
+    const tag = String.fromCharCode(bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]);
+    const cSize = (bytes[pos + 4] | (bytes[pos + 5] << 8) | (bytes[pos + 6] << 16) | (bytes[pos + 7] << 24)) >>> 0;
+    const padded = cSize + (cSize & 1);
+    if (pos + 8 + cSize > end) return false;
+    if (tag === "VP8 " && cSize >= 10) {
+      if (pos + 18 <= end && bytes[pos + 11] === 0x9d && bytes[pos + 12] === 0x01 && bytes[pos + 13] === 0x2a) {
+        const w = (bytes[pos + 14] | (bytes[pos + 15] << 8)) & 0x3fff;
+        const h = (bytes[pos + 16] | (bytes[pos + 17] << 8)) & 0x3fff;
+        if (w <= 0 || h <= 0) return false;
+      }
+      hasFrame = true;
+    } else if (tag === "VP8L" && cSize >= 5 && bytes[pos + 8] === 0x2f) {
+      if (pos + 13 <= end) {
+        const b0 = bytes[pos + 9], b1 = bytes[pos + 10], b2 = bytes[pos + 11], b3 = bytes[pos + 12];
+        const w = 1 + (b0 | ((b1 & 0x3f) << 8));
+        const h = 1 + ((b1 >> 6) | (b2 << 2) | ((b3 & 0x0f) << 10));
+        if (w <= 0 || h <= 0) return false;
+      }
+      hasFrame = true;
+    } else if (tag === "VP8X" && cSize >= 10) {
+      const w = 1 + (bytes[pos + 12] | (bytes[pos + 13] << 8) | (bytes[pos + 14] << 16));
+      const h = 1 + (bytes[pos + 15] | (bytes[pos + 16] << 8) | (bytes[pos + 17] << 16));
+      if (w < 1 || h < 1) return false;
+    }
+    pos += 8 + padded;
+  }
+  return hasFrame || pos === end;
+}
+
+function validGifBytesMcp(bytes) {
+  if (bytes.length < 14) return false;
+  const hdr = String.fromCharCode(...bytes.subarray(0, 6));
+  if (hdr !== "GIF87a" && hdr !== "GIF89a") return false;
+  const w = bytes[6] | (bytes[7] << 8);
+  const h = bytes[8] | (bytes[9] << 8);
+  return w > 0 && h > 0 && bytes[bytes.length - 1] === 0x3b;
+}
+
+function validAvifBytesMcp(bytes) {
+  if (bytes.length < 24) return false;
+  const ftypSize = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+  if (ftypSize < 16 || ftypSize > bytes.length) return false;
+  const boxType = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
+  const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+  if (boxType !== "ftyp" || !["avif", "avis", "mif1"].includes(brand)) return false;
+  let pos = ftypSize;
+  let sawMeta = false;
+  let sawMdat = false;
+  while (pos + 8 <= bytes.length) {
+    const size = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
+    const effective = size === 0 ? bytes.length - pos : size;
+    if (effective < 8 || pos + effective > bytes.length) return false;
+    const t = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
+    if (t === "meta") sawMeta = true;
+    if (t === "mdat") sawMdat = true;
+    pos += effective;
+  }
+  return sawMeta && sawMdat;
+}
+
+function validRasterBytesMcp(mime, bytes) {
+  if (mime === "image/jpeg") return validJpegBytesMcp(bytes);
+  if (mime === "image/png") return validPngBytesMcp(bytes);
+  if (mime === "image/webp") return validWebpBytesMcp(bytes);
+  if (mime === "image/gif") return validGifBytesMcp(bytes);
+  if (mime === "image/avif") return validAvifBytesMcp(bytes);
+  return false;
+}
+
 function validRasterUploadMcp(mime, base64) {
   try {
-    const head = atob(base64.slice(0, 24));
-    if (mime === "image/jpeg") {
-      return head.length >= 3 && head.charCodeAt(0) === 0xff && head.charCodeAt(1) === 0xd8 && head.charCodeAt(2) === 0xff;
-    }
-    if (mime === "image/png") {
-      const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-      return head.length >= 8 && signature.every((byte, index) => head.charCodeAt(index) === byte);
-    }
-    if (mime === "image/webp") {
-      return head.length >= 12 && head.slice(0, 4) === "RIFF" && head.slice(8, 12) === "WEBP";
-    }
-    if (mime === "image/gif") {
-      return head.length >= 6 && (head.startsWith("GIF87a") || head.startsWith("GIF89a"));
-    }
-    if (mime === "image/avif") {
-      return head.length >= 12 && head.slice(4, 8) === "ftyp" && ["avif", "avis", "mif1"].includes(head.slice(8, 12));
-    }
-    return false;
+    const bin = atob(base64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return validRasterBytesMcp(mime, bytes);
   } catch {
     return false;
   }
+}
+
+function bytesToBase64Mcp(bytes) {
+  let outBin = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    outBin += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(outBin);
+}
+
+function detectImageMimeFromBytesMcp(bytes) {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  if (
+    bytes.length >= 12 &&
+    String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) === "RIFF" &&
+    String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]) === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  if (bytes.length >= 6 && (String.fromCharCode(...bytes.subarray(0, 6)) === "GIF87a" || String.fromCharCode(...bytes.subarray(0, 6)) === "GIF89a")) {
+    return "image/gif";
+  }
+  if (bytes.length >= 12 && String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]) === "ftyp" && ["avif", "avis", "mif1"].includes(String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]))) {
+    return "image/avif";
+  }
+  const headText = new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(0, 512));
+  if (/<svg[\s>]/i.test(headText)) return "image/svg+xml";
+  return "";
 }
 
 function sanitizeSvgBase64Mcp(base64) {
@@ -1730,8 +1909,38 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
         }
       : undefined;
 
+  const codeSrc =
+    args.customCode && typeof args.customCode === "object" && !Array.isArray(args.customCode)
+      ? args.customCode
+      : {};
+
+  const customHtmlRaw = args.customHtml;
+  const customHtmlStr =
+    typeof customHtmlRaw === "string"
+      ? customHtmlRaw
+      : customHtmlRaw && typeof customHtmlRaw === "object"
+        ? `${customHtmlRaw.ar || ""}\n${customHtmlRaw.en || ""}`
+        : "";
+  const promoteCustomHtmlToFullPage =
+    Boolean(customHtmlRaw) &&
+    !("fullPageHtml" in args) &&
+    !("html" in args) &&
+    !("fullHtml" in args) &&
+    !("pageHtml" in args) &&
+    !("html" in codeSrc) &&
+    (args.renderMode === "full-code" ||
+      /<!doctype|<html\b/i.test(customHtmlStr) ||
+      "customCss" in args ||
+      "css" in args ||
+      "styles" in args ||
+      "stylesheet" in args ||
+      "customJs" in args ||
+      "js" in args ||
+      "script" in args ||
+      "javascript" in args);
+
   let cleanCustomHtml = existingDesign?.customHtml;
-  if ("customHtml" in args) {
+  if ("customHtml" in args && !promoteCustomHtmlToFullPage) {
     if (!args.customHtml) {
       cleanCustomHtml = undefined;
     } else {
@@ -1741,22 +1950,25 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
         en: sanitizeCustomHtmlFragment(bCustomHtml.en),
       };
     }
+  } else if (promoteCustomHtmlToFullPage) {
+    cleanCustomHtml = undefined;
   }
-
-  const codeSrc =
-    args.customCode && typeof args.customCode === "object" && !Array.isArray(args.customCode)
-      ? args.customCode
-      : {};
 
   let cleanFullPageHtml = existingDesign?.fullPageHtml || existingDesign?.customCode?.html;
   const rawFullHtmlInput =
-    args.fullPageHtml ?? args.html ?? args.fullHtml ?? args.pageHtml ?? codeSrc.html;
+    args.fullPageHtml ??
+    args.html ??
+    args.fullHtml ??
+    args.pageHtml ??
+    codeSrc.html ??
+    (promoteCustomHtmlToFullPage ? customHtmlRaw : undefined);
   if (
     "fullPageHtml" in args ||
     "html" in args ||
     "fullHtml" in args ||
     "pageHtml" in args ||
-    "html" in codeSrc
+    "html" in codeSrc ||
+    promoteCustomHtmlToFullPage
   ) {
     cleanFullPageHtml = rawFullHtmlInput
       ? bilingualLarge(rawFullHtmlInput, "fullPageHtml")
@@ -1822,6 +2034,15 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
   const hasFullCodePayload = Boolean(
     cleanFullPageHtml && (cleanFullPageHtml.ar || cleanFullPageHtml.en)
   );
+  const hasExplicitFullHtmlInArgs = Boolean(
+    hasFullCodePayload &&
+      ("fullPageHtml" in args ||
+        "html" in args ||
+        "fullHtml" in args ||
+        "pageHtml" in args ||
+        "html" in codeSrc ||
+        promoteCustomHtmlToFullPage)
+  );
   const hasExplicitFullCodeInArgs =
     "fullPageHtml" in args ||
     "html" in args ||
@@ -1865,10 +2086,19 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
       ? "bespoke-components"
       : args.renderMode === "full-code"
       ? "full-code"
-      : hasExplicitFullCodeInArgs && hasFullCodePayload
+      : hasExplicitFullHtmlInArgs
       ? "full-code"
-      : hasExplicitBespokeInArgs && !hasExplicitFullCodeInArgs
+      : hasExplicitBespokeInArgs
       ? "bespoke-components"
+      : !hasFullCodePayload &&
+          ("fullPageHtml" in args ||
+            "html" in args ||
+            "fullHtml" in args ||
+            "pageHtml" in args ||
+            "html" in codeSrc)
+      ? "bespoke-components"
+      : hasExplicitFullCodeInArgs && hasFullCodePayload
+      ? existingDesign?.renderMode || "full-code"
       : hasFullCodePayload
       ? existingDesign?.renderMode || "full-code"
       : existingDesign?.renderMode || "bespoke-components";
@@ -2115,11 +2345,11 @@ async function publishOwnedDraft(env, username, userId, portfolio) {
   }
   const serialized = JSON.stringify(published);
   const storedDraftVal = await writePortfolioJsonToD1(env, username, "draft", serialized);
-  await writePortfolioJsonToD1(env, username, "published", serialized);
+  const storedPublishedVal = await writePortfolioJsonToD1(env, username, "published", serialized);
   const result = await env.DB.prepare(
-    "UPDATE portfolios SET draft_json = ?1, published_json = ?1, published_at = ?2, updated_at = ?2, template = ?5 WHERE username = ?3 AND user_id = ?4"
+    "UPDATE portfolios SET draft_json = ?1, published_json = ?6, published_at = ?2, updated_at = ?2, template = ?5 WHERE username = ?3 AND user_id = ?4"
   )
-    .bind(storedDraftVal, now, username, userId, String(published.template || "haven"))
+    .bind(storedDraftVal, now, username, userId, String(published.template || "haven"), storedPublishedVal)
     .run();
   if (result?.meta?.changes === 0 || result?.changes === 0) {
     throw new Error("Publish failed. The account ownership check failed.");
@@ -2307,11 +2537,27 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
 
   if (body.method === "tools/call") {
     const rawName = body.params?.name;
+    const isFullCodeDeploy = rawName === "deploy_custom_code_portfolio";
     const name =
-      rawName === "deploy_custom_code_portfolio" || rawName === "install_portfolio_libraries"
+      isFullCodeDeploy || rawName === "install_portfolio_libraries"
         ? "design_custom_portfolio_theme"
         : rawName;
-    const args = body.params?.arguments || {};
+    const rawArgs = body.params?.arguments || {};
+    const args =
+      isFullCodeDeploy && rawArgs && typeof rawArgs === "object" && !Array.isArray(rawArgs)
+        ? {
+            renderMode: "full-code",
+            ...rawArgs,
+            ...(rawArgs.bodyHtml &&
+            !rawArgs.customHtml &&
+            !rawArgs.fullPageHtml &&
+            !rawArgs.html &&
+            !rawArgs.fullHtml &&
+            !rawArgs.pageHtml
+              ? { fullPageHtml: rawArgs.bodyHtml }
+              : {}),
+          }
+        : rawArgs;
     if (!TOOLS.some((tool) => tool.name === name)) return wrapErr(-32602, "Unknown tool");
     try {
       if (!args || typeof args !== "object" || Array.isArray(args)) {
@@ -2746,6 +2992,7 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
         let dataUrl = String(args.dataUrl || "").trim();
         let mime = String(args.mime || "").toLowerCase().trim();
         let base64 = String(args.base64 || "").trim();
+        const sourceUrl = String(args.sourceUrl || "").trim();
         if (dataUrl) {
           const m = dataUrl.match(/^data:(image\/(?:jpeg|png|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]+=*)$/i);
           if (!m) throw new Error("dataUrl must be a base64-encoded image (jpg, png, webp, gif, avif, svg+xml).");
@@ -2755,8 +3002,81 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
           if (!/^image\/(?:jpeg|png|webp|gif|avif|svg\+xml)$/.test(mime) || !/^[A-Za-z0-9+/]+=*$/.test(base64)) {
             throw new Error("Invalid base64 image or unsupported mime type.");
           }
+        } else if (sourceUrl) {
+          let currentUrl = sourceUrl;
+          let imgRes = null;
+          for (let hop = 0; hop < 4; hop++) {
+            if (!isPublicSafeHttpsUrl(currentUrl)) {
+              throw new Error("sourceUrl must be a public https:// URL (local/private hosts are blocked).");
+            }
+            const parsedSrc = new URL(currentUrl);
+            if (parsedSrc.port && parsedSrc.port !== "443") {
+              throw new Error("sourceUrl must use default HTTPS port 443.");
+            }
+            const isSameZoneAssetHost =
+              parsedSrc.hostname === "taqdom.me" ||
+              parsedSrc.hostname === "www.taqdom.me" ||
+              parsedSrc.hostname.endsWith(".taqdom.me");
+            if (isSameZoneAssetHost && env?.ASSETS && !parsedSrc.pathname.startsWith("/api/")) {
+              const assetUrl = `https://taqdom.me${parsedSrc.pathname}${parsedSrc.search}`;
+              imgRes = await env.ASSETS.fetch(new Request(assetUrl, { method: "GET" }));
+            } else {
+              imgRes = await fetch(currentUrl, {
+                headers: {
+                  Accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
+                },
+                redirect: "manual",
+                signal: AbortSignal.timeout(10000),
+              });
+            }
+            if (imgRes.status >= 300 && imgRes.status < 400) {
+              const loc = imgRes.headers.get("location");
+              if (!loc) throw new Error("sourceUrl returned an incomplete redirect.");
+              currentUrl = new URL(loc, currentUrl).toString();
+              continue;
+            }
+            break;
+          }
+          if (!imgRes || !imgRes.ok) {
+            throw new Error(`Failed to fetch sourceUrl (HTTP ${imgRes?.status || "network"}).`);
+          }
+          const declaredLen = Number(imgRes.headers.get("content-length") || "0");
+          if (declaredLen > 20_000_000) {
+            throw new Error("Max image size is 20MB.");
+          }
+          const buf = await imgRes.arrayBuffer();
+          if (buf.byteLength <= 0 || buf.byteLength > 20_000_000) {
+            throw new Error("Fetched image is empty or exceeds 20MB limit.");
+          }
+          const fetchedBytes = new Uint8Array(buf);
+          const headerMime = String(imgRes.headers.get("content-type") || "")
+            .split(";")[0]
+            .trim()
+            .toLowerCase();
+          if (
+            headerMime &&
+            !headerMime.startsWith("image/") &&
+            headerMime !== "application/octet-stream" &&
+            headerMime !== "binary/octet-stream"
+          ) {
+            throw new Error(`Unsupported image type (${headerMime}) at sourceUrl.`);
+          }
+          const sniffed = detectImageMimeFromBytesMcp(fetchedBytes);
+          const normalizedHeaderMime = headerMime === "image/jpg" ? "image/jpeg" : headerMime;
+          mime = /^image\/(?:jpeg|png|webp|gif|avif)$/.test(sniffed)
+            ? sniffed
+            : /^image\/(?:jpeg|png|webp|gif|avif|svg\+xml)$/.test(normalizedHeaderMime)
+            ? normalizedHeaderMime
+            : sniffed;
+          if (!/^image\/(?:jpeg|png|webp|gif|avif|svg\+xml)$/.test(mime)) {
+            throw new Error(`Unsupported image type (${headerMime || "unknown"}) at sourceUrl.`);
+          }
+          if (mime !== "image/svg+xml" && !validRasterBytesMcp(mime, fetchedBytes)) {
+            throw new Error("Fetched image bytes are truncated, corrupt, or do not match the declared MIME type.");
+          }
+          base64 = bytesToBase64Mcp(fetchedBytes);
         } else {
-          throw new Error("Provide either dataUrl or both base64 and mime.");
+          throw new Error("Provide sourceUrl, dataUrl, or both base64 and mime.");
         }
 
         const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
@@ -2769,8 +3089,8 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
           if (!cleaned) throw new Error("Invalid or unsafe SVG markup.");
           base64 = cleaned.base64;
           size = cleaned.size;
-        } else if (!validRasterUploadMcp(mime, base64)) {
-          throw new Error("Image bytes do not match the declared MIME type.");
+        } else if (!sourceUrl && !validRasterUploadMcp(mime, base64)) {
+          throw new Error("Image bytes are truncated, corrupt, or do not match the declared MIME type.");
         }
 
         const extMap = {
@@ -2786,6 +3106,13 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
         const cleanDataUrl = `data:${mime};base64,${base64}`;
         const now = Date.now();
         await ensureMcpMediaSchema(env);
+        const ownerUserId = String(tokenRow.user_id || `user-${username}`);
+        await env.DB.prepare(
+          "INSERT OR IGNORE INTO media (id, user_id, key, mime, size, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+        )
+          .bind(crypto.randomUUID(), ownerUserId, key, mime, size, now)
+          .run()
+          .catch(() => {});
         if (cleanDataUrl.length <= 900_000) {
           await env.DB.prepare(
             "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"

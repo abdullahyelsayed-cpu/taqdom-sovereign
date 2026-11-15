@@ -141,6 +141,8 @@ async function parseJsonBody(request, maxBytes = 65536) {
     return { ok: false, status: 400 };
   }
 
+  if (total === 0) return { ok: true, value: {} };
+
   const bytes = new Uint8Array(total);
   let offset = 0;
   for (const chunk of chunks) {
@@ -368,30 +370,194 @@ function toPublicPortfolio(portfolio) {
   return publicPortfolio;
 }
 
+function toExploreSummaryPortfolio(portfolio) {
+  const clean = toPublicPortfolio(portfolio);
+  if (!clean) return null;
+  if (clean.customDesign && typeof clean.customDesign === "object") {
+    const {
+      fullPageHtml: _omitFullHtml,
+      customCss: _omitCss,
+      customJs: _omitJs,
+      headHtml: _omitHeadHtml,
+      customHtml: _omitCustomHtml,
+      customCode: _omitCustomCode,
+      ...lightDesign
+    } = clean.customDesign;
+    void _omitFullHtml;
+    void _omitCss;
+    void _omitJs;
+    void _omitHeadHtml;
+    void _omitCustomHtml;
+    void _omitCustomCode;
+    clean.customDesign = lightDesign;
+  }
+  return clean;
+}
+
+function validJpegBytes(bytes) {
+  if (bytes.length < 16 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return false;
+  let pos = 2;
+  let hasSof = false;
+  let hasSos = false;
+  let hasEoi = false;
+
+  while (pos < bytes.length) {
+    while (pos < bytes.length && bytes[pos] !== 0xff) pos++;
+    if (pos >= bytes.length) break;
+    while (pos < bytes.length && bytes[pos] === 0xff) pos++;
+    if (pos >= bytes.length) return false;
+    const marker = bytes[pos++];
+    if (marker === 0x00 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+    if (marker === 0xd8) return false;
+    if (marker === 0xd9) {
+      hasEoi = true;
+      break;
+    }
+    if (pos + 2 > bytes.length) return false;
+    const segLen = (bytes[pos] << 8) | bytes[pos + 1];
+    if (segLen < 2 || pos + segLen > bytes.length) return false;
+
+    const isSof =
+      marker >= 0xc0 &&
+      marker <= 0xcf &&
+      marker !== 0xc4 &&
+      marker !== 0xc8 &&
+      marker !== 0xcc;
+    if (isSof) {
+      if (segLen < 8 || pos + 7 > bytes.length) return false;
+      const height = (bytes[pos + 3] << 8) | bytes[pos + 4];
+      const width = (bytes[pos + 5] << 8) | bytes[pos + 6];
+      if (width <= 0 || height <= 0) return false;
+      hasSof = true;
+    }
+
+    pos += segLen;
+    if (marker === 0xda) {
+      hasSos = true;
+      while (pos + 1 < bytes.length) {
+        if (bytes[pos] === 0xff) {
+          const next = bytes[pos + 1];
+          if (next === 0x00 || next === 0xff || (next >= 0xd0 && next <= 0xd7)) {
+            pos += next === 0xff ? 1 : 2;
+            continue;
+          }
+          break;
+        }
+        pos++;
+      }
+      if (pos >= bytes.length - 1) return false;
+    }
+  }
+
+  return hasSof && hasSos && hasEoi;
+}
+
+function validPngBytes(bytes) {
+  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  if (bytes.length < 33 || !signature.every((byte, index) => bytes[index] === byte)) return false;
+  let pos = 8;
+  let hasIhdr = false;
+  let hasIdat = false;
+  let hasIend = false;
+  while (pos + 12 <= bytes.length) {
+    const chunkLen = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
+    const type = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
+    if (pos + 12 + chunkLen > bytes.length) return false;
+    if (pos === 8) {
+      if (type !== "IHDR" || chunkLen !== 13) return false;
+      const w = ((bytes[pos + 8] << 24) | (bytes[pos + 9] << 16) | (bytes[pos + 10] << 8) | bytes[pos + 11]) >>> 0;
+      const h = ((bytes[pos + 12] << 24) | (bytes[pos + 13] << 16) | (bytes[pos + 14] << 8) | bytes[pos + 15]) >>> 0;
+      if (w === 0 || h === 0) return false;
+      hasIhdr = true;
+    } else if (type === "IDAT" && chunkLen > 0) {
+      hasIdat = true;
+    } else if (type === "IEND") {
+      hasIend = chunkLen === 0;
+      break;
+    }
+    pos += 12 + chunkLen;
+  }
+  return hasIhdr && hasIdat && hasIend;
+}
+
+function validWebpBytes(bytes) {
+  if (bytes.length < 20) return false;
+  if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== "RIFF") return false;
+  if (String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]) !== "WEBP") return false;
+  const riffSize = (bytes[4] | (bytes[5] << 8) | (bytes[6] << 16) | (bytes[7] << 24)) >>> 0;
+  if (riffSize < 12 || riffSize + 8 > bytes.length) return false;
+  const end = 8 + riffSize;
+  let pos = 12;
+  let hasFrame = false;
+  while (pos + 8 <= end) {
+    const cc = String.fromCharCode(bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]);
+    const chunkSize = (bytes[pos + 4] | (bytes[pos + 5] << 8) | (bytes[pos + 6] << 16) | (bytes[pos + 7] << 24)) >>> 0;
+    const padded = chunkSize + (chunkSize & 1);
+    if (pos + 8 + chunkSize > end) return false;
+    if (cc === "VP8 " && chunkSize >= 10) {
+      hasFrame = true;
+    } else if (cc === "VP8L" && chunkSize >= 5 && bytes[pos + 8] === 0x2f) {
+      hasFrame = true;
+    } else if (cc === "VP8X" && chunkSize >= 10) {
+      const w = 1 + (bytes[pos + 12] | (bytes[pos + 13] << 8) | (bytes[pos + 14] << 16));
+      const h = 1 + (bytes[pos + 15] | (bytes[pos + 16] << 8) | (bytes[pos + 17] << 16));
+      if (w <= 0 || h <= 0) return false;
+    }
+    pos += 8 + padded;
+  }
+  return hasFrame || pos === end;
+}
+
+function validGifBytes(bytes) {
+  if (bytes.length < 14) return false;
+  const hdr = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]);
+  if (hdr !== "GIF87a" && hdr !== "GIF89a") return false;
+  const w = bytes[6] | (bytes[7] << 8);
+  const h = bytes[8] | (bytes[9] << 8);
+  if (w === 0 || h === 0) return false;
+  return bytes[bytes.length - 1] === 0x3b;
+}
+
+function validAvifBytes(bytes) {
+  if (bytes.length < 16) return false;
+  const ftypSize = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+  if (ftypSize < 16 || ftypSize > bytes.length) return false;
+  if (String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]) !== "ftyp") return false;
+  const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+  if (!["avif", "avis", "mif1"].includes(brand)) return false;
+  let pos = ftypSize;
+  let hasMeta = false;
+  let hasMdat = false;
+  while (pos + 8 <= bytes.length) {
+    const boxSize = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
+    const boxType = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
+    const effective = boxSize === 0 ? bytes.length - pos : boxSize;
+    if (effective < 8 || pos + effective > bytes.length) return false;
+    if (boxType === "meta") hasMeta = true;
+    if (boxType === "mdat") hasMdat = true;
+    pos += effective;
+  }
+  return hasMeta && hasMdat;
+}
+
+function validRasterBytes(mime, bytes) {
+  if (!(bytes instanceof Uint8Array) || bytes.length < 12) return false;
+  if (mime === "image/jpeg") return validJpegBytes(bytes);
+  if (mime === "image/png") return validPngBytes(bytes);
+  if (mime === "image/webp") return validWebpBytes(bytes);
+  if (mime === "image/gif") return validGifBytes(bytes);
+  if (mime === "image/avif") return validAvifBytes(bytes);
+  return false;
+}
+
 function validRasterImageData(mime, base64) {
   try {
-    const head = atob(base64.slice(0, 24));
-    if (mime === "image/jpeg") {
-      return head.length >= 3 && head.charCodeAt(0) === 0xff && head.charCodeAt(1) === 0xd8 && head.charCodeAt(2) === 0xff;
-    }
-    if (mime === "image/png") {
-      const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-      return head.length >= 8 && signature.every((byte, index) => head.charCodeAt(index) === byte);
-    }
-    if (mime === "image/webp") {
-      return head.length >= 12 &&
-        head.slice(0, 4) === "RIFF" &&
-        head.slice(8, 12) === "WEBP";
-    }
-    if (mime === "image/gif") {
-      return head.length >= 6 && (head.startsWith("GIF87a") || head.startsWith("GIF89a"));
-    }
-    if (mime === "image/avif") {
-      return head.length >= 12 &&
-        head.slice(4, 8) === "ftyp" &&
-        ["avif", "avis", "mif1"].includes(head.slice(8, 12));
-    }
-    return false;
+    const clean = String(base64 || "").replace(/\s+/g, "");
+    if (!clean || clean.length > 28_000_000) return false;
+    const raw = atob(clean);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    return validRasterBytes(mime, bytes);
   } catch {
     return false;
   }
@@ -704,7 +870,7 @@ async function getDraftPortfolioFromD1(env, username) {
   if (env.DB) {
     try {
       const row = await env.DB.prepare(
-        "SELECT draft_json, published_json FROM portfolios WHERE username = ?1"
+        "SELECT draft_json, published_json, published_at FROM portfolios WHERE username = ?1"
       )
         .bind(clean)
         .first();
@@ -716,7 +882,15 @@ async function getDraftPortfolioFromD1(env, username) {
           kind,
           row.draft_json || row.published_json
         );
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && typeof parsed === "object") {
+            parsed.publishedAt = row.published_json
+              ? (parsed.publishedAt || row.published_at || Date.now())
+              : null;
+          }
+          return parsed;
+        }
       }
     } catch {
       // Fallback
@@ -732,7 +906,7 @@ async function getAllPublishedPortfoliosFromD1(env) {
         portfolio?.isFlagshipShowcase === true ||
         (portfolio?.discoverable === true && Boolean(portfolio?.publishedAt))
       )
-      .map(toPublicPortfolio)
+      .map(toExploreSummaryPortfolio)
       .filter(Boolean);
 
   if (env.DB) {
@@ -751,13 +925,15 @@ async function getAllPublishedPortfoliosFromD1(env) {
               "published",
               row.published_json
             );
-            if (resolved) map[row.username] = JSON.parse(resolved);
+            if (resolved) {
+              edgeStore.unpublished.delete(row.username);
+              map[row.username] = JSON.parse(resolved);
+            }
           } catch {
             // Ignore a single malformed portfolio rather than failing the entire directory.
           }
         }
       }
-      for (const username of edgeStore.unpublished) delete map[username];
       return collect(Object.values(map));
     } catch {
       const map = { ...SEED_PORTFOLIOS, ...edgeStore.portfolios };
@@ -795,6 +971,16 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
   };
 
   try {
+    if (!isPublish) {
+      const existingPort = await env.DB.prepare(
+        "SELECT published_json, published_at FROM portfolios WHERE username = ?1 LIMIT 1"
+      )
+        .bind(clean)
+        .first();
+      updated.publishedAt = existingPort?.published_json
+        ? (existingPort.published_at || portfolio.publishedAt || now)
+        : null;
+    }
     const jsonStr = JSON.stringify(updated);
     const userId = userAuth?.id || `user-${clean}`;
     const email = (userAuth?.email || updated.email || `${clean}@taqdom.me`).toLowerCase().trim();
@@ -832,7 +1018,7 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
     const storedDraftVal = await storeChunkedPortfolioJson(env, clean, "draft", jsonStr);
     const storedPublishedVal = isPublish
       ? await storeChunkedPortfolioJson(env, clean, "published", jsonStr)
-      : storedDraftVal;
+      : null;
 
     await env.DB.prepare(
       `INSERT INTO portfolios (user_id, username, template, draft_json, published_json, published_at, updated_at)
@@ -851,7 +1037,7 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
         updated.template || "haven",
         storedDraftVal,
         storedPublishedVal,
-        now,
+        isPublish ? now : null,
         now,
         isPublish ? 1 : 0
       )
@@ -859,6 +1045,24 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
   } catch (error) {
     console.error("Persistence error:", error instanceof Error ? error.message : error);
     throw new Error("Cloudflare D1 persistence failed");
+  }
+
+  if (!isPublish) {
+    try {
+      const postPort = await env.DB.prepare(
+        "SELECT published_json, published_at FROM portfolios WHERE username = ?1 LIMIT 1"
+      )
+        .bind(clean)
+        .first();
+      updated.publishedAt = postPort?.published_json
+        ? (postPort.published_at || updated.publishedAt || now)
+        : null;
+      if (!postPort?.published_json) {
+        edgeStore.unpublished.add(clean);
+      }
+    } catch {
+      // Keep existing updated value on transient post-check failure
+    }
   }
 
   // Update isolate-local cache only after the durable D1 write succeeds.
@@ -913,7 +1117,7 @@ async function renameAndSaveAccountInD1(env, curUsername, targetRawUsername, opt
     )
       .bind(candidate)
       .first();
-    if (takenRow || edgeStore.users[candidate] || edgeStore.portfolios[candidate]) {
+    if (takenRow) {
       return {
         errorResponse: jsonResponse(
           { error: "هذا الاسم محجوز بالفعل لمبدع آخر / Username already taken" },
@@ -1712,35 +1916,92 @@ async function handleApiRequest(request, url, env) {
         .bind(u)
         .first()
         .catch(() => null);
-      const { results: oauthTables = [] } = await env.DB.prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes', 'portfolio_chunks')"
+      const uid = String(targetUserRow?.id || session?.userId || session?.id || "");
+      const portfolioRow = await env.DB.prepare(
+        "SELECT draft_json, published_json FROM portfolios WHERE username = ?1 LIMIT 1"
+      )
+        .bind(u)
+        .first()
+        .catch(() => null);
+
+      const { results: existingTables = [] } = await env.DB.prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes', 'portfolio_chunks', 'views', 'media', 'media_blobs', 'media_chunks')"
       )
         .all()
         .catch(() => ({ results: [] }));
-      const tableNames = new Set(oauthTables.map((r) => r.name));
-      const deleteStatements = [
-        env.DB.prepare("DELETE FROM portfolios WHERE username = ?1").bind(u),
-        env.DB.prepare("DELETE FROM users WHERE username = ?1").bind(u),
-      ];
-      if (tableNames.has("portfolio_chunks")) {
-        deleteStatements.unshift(
-          env.DB.prepare("DELETE FROM portfolio_chunks WHERE username = ?1").bind(u)
-        );
+      const tableNames = new Set(existingTables.map((r) => r.name));
+
+      const mediaKeysToDelete = new Set();
+      if (portfolioRow) {
+        const rawParts = [
+          await resolveChunkedPortfolioJson(env, u, "draft", portfolioRow.draft_json).catch(() => ""),
+          await resolveChunkedPortfolioJson(env, u, "published", portfolioRow.published_json).catch(() => ""),
+        ].filter(Boolean);
+        for (const raw of rawParts) {
+          for (const match of raw.matchAll(/\/api\/media\/([A-Za-z0-9._-]+)/g)) {
+            if (match[1]) mediaKeysToDelete.add(match[1]);
+          }
+        }
       }
-      const uid = String(targetUserRow?.id || session?.userId || session?.id || "");
+      if (tableNames.has("media") && uid) {
+        const { results: userMediaRows = [] } = await env.DB.prepare(
+          "SELECT key FROM media WHERE user_id = ?1 OR user_id = ?2"
+        )
+          .bind(uid, `user-${u}`)
+          .all()
+          .catch(() => ({ results: [] }));
+        for (const r of userMediaRows) {
+          if (r?.key) mediaKeysToDelete.add(String(r.key));
+        }
+      }
+
+      const deleteStatements = [];
       for (const tbl of ["mcp_access_tokens", "oauth_refresh_tokens", "oauth_codes"]) {
         if (!tableNames.has(tbl)) continue;
         if (uid) {
-          deleteStatements.unshift(
+          deleteStatements.push(
             env.DB.prepare(`DELETE FROM ${tbl} WHERE username = ?1 OR user_id = ?2`).bind(u, uid)
           );
         } else {
-          deleteStatements.unshift(
+          deleteStatements.push(
             env.DB.prepare(`DELETE FROM ${tbl} WHERE username = ?1`).bind(u)
           );
         }
       }
-      await env.DB.batch(deleteStatements);
+      if (tableNames.has("portfolio_chunks")) {
+        deleteStatements.push(
+          env.DB.prepare("DELETE FROM portfolio_chunks WHERE username = ?1").bind(u)
+        );
+      }
+      if (tableNames.has("views")) {
+        deleteStatements.push(
+          env.DB.prepare("DELETE FROM views WHERE username = ?1").bind(u)
+        );
+      }
+      if (tableNames.has("media") && uid) {
+        deleteStatements.push(
+          env.DB.prepare("DELETE FROM media WHERE user_id = ?1 OR user_id = ?2").bind(uid, `user-${u}`)
+        );
+      }
+      for (const mKey of mediaKeysToDelete) {
+        if (tableNames.has("media")) {
+          deleteStatements.push(env.DB.prepare("DELETE FROM media WHERE key = ?1").bind(mKey));
+        }
+        if (tableNames.has("media_chunks")) {
+          deleteStatements.push(env.DB.prepare("DELETE FROM media_chunks WHERE key = ?1").bind(mKey));
+        }
+        if (tableNames.has("media_blobs")) {
+          deleteStatements.push(env.DB.prepare("DELETE FROM media_blobs WHERE key = ?1").bind(mKey));
+        }
+      }
+      deleteStatements.push(
+        env.DB.prepare("DELETE FROM portfolios WHERE username = ?1").bind(u),
+        env.DB.prepare("DELETE FROM users WHERE username = ?1").bind(u)
+      );
+      for (let i = 0; i < deleteStatements.length; i += 20) {
+        await env.DB.batch(deleteStatements.slice(i, i + 20));
+      }
+      if (uid) sessionUserCache.delete(uid);
       delete edgeStore.portfolios[u];
       delete edgeStore.users[u];
       delete edgeStore.views[u];
@@ -1868,26 +2129,48 @@ async function handleApiRequest(request, url, env) {
       if (!clean) return jsonResponse({ error: "Missing username" }, 400);
       if (!ownsUsername(clean)) return forbidden();
       const existing = await env.DB.prepare(
-        "SELECT username FROM portfolios WHERE username = ?1"
+        "SELECT username, draft_json FROM portfolios WHERE username = ?1"
       )
         .bind(clean)
         .first();
       if (!existing) return jsonResponse({ error: "Portfolio not found" }, 404);
 
       await ensureWorkerMediaSchema(env);
+      const now = Date.now();
+      let nextDraftVal = null;
+      if (existing.draft_json) {
+        try {
+          const rawDraft = await resolveChunkedPortfolioJson(env, clean, "draft", existing.draft_json);
+          if (rawDraft) {
+            const parsedDraft = JSON.parse(rawDraft);
+            parsedDraft.publishedAt = null;
+            parsedDraft.updatedAt = now;
+            nextDraftVal = await storeChunkedPortfolioJson(
+              env,
+              clean,
+              "draft",
+              JSON.stringify(parsedDraft)
+            );
+          }
+        } catch {
+          // Ignore malformed draft; getDraftPortfolioFromD1 still enforces publishedAt: null
+        }
+      }
       await env.DB.prepare(
         "DELETE FROM portfolio_chunks WHERE username = ?1 AND kind = 'published'"
       )
         .bind(clean)
         .run();
       await env.DB.prepare(
-        "UPDATE portfolios SET published_json = NULL, published_at = NULL WHERE username = ?1"
+        nextDraftVal !== null
+          ? "UPDATE portfolios SET draft_json = ?2, published_json = NULL, published_at = NULL, updated_at = ?3 WHERE username = ?1"
+          : "UPDATE portfolios SET published_json = NULL, published_at = NULL, updated_at = ?2 WHERE username = ?1"
       )
-        .bind(clean)
+        .bind(...(nextDraftVal !== null ? [clean, nextDraftVal, now] : [clean, now]))
         .run();
       edgeStore.unpublished.add(clean);
       if (edgeStore.portfolios[clean]) {
-        edgeStore.portfolios[clean] = { ...edgeStore.portfolios[clean], publishedAt: null };
+        edgeStore.portfolios[clean] = { ...edgeStore.portfolios[clean], publishedAt: null, updatedAt: now };
       }
       return jsonResponse({ ok: true, username: clean });
     }
@@ -1945,6 +2228,18 @@ async function handleApiRequest(request, url, env) {
     const cleanDataUrl = `data:${mime};base64,${cleanBase64}`;
     const now = Date.now();
     await ensureWorkerMediaSchema(env);
+    const ownerUserId = String(session.userId || session.id || `user-${session.username}`);
+    await env.DB.prepare(
+      "CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, user_id TEXT, key TEXT, mime TEXT, size INTEGER, created_at INTEGER)"
+    )
+      .run()
+      .catch(() => {});
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO media (id, user_id, key, mime, size, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+    )
+      .bind(crypto.randomUUID(), ownerUserId, key, mime, size, now)
+      .run()
+      .catch(() => {});
 
     if (cleanDataUrl.length <= 900_000) {
       await env.DB.prepare(
@@ -2088,8 +2383,14 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
   headHtml = headHtml
     .replace(/https:\/\/layla\.taqdom\.me/g, canonicalUrl)
     .replace(/layla\.taqdom\.me/g, `${targetUser}.taqdom.me`)
+    .replace(/https:\/\/_shell\.taqdom\.me/g, canonicalUrl)
+    .replace(/_shell\.taqdom\.me/g, `${targetUser}.taqdom.me`)
     .replace(/https:\/\/test\.taqdom\.me/g, canonicalUrl)
     .replace(/test\.taqdom\.me/g, `${targetUser}.taqdom.me`);
+
+  bodyHtml = bodyHtml
+    .replace(/https:\/\/_shell\.taqdom\.me/g, canonicalUrl)
+    .replace(/_shell\.taqdom\.me/g, `${targetUser}.taqdom.me`);
 
   const replaceProfileJsonLd = (fragment, replacement) =>
     fragment.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/gi, (match) =>
@@ -2105,6 +2406,26 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
       .replace(
         /<meta name="description" content="[^"]*"\s*\/?>/i,
         `<meta name="description" content="${escapeHtml(availDesc)}"/>`
+      )
+      .replace(
+        /<meta property="og:title" content="[^"]*"\s*\/?>/i,
+        `<meta property="og:title" content="${escapeHtml(availTitle)}"/>`
+      )
+      .replace(
+        /<meta property="og:description" content="[^"]*"\s*\/?>/i,
+        `<meta property="og:description" content="${escapeHtml(availDesc)}"/>`
+      )
+      .replace(
+        /<meta property="og:url" content="[^"]*"\s*\/?>/i,
+        `<meta property="og:url" content="${escapeHtml(canonicalUrl)}"/>`
+      )
+      .replace(
+        /<meta name="twitter:title" content="[^"]*"\s*\/?>/i,
+        `<meta name="twitter:title" content="${escapeHtml(availTitle)}"/>`
+      )
+      .replace(
+        /<meta name="twitter:description" content="[^"]*"\s*\/?>/i,
+        `<meta name="twitter:description" content="${escapeHtml(availDesc)}"/>`
       )
       .replace(
         /<meta name="robots" content="[^"]*"\s*\/?>/gi,
@@ -2160,9 +2481,9 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
         const av = String(customData.avatar || "").trim();
         if (/^https?:\/\//i.test(av)) {
           const safeAv = safePortfolioHref(av);
-          return safeAv !== "#" ? safeAv : "https://taqdom.me/images/creators/layla.jpg";
+          return safeAv !== "#" ? safeAv : "https://taqdom.me/images/taqdom-avatar-placeholder.svg";
         }
-        return `https://taqdom.me${av.startsWith("/") ? av : "/images/creators/layla.jpg"}`;
+        return `https://taqdom.me${av.startsWith("/") ? av : "/images/taqdom-avatar-placeholder.svg"}`;
       })(),
       url: canonicalUrl,
       address: {
@@ -2208,8 +2529,25 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
         .filter(Boolean)
         .join(",");
 
+  const robotsValue = customData.seo?.noindex ? "noindex, nofollow" : "index, follow";
+  const hasCanonicalLink = /<link\b[^>]*\brel=["']canonical["'][^>]*>/i.test(headHtml);
+  const hasOgTypeMeta = /<meta\b[^>]*\bproperty=["']og:type["'][^>]*>/i.test(headHtml);
+  const hasRobotsMeta = /<meta\b[^>]*\bname=["']robots["'][^>]*>/i.test(headHtml);
+
   headHtml = headHtml
     .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHtml(title)}</title>`)
+    .replace(
+      /<link\b[^>]*\brel=["']canonical["'][^>]*>/gi,
+      `<link rel="canonical" href="${escapeHtml(canonicalUrl)}"/>`
+    )
+    .replace(
+      /<meta\b[^>]*\bproperty=["']og:type["'][^>]*>/gi,
+      `<meta property="og:type" content="profile"/>`
+    )
+    .replace(
+      /<meta\b[^>]*\bname=["']robots["'][^>]*>/gi,
+      `<meta name="robots" content="${robotsValue}"/>`
+    )
     .replace(
       /<meta name="description" content="[^"]*"\s*\/?>/i,
       `<meta name="description" content="${escapeHtml(description)}"/>`
@@ -2256,11 +2594,22 @@ function rewriteSubdomainHtml(baseHtml, targetUser, customData) {
     );
 
   const jsonLdScript = `<script type="application/ld+json">${safeJsonForHtmlScript(personJsonLd)}</script>`;
+  const hasProfileLdHead = /<script type="application\/ld\+json">[\s\S]*?"@type":"ProfilePage"[\s\S]*?<\/script>/i.test(headHtml);
+  const hasProfileLdBody = /<script type="application\/ld\+json">[\s\S]*?"@type":"ProfilePage"[\s\S]*?<\/script>/i.test(bodyHtml);
   headHtml = replaceProfileJsonLd(headHtml, jsonLdScript);
-  bodyHtml = replaceProfileJsonLd(bodyHtml, jsonLdScript);
+  bodyHtml = hasProfileLdHead
+    ? replaceProfileJsonLd(bodyHtml, "")
+    : replaceProfileJsonLd(bodyHtml, jsonLdScript);
+
+  const missingSeoTags = [
+    hasCanonicalLink ? "" : `<link rel="canonical" href="${escapeHtml(canonicalUrl)}"/>`,
+    hasOgTypeMeta ? "" : `<meta property="og:type" content="profile"/>`,
+    hasRobotsMeta ? "" : `<meta name="robots" content="${robotsValue}"/>`,
+    !hasProfileLdHead && !hasProfileLdBody ? jsonLdScript : "",
+  ].join("");
 
   const safeJson = safeJsonForHtmlScript(customData);
-  const bootstrapScript = `<meta name="x-taqdom-bio" content="${escapeHtml(
+  const bootstrapScript = `${missingSeoTags}<meta name="x-taqdom-bio" content="${escapeHtml(
     customData.bio?.ar || ""
   )}"/><script>window.__TAQDOM_SUBDOMAIN__=${JSON.stringify(
     targetUser
@@ -2471,7 +2820,7 @@ export default {
       const knownStatic = new Set(["layla", "youssef", "farida", "karim", "tariq", "salma", "nora"]);
       const targetPath = knownStatic.has(targetUser)
         ? `/portfolio/${targetUser}`
-        : `/portfolio/layla`;
+        : `/portfolio/_shell`;
 
       const isRscRequest = request.headers.get("RSC") === "1" || url.searchParams.has("_rsc");
       if (isRscRequest) {

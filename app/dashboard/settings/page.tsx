@@ -39,8 +39,18 @@ export default function DashboardSettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const syncedUsernameRef = useRef("");
+
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmDelete(false);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [confirmDelete]);
 
   useEffect(() => {
     if (user?.username && user.username !== syncedUsernameRef.current) {
@@ -127,6 +137,15 @@ export default function DashboardSettingsPage() {
         syncedUsernameRef.current = data.user.username || "";
         setUser(data.user, data.portfolio || null);
         setNewUsername(data.user.username || cleanNew);
+        if (typeof window !== "undefined" && data.user.username) {
+          const params = new URLSearchParams(window.location.search);
+          if (params.has("u")) {
+            params.set("u", data.user.username);
+            const nextQuery = params.toString();
+            const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`;
+            window.history.replaceState(window.history.state, "", nextUrl);
+          }
+        }
       } else if (data.portfolio) {
         setDraft(data.portfolio, false);
       }
@@ -293,20 +312,57 @@ export default function DashboardSettingsPage() {
                 "Deleting your account permanently removes your portfolio and releases your subdomain (sample accounts are protected)."
               )}
             </p>
-            <button
-              type="button"
-              data-testid="settings-delete-account-btn"
-              disabled={checkingAuth || isShowcaseAccount || saving || deleting}
-              onClick={handleDeleteAccount}
-              className="inline-flex items-center gap-2 rounded-xl border border-red-600/50 dark:border-red-500/50 bg-red-500/10 hover:bg-red-500/20 px-5 py-2.5 text-xs font-bold text-red-700 dark:text-red-400 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span>
-                {deleting
-                  ? t("جارٍ حذف الحساب...", "Deleting account...")
-                  : t("حذف الحساب نهائياً", "Delete Account Permanently")}
-              </span>
-            </button>
+            {confirmDelete ? (
+              <div
+                data-testid="settings-delete-confirm-box"
+                className="rounded-2xl border border-red-500/50 bg-red-500/10 p-4 space-y-3"
+              >
+                <p className="text-xs font-bold text-red-700 dark:text-red-300">
+                  {t(
+                    `تأكيد نهائي: سيتم حذف الحساب (${currentUsername}.taqdom.me) وجميع الصور والبيانات المرتبطة به فوراً بدون استرجاع.`,
+                    `Final confirmation: account (${currentUsername}.taqdom.me) and all associated media and data will be permanently deleted.`
+                  )}
+                </p>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    data-testid="settings-confirm-delete-btn"
+                    disabled={checkingAuth || isShowcaseAccount || saving || deleting}
+                    onClick={handleDeleteAccount}
+                    className="inline-flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 px-5 py-2.5 text-xs font-bold text-white transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>
+                      {deleting
+                        ? t("جارٍ حذف الحساب...", "Deleting account...")
+                        : t("نعم، احذف الحساب نهائياً", "Yes, delete forever")}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="settings-cancel-delete-btn"
+                    disabled={deleting}
+                    onClick={() => setConfirmDelete(false)}
+                    className="inline-flex items-center rounded-xl border border-border bg-background px-4 py-2.5 text-xs font-bold text-foreground hover:border-[#9A7B4F] cursor-pointer"
+                  >
+                    {t("إلغاء", "Cancel")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                data-testid="settings-delete-account-btn"
+                disabled={checkingAuth || isShowcaseAccount || saving || deleting}
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex items-center gap-2 rounded-xl border border-red-600/50 dark:border-red-500/50 bg-red-500/10 hover:bg-red-500/20 px-5 py-2.5 text-xs font-bold text-red-700 dark:text-red-400 transition cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>
+                  {t("حذف الحساب نهائياً", "Delete Account Permanently")}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </section>

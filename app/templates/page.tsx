@@ -34,6 +34,17 @@ export default function TemplatesPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!fullscreenTemplate) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setFullscreenTemplate(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fullscreenTemplate]);
+
   const handleSelectForStudio = (tplId: TemplateId) => {
     switchTemplate(tplId);
     router.push(`/studio?template=${tplId}`);
@@ -217,7 +228,12 @@ export default function TemplatesPage() {
 
       {/* Interactive Full-Screen Template Preview Modal */}
       {fullscreenTemplate && activePreviewData && (
-        <div className="fixed inset-0 z-[90] flex flex-col bg-[#0A0A09]">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t(`معاينة حية لقالب «${activePreviewMeta?.name.ar}»`, `Live Interactive Preview: ${activePreviewMeta?.name.en}`)}
+          className="fixed inset-0 z-[90] flex flex-col bg-[#0A0A09]"
+        >
           <div className="flex items-center justify-between px-4 sm:px-8 py-3 bg-[#121210] border-b border-[#F4F1EA]/10 text-[#F4F1EA]">
             <div className="flex items-center gap-3">
               <Sparkles className="h-4 w-4 text-[#C89D66]" />

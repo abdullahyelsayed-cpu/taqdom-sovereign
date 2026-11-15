@@ -17,6 +17,13 @@ export async function generateMetadata({
   params: Promise<{ username: string }>;
 }): Promise<Metadata> {
   const { username } = await params;
+  if (username === "_shell") {
+    return {
+      title: { absolute: "تَقَدُّم | Taqdom" },
+      description: "منصة بناء الهوية الرقمية والمحافظ الاحترافية.",
+      robots: { index: false, follow: false },
+    };
+  }
   const clean = normalizeUsername(username);
   const portfolio = await getPublishedPortfolio(clean);
 
@@ -76,8 +83,9 @@ export default async function PortfolioSubdomainPage({
   params: Promise<{ username: string }>;
 }) {
   const { username } = await params;
-  const clean = normalizeUsername(username);
-  const portfolio = await getPublishedPortfolio(clean);
+  const isShell = username === "_shell";
+  const clean = isShell ? "_shell" : normalizeUsername(username);
+  const portfolio = isShell ? null : await getPublishedPortfolio(clean);
 
   const personJsonLd = portfolio
     ? {
@@ -92,7 +100,7 @@ export default async function PortfolioSubdomainPage({
           description: portfolio.bio.en,
           image: /^https?:\/\//i.test(portfolio.avatar || "")
             ? safePortfolioUrl(portfolio.avatar)
-            : `https://taqdom.me${portfolio.avatar || "/images/creators/layla.jpg"}`,
+            : `https://taqdom.me${portfolio.avatar || "/images/taqdom-avatar-placeholder.svg"}`,
           url: `https://${clean}.taqdom.me`,
           address: {
             "@type": "PostalAddress",

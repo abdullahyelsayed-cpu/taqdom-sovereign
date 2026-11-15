@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import { handleMcpRequest, handleMcpTokenApi, handleOpenApiSpec, handleMcpRestRequest } from "../cloudflare/mcp.mjs";
-import { handleOAuthRequest } from "../cloudflare/oauth.mjs";
+import { handleOAuthRequest, isPublicSafeHttpsUrl } from "../cloudflare/oauth.mjs";
 
 const encoder = new TextEncoder();
 const tokens = new Map();
@@ -73,6 +73,10 @@ const db = {
             for (const row of tokens.values()) {
               if (row.token_hash === token_hash && !row.revoked_at) row.revoked_at = revoked_at;
             }
+          } else if (sql.includes("WHERE id = ?2 AND revoked_at IS NULL")) {
+            const [revoked_at, id] = this.values;
+            const row = tokens.get(id);
+            if (row && !row.revoked_at) row.revoked_at = revoked_at;
           } else {
             const [revoked_at, id, user_id] = this.values;
             const row = tokens.get(id);
@@ -94,17 +98,17 @@ const db = {
           if (!rec || rec.used_at !== null) return { success: true, meta: { changes: 0 } };
           rec.used_at = used_at;
         } else if (sql.includes("INSERT INTO oauth_refresh_tokens")) {
-          const [token_hash, client_id, user_id, username, scope, created_at, expires_at] = this.values;
-          oauthRefreshTokens.set(token_hash, { token_hash, client_id, user_id, username, scope, created_at, expires_at, revoked_at: null });
+          const [token_hash, client_id, user_id, username, scope, created_at, expires_at, access_token_id] = this.values;
+          oauthRefreshTokens.set(token_hash, { token_hash, client_id, user_id, username, scope, created_at, expires_at, access_token_id: access_token_id ?? null, revoked_at: null });
         } else if (sql.includes("UPDATE oauth_refresh_tokens SET revoked_at")) {
           const [revoked_at, token_hash] = this.values;
           const rec = oauthRefreshTokens.get(token_hash);
           if (!rec || rec.revoked_at !== null) return { success: true, meta: { changes: 0 } };
           rec.revoked_at = revoked_at;
         } else if (sql.includes("UPDATE portfolios SET draft_json = ?1, published_json")) {
-          const [draft, publishedAt] = this.values;
+          const [draft, publishedAt, , , , publishedVal] = this.values;
           rawDraftJson = draft;
-          rawPublishedJson = draft;
+          rawPublishedJson = publishedVal ?? draft;
           if (draft === "__CHUNKED__") {
             const chunks = (portfolioChunks.get("mcp-owner:draft") || [])
               .sort((a, b) => a.seq - b.seq)
@@ -1059,6 +1063,37 @@ assert.equal(updatedCustomDesign.fullPageHtml.en.includes("I build intelligent p
 assert.equal(updatedCustomDesign.libraries.includes("gsap@3.12.5"), true);
 assert.equal(updatedCustomDesign.libraries.includes("canvas-confetti@1.9.3"), true);
 
+const switchBespokeWithCssRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2155,
+      method: "tools/call",
+      params: {
+        name: "design_custom_portfolio_theme",
+        arguments: {
+          designName: "Component With Custom CSS",
+          layout: { heroVariant: "editorial-split", projectGrid: "bento" },
+          customCss: ".bento-card { border-radius: 28px; }",
+          googleFonts: ["Plus Jakarta Sans"],
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const switchBespokeWithCssPayload = await switchBespokeWithCssRes.json();
+assert.equal(switchBespokeWithCssPayload.result.isError, undefined, JSON.stringify(switchBespokeWithCssPayload.result));
+assert.equal(
+  switchBespokeWithCssPayload.result.structuredContent.customDesign.renderMode,
+  "bespoke-components",
+  "Component layout update alongside customCss/googleFonts (without new fullPageHtml) must switch from full-code to bespoke-components"
+);
+
 // 7g. Verify 6MB+ per-language fullPageHtml chunked D1 persistence & reassembly (never hits SQLITE_TOOBIG)
 const sixMbHtmlEn = "<div class='enterprise-6mb'>" + "A".repeat(6_000_000) + "</div>";
 const sixMbHtmlAr = "<div class='enterprise-6mb' dir='rtl'>" + "ب".repeat(6_000_000) + "</div>";
@@ -1176,6 +1211,220 @@ assert.equal(restProfileRes.status, 200);
 const restProfileJson = await restProfileRes.json();
 assert.equal(restProfileJson.ok, true);
 
+// 8a. Reject corrupt/truncated JPEG upload and SSRF sourceUrl targets
+const corruptJpegRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 212,
+      method: "tools/call",
+      params: {
+        name: "upload_portfolio_image",
+        arguments: {
+          dataUrl: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAA==",
+          assignTo: "avatar",
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(corruptJpegRes.status, 200);
+const corruptJpegPayload = await corruptJpegRes.json();
+assert.equal(corruptJpegPayload.result.isError, true, "Truncated JPEG missing SOF/SOS/EOI must be rejected");
+
+const ssrfUploadRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 213,
+      method: "tools/call",
+      params: {
+        name: "upload_portfolio_image",
+        arguments: {
+          sourceUrl: "https://metadata.localhost/photo.png",
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(ssrfUploadRes.status, 200);
+const ssrfUploadPayload = await ssrfUploadRes.json();
+assert.equal(ssrfUploadPayload.result.isError, true, "SSRF sourceUrl pointing to .localhost must be rejected");
+
+assert.equal(isPublicSafeHttpsUrl("https://images.unsplash.com/photo-1.jpg"), true);
+assert.equal(isPublicSafeHttpsUrl("https://169.254.169.254/latest"), false);
+assert.equal(isPublicSafeHttpsUrl("https://sub.localhost/client"), false);
+assert.equal(isPublicSafeHttpsUrl("https://2130706433/client"), false);
+assert.equal(isPublicSafeHttpsUrl("https://0x7f000001/client"), false);
+
+// 7b. sourceUrl CDN MIME auto-negotiation mismatch, truncated WebP rejection & EOF box AVIF
+const validWebp1x1 = new Uint8Array([
+  0x52, 0x49, 0x46, 0x46, 0x12, 0x00, 0x00, 0x00,
+  0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x4c,
+  0x05, 0x00, 0x00, 0x00, 0x2f, 0x00, 0x00, 0x00, 0x00, 0x00,
+]);
+const originalFetch = globalThis.fetch;
+try {
+  globalThis.fetch = async (url) => {
+    const s = String(url);
+    if (s === "https://cdn.example.com/photo.jpg?auto=format") {
+      return new Response(validWebp1x1, { status: 200, headers: { "content-type": "image/jpeg" } });
+    }
+    if (s === "https://cdn.example.com/login-wall.jpg") {
+      return new Response("<html><body>Not an image</body></html>", {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+    throw new Error(`Unexpected fetch URL in verify-mcp: ${s}`);
+  };
+  const cdnNegRes = await handleMcpRequest(
+    new Request("https://taqdom.me/mcp", {
+      method: "POST",
+      headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 215,
+        method: "tools/call",
+        params: {
+          name: "upload_portfolio_image",
+          arguments: { sourceUrl: "https://cdn.example.com/photo.jpg?auto=format" },
+        },
+      }),
+    }),
+    env,
+    null,
+    null
+  );
+  assert.equal(cdnNegRes.status, 200);
+  const cdnNegPayload = await cdnNegRes.json();
+  assert.equal(cdnNegPayload.result.isError, undefined, "Valid WebP served with Content-Type: image/jpeg should succeed via binary sniffing");
+  assert.equal(cdnNegPayload.result.structuredContent?.mime, "image/webp");
+
+  const htmlSourceRes = await handleMcpRequest(
+    new Request("https://taqdom.me/mcp", {
+      method: "POST",
+      headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 216,
+        method: "tools/call",
+        params: {
+          name: "upload_portfolio_image",
+          arguments: { sourceUrl: "https://cdn.example.com/login-wall.jpg" },
+        },
+      }),
+    }),
+    env,
+    null,
+    null
+  );
+  assert.equal(htmlSourceRes.status, 200);
+  const htmlSourcePayload = await htmlSourceRes.json();
+  assert.equal(htmlSourcePayload.result.isError, true, "HTML response at sourceUrl must be rejected");
+} finally {
+  globalThis.fetch = originalFetch;
+}
+
+const truncatedWebpAfterVp8x = Buffer.from([
+  0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00,
+  0x57, 0x45, 0x42, 0x50,
+  0x56, 0x50, 0x38, 0x58, 0x0a, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00,
+  0x56, 0x50, 0x38, 0x20, 0x64, 0x00, 0x00, 0x00, 0xaa, 0xbb,
+]).toString("base64");
+const corruptWebpRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 217,
+      method: "tools/call",
+      params: {
+        name: "upload_portfolio_image",
+        arguments: { dataUrl: `data:image/webp;base64,${truncatedWebpAfterVp8x}` },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(corruptWebpRes.status, 200);
+const corruptWebpPayload = await corruptWebpRes.json();
+assert.equal(corruptWebpPayload.result.isError, true, "Truncated WebP following VP8X chunk must be rejected");
+
+const validAvifEofBox = Buffer.from([
+  0x00, 0x00, 0x00, 0x10, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x0c, 0x6d, 0x65, 0x74, 0x61, 0x00, 0x00, 0x00, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x6d, 0x64, 0x61, 0x74, 0x42,
+]).toString("base64");
+const validAvifRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 218,
+      method: "tools/call",
+      params: {
+        name: "upload_portfolio_image",
+        arguments: { dataUrl: `data:image/avif;base64,${validAvifEofBox}` },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(validAvifRes.status, 200);
+const validAvifPayload = await validAvifRes.json();
+assert.equal(validAvifPayload.result.isError, undefined, "Valid AVIF with EOF mdat boxSize=0 must be accepted");
+
+// 7b. deploy_custom_code_portfolio must promote customHtml + customCss + customJs to renderMode="full-code" + fullPageHtml
+const deployCustomHtmlRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 215,
+      method: "tools/call",
+      params: {
+        name: "deploy_custom_code_portfolio",
+        arguments: {
+          designName: "CustomHtml Alias Regression",
+          customHtml: "<!DOCTYPE html><html><body><h1>{{NAME}}</h1><div class=\"reveal\">Hi</div></body></html>",
+          customCss: ".reveal { opacity: 1; }",
+          customJs: "const $$ = (s) => document.querySelectorAll(s);",
+          publish: true,
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(deployCustomHtmlRes.status, 200);
+const deployCustomHtmlPayload = await deployCustomHtmlRes.json();
+assert.equal(deployCustomHtmlPayload.result.isError, undefined, "deploy_custom_code_portfolio with customHtml must succeed");
+const deployedCustomDesign = deployCustomHtmlPayload.result.structuredContent?.customDesign;
+assert.equal(deployedCustomDesign?.renderMode, "full-code", "deploy_custom_code_portfolio must enforce renderMode='full-code'");
+assert.match(deployedCustomDesign?.fullPageHtml?.en || "", /class="reveal"/, "customHtml must populate fullPageHtml for full-code rendering");
+assert.equal(deployedCustomDesign?.customHtml, undefined, "Promoted full-code HTML must not remain truncated in bespoke customHtml");
+
 // 8. Refresh token rotation & revocation
 const rotatedRes = await oauthCall("/oauth/token", {
   method: "POST",
@@ -1190,6 +1439,18 @@ assert.equal(rotatedRes.status, 200);
 const rotatedJson = await rotatedRes.json();
 assert.match(rotatedJson.access_token, /^tqd_oat_/);
 assert.notEqual(rotatedJson.refresh_token, tokenJson.refresh_token);
+
+const supersededAccessRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 214, method: "ping" }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(supersededAccessRes.status, 401, "Superseded access token must be revoked after refresh rotation");
 
 const staleRefreshRes = await oauthCall("/oauth/token", {
   method: "POST",

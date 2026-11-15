@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import { toast } from "sonner";
+import { SafeImage } from "@/components/safe-image";
+import { generateQrMatrix, qrMatrixToSvgPath } from "@/lib/qr";
 import {
   Globe2,
   ExternalLink,
@@ -96,6 +97,8 @@ export function PortfolioRenderer({
   const [hrBookingMode, setHrBookingMode] = useState<"advisory" | "hiring">("advisory");
   const [hrVisitorName, setHrVisitorName] = useState("");
   const [hrVisitorRole, setHrVisitorRole] = useState("");
+  const [hrVisitorEmail, setHrVisitorEmail] = useState("");
+  const [hrVisitorNote, setHrVisitorNote] = useState("");
   const [hrSubmitted, setHrSubmitted] = useState(false);
 
   useEffect(() => {
@@ -116,12 +119,17 @@ export function PortfolioRenderer({
     }
   }, []);
 
-  // Keyboard shortcut Cmd+K / Ctrl+K for Madar template
+  // Keyboard shortcuts: Cmd+K / Ctrl+K for Madar + Escape closes open modals
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCmdOpen((prev) => !prev);
+      } else if (e.key === "Escape") {
+        setCmdOpen(false);
+        setQrOpen(false);
+        setCvModalOpen(false);
+        setActiveProject(null);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -280,11 +288,15 @@ export function PortfolioRenderer({
           );
         });
 
-  const handleCopySubdomain = () => {
-    navigator.clipboard?.writeText(`https://${subdomainDisplay}`);
-    setCopiedUrl(true);
-    toast.success(t("تم نسخ رابط النطاق الفرعي!", "Subdomain URL copied!"));
-    setTimeout(() => setCopiedUrl(false), 2000);
+  const handleCopySubdomain = async () => {
+    try {
+      await navigator.clipboard?.writeText(`https://${subdomainDisplay}`);
+      setCopiedUrl(true);
+      toast.success(t("تم نسخ رابط النطاق الفرعي!", "Subdomain URL copied!"));
+      setTimeout(() => setCopiedUrl(false), 2000);
+    } catch {
+      toast.error(t("تعذر النسخ إلى الحافظة", "Could not copy URL to clipboard"));
+    }
   };
 
   void isStudioPreview;
@@ -340,12 +352,13 @@ export function PortfolioRenderer({
         </div>
 
         <div className="relative h-[340px] sm:h-[480px] w-full bg-[#0A0A09]">
-          <Image
+          <SafeImage
             src={
               activeProject.images?.[activeImageIdx] ||
               activeProject.images?.[0] ||
               data.cover
             }
+            fallbackSrc="/images/ultra/haven-hero.webp"
             alt={t(activeProject.title.ar, activeProject.title.en)}
             fill
             className="object-cover"
@@ -367,7 +380,7 @@ export function PortfolioRenderer({
                     idx === activeImageIdx ? "border-[#C89D66]" : "border-transparent opacity-60"
                   }`}
                 >
-                  <Image src={img} alt="" fill className="object-cover" />
+                  <SafeImage src={img} fallbackSrc="/images/ultra/haven-hero.webp" alt="" fill className="object-cover" />
                 </button>
               ))}
             </div>
@@ -388,6 +401,7 @@ export function PortfolioRenderer({
           canvasSectionStyle={canvasSectionStyle}
           canvasEditMode={canvasEditMode}
           selectedCanvasSection={selectedCanvasSection}
+          isLiveSubdomain={isLiveSubdomain}
           onSelectProject={(project) => {
             setActiveProject(project);
             setActiveImageIdx(0);
@@ -498,8 +512,9 @@ export function PortfolioRenderer({
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 mb-6">
                   <div className="flex items-center gap-4">
                     <div className="relative h-20 w-20 rounded-2xl overflow-hidden border border-[#C89D66]/60 shrink-0">
-                      <Image
+                      <SafeImage
                         src={data.avatar}
+                        fallbackSrc="/images/taqdom-avatar-placeholder.svg"
                         alt={t(data.name.ar, data.name.en)}
                         fill
                         className="object-cover"
@@ -660,8 +675,9 @@ export function PortfolioRenderer({
                   >
                     <div>
                       <div className="relative h-56 w-full overflow-hidden bg-[#181815]">
-                        <Image
+                        <SafeImage
                           src={proj.images?.[0] || data.cover}
+                          fallbackSrc="/images/ultra/haven-hero.webp"
                           alt={t(proj.title.ar, proj.title.en)}
                           fill
                           className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -747,6 +763,9 @@ export function PortfolioRenderer({
               onClick={() => setCmdOpen(false)}
             >
               <div
+                role="dialog"
+                aria-modal="true"
+                aria-label={t("البحث والأوامر السريعة", "Command Palette")}
                 className="w-full max-w-xl rounded-2xl border border-[#C89D66]/40 bg-[#121210] text-[#F4F1EA] shadow-2xl overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -836,8 +855,9 @@ export function PortfolioRenderer({
         <div data-canvas-template-root className="bg-[#080807] text-[#F4F1EA] min-h-screen">
           {/* Pinned Scrollytelling Cinema Stage */}
           <section data-canvas-section="hero" className="portfolio-canvas-section relative min-h-[82vh] flex flex-col justify-between p-6 sm:p-12 border-b border-[#F4F1EA]/10 overflow-hidden" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
-            <Image
+            <SafeImage
               src={data.projects?.[0]?.images?.[0] || data.cover}
+              fallbackSrc="/images/ultra/haven-hero.webp"
               alt={t(data.name.ar, data.name.en)}
               fill
               className={`object-cover transition-all duration-700 ${
@@ -882,8 +902,9 @@ export function PortfolioRenderer({
             <div className="relative z-10 my-auto max-w-4xl py-12">
               <div className="flex items-center gap-4 mb-6">
                 <div className="relative h-16 w-16 rounded-full overflow-hidden border-2 border-[#C89D66]">
-                  <Image
+                  <SafeImage
                     src={data.avatar}
+                    fallbackSrc="/images/taqdom-avatar-placeholder.svg"
                     alt={t(data.name.ar, data.name.en)}
                     fill
                     className="object-cover"
@@ -1003,8 +1024,9 @@ export function PortfolioRenderer({
                         cinemaAspect === "2.39:1" ? "aspect-[21/9]" : "aspect-video"
                       } min-h-[300px] sm:min-h-[380px]`}
                     >
-                      <Image
+                      <SafeImage
                         src={proj.images?.[0] || data.cover}
+                        fallbackSrc="/images/ultra/haven-hero.webp"
                         alt={t(proj.title.ar, proj.title.en)}
                         fill
                         className={`object-cover transition-transform duration-700 group-hover:scale-105 ${
@@ -1145,8 +1167,9 @@ export function PortfolioRenderer({
 
               <div className="lg:col-span-5">
                 <div className="relative aspect-[4/5] w-full max-w-sm mx-auto rounded-3xl overflow-hidden border border-[#141413]/15 shadow-2xl bg-[#EFECE6]">
-                  <Image
+                  <SafeImage
                     src={data.avatar}
+                    fallbackSrc="/images/taqdom-avatar-placeholder.svg"
                     alt={t(data.name.ar, data.name.en)}
                     fill
                     className="object-cover"
@@ -1210,8 +1233,9 @@ export function PortfolioRenderer({
                     className="sticky group cursor-pointer rounded-3xl bg-[#EFECE6] border border-[#141413]/15 overflow-hidden grid grid-cols-1 lg:grid-cols-12 shadow-[0_-10px_35px_rgba(20,20,19,0.08)] hover:border-[#9A7B4F] transition-all duration-500"
                   >
                     <div className="lg:col-span-7 relative min-h-[340px] overflow-hidden">
-                      <Image
+                      <SafeImage
                         src={proj.images?.[0] || data.cover}
+                        fallbackSrc="/images/ultra/haven-hero.webp"
                         alt={t(proj.title.ar, proj.title.en)}
                         fill
                         className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -1366,8 +1390,9 @@ export function PortfolioRenderer({
 
               <div className="lg:col-span-4 p-8 flex flex-col items-center justify-center bg-[#EFECE6]">
                 <div className="relative h-40 w-40 overflow-hidden border border-[#141413]/30 mb-4">
-                  <Image
+                  <SafeImage
                     src={data.avatar}
+                    fallbackSrc="/images/taqdom-avatar-placeholder.svg"
                     alt={t(data.name.ar, data.name.en)}
                     fill
                     className="object-cover"
@@ -1424,8 +1449,9 @@ export function PortfolioRenderer({
                   >
                     <div>
                       <div className="relative h-56 w-full overflow-hidden border-b border-[#141413]/20">
-                        <Image
+                        <SafeImage
                           src={proj.images?.[0] || data.cover}
+                          fallbackSrc="/images/ultra/haven-hero.webp"
                           alt={t(proj.title.ar, proj.title.en)}
                           fill
                           className="object-cover"
@@ -1463,6 +1489,25 @@ export function PortfolioRenderer({
               </div>
             </div>
 
+            {/* Core Competencies & Practice Areas */}
+            {skillsList.length > 0 && (
+              <div data-canvas-section="skills" className="portfolio-canvas-section p-8 sm:p-10 border-b border-[#141413]/20" style={canvasSectionStyle("skills")} data-canvas-selected={selectedCanvasSection === "skills" ? "true" : "false"}>
+                <h2 className="arabic-diacritics text-xl font-black mb-4">
+                  {t("مجالات الاختصاص والكفاءات", "Practice Areas & Competencies")}
+                </h2>
+                <div className="flex flex-wrap gap-2">
+                  {skillsList.map((skill) => (
+                    <span
+                      key={skill}
+                      className="border border-[#141413]/25 bg-[#EFECE6] px-3 py-1.5 font-mono text-xs font-bold text-[#141413]"
+                    >
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Executive Timeline */}
             {data.timeline && (
               <div data-canvas-section="timeline" className="portfolio-canvas-section p-8 sm:p-10" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
@@ -1491,57 +1536,57 @@ export function PortfolioRenderer({
           </div>
 
           {/* Siyada QR Business Card Modal */}
-          {qrOpen && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
-              onClick={() => setQrOpen(false)}
-            >
+          {qrOpen && (() => {
+            const qrPayload = `https://${subdomainDisplay}`;
+            const qrSvg = qrMatrixToSvgPath(generateQrMatrix(qrPayload), 2);
+            return (
               <div
-                className="w-full max-w-sm bg-[#F7F5F0] text-[#141413] border-2 border-[#141413] p-6 space-y-5 text-center"
-                onClick={(e) => e.stopPropagation()}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+                onClick={() => setQrOpen(false)}
               >
-                <div className="flex items-center justify-between border-b border-[#141413]/20 pb-3">
-                  <span className="font-mono text-xs font-bold">SOVEREIGN QR PASS</span>
-                  <button type="button" onClick={() => setQrOpen(false)}>
-                    <X className="h-4 w-4" />
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={t("بطاقة QR للنطاق الفرعي", "Sovereign QR Business Card")}
+                  className="w-full max-w-sm bg-[#F7F5F0] text-[#141413] border-2 border-[#141413] p-6 space-y-5 text-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-[#141413]/20 pb-3">
+                    <span className="font-mono text-xs font-bold">SOVEREIGN QR PASS</span>
+                    <button type="button" aria-label={t("إغلاق", "Close")} onClick={() => setQrOpen(false)} className="cursor-pointer p-1">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="mx-auto h-48 w-48 border border-[#141413] bg-[#FFFFFF] p-3 flex items-center justify-center">
+                    <svg
+                      viewBox={`0 0 ${qrSvg.viewBoxSize} ${qrSvg.viewBoxSize}`}
+                      shapeRendering="crispEdges"
+                      className="w-full h-full"
+                      role="img"
+                      aria-label={`QR Code for ${qrPayload}`}
+                    >
+                      <rect width={qrSvg.viewBoxSize} height={qrSvg.viewBoxSize} fill="#FFFFFF" />
+                      <path d={qrSvg.path} fill="#141413" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">{t(data.name.ar, data.name.en)}</h3>
+                    <p dir="ltr" className="font-mono text-xs text-[#9A7B4F] mt-1">
+                      {qrPayload}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopySubdomain}
+                    className="w-full flex items-center justify-center gap-2 bg-[#141413] text-[#F7F5F0] py-2.5 text-xs font-bold cursor-pointer"
+                  >
+                    {copiedUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    <span>{t("نسخ رابط البطاقة", "Copy Subdomain Link")}</span>
                   </button>
                 </div>
-                <div className="mx-auto h-44 w-44 border border-[#141413] bg-[#EFECE6] p-4 flex items-center justify-center">
-                  {/* Deterministic SVG QR Code Representation */}
-                  <svg viewBox="0 0 100 100" className="w-full h-full fill-[#141413]">
-                    <rect x="5" y="5" width="28" height="28" fill="none" stroke="#141413" strokeWidth="6" />
-                    <rect x="13" y="13" width="12" height="12" />
-                    <rect x="67" y="5" width="28" height="28" fill="none" stroke="#141413" strokeWidth="6" />
-                    <rect x="75" y="13" width="12" height="12" />
-                    <rect x="5" y="67" width="28" height="28" fill="none" stroke="#141413" strokeWidth="6" />
-                    <rect x="13" y="75" width="12" height="12" />
-                    <rect x="42" y="12" width="8" height="8" />
-                    <rect x="52" y="22" width="8" height="16" />
-                    <rect x="42" y="42" width="16" height="16" fill="#9A7B4F" />
-                    <rect x="12" y="44" width="18" height="8" />
-                    <rect x="66" y="44" width="22" height="8" />
-                    <rect x="42" y="68" width="10" height="22" />
-                    <rect x="62" y="64" width="14" height="14" />
-                    <rect x="80" y="78" width="12" height="12" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg">{t(data.name.ar, data.name.en)}</h3>
-                  <p dir="ltr" className="font-mono text-xs text-[#9A7B4F] mt-1">
-                    https://{subdomainDisplay}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopySubdomain}
-                  className="w-full flex items-center justify-center gap-2 bg-[#141413] text-[#F7F5F0] py-2.5 text-xs font-bold cursor-pointer"
-                >
-                  {copiedUrl ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  <span>{t("نسخ رابط البطاقة", "Copy Subdomain Link")}</span>
-                </button>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Siyada Export / Print CV Modal */}
           {cvModalOpen && (
@@ -1550,15 +1595,21 @@ export function PortfolioRenderer({
               onClick={() => setCvModalOpen(false)}
             >
               <div
-                className="w-full max-w-2xl bg-[#F7F5F0] text-[#141413] border-2 border-[#141413] p-8 space-y-6 max-h-[88vh] overflow-y-auto"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t("السيرة الذاتية للطباعة", "Printable CV / Resume")}
+                className="siyada-cv-printable w-full max-w-2xl bg-[#F7F5F0] text-[#141413] border-2 border-[#141413] p-8 space-y-6 max-h-[88vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between border-b border-[#141413]/20 pb-4">
                   <div>
                     <h3 className="font-bold text-xl">{t(data.name.ar, data.name.en)}</h3>
                     <p className="text-xs text-[#5E5B55]">{t(data.title.ar, data.title.en)}</p>
+                    <p dir="ltr" className="font-mono text-[11px] text-[#9A7B4F] mt-0.5">
+                      https://{subdomainDisplay}
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="siyada-cv-print-hide flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => window.print()}
@@ -1567,12 +1618,21 @@ export function PortfolioRenderer({
                       <Printer className="h-3.5 w-3.5" />
                       <span>{t("طباعة / حفظ PDF", "Print / Save PDF")}</span>
                     </button>
-                    <button type="button" onClick={() => setCvModalOpen(false)}>
+                    <button type="button" aria-label={t("إغلاق", "Close")} onClick={() => setCvModalOpen(false)} className="cursor-pointer p-1">
                       <X className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
                 <p className="text-sm leading-relaxed">{t(data.bio.ar, data.bio.en)}</p>
+                {skillsList.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {skillsList.map((sk) => (
+                      <span key={sk} className="border border-[#141413]/20 px-2 py-0.5 font-mono text-[11px]">
+                        {sk}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="space-y-3">
                   <h4 className="font-mono text-xs uppercase tracking-widest text-[#9A7B4F]">
                     {t("الخبرات ودراسات الحالة", "EXPERIENCE & CASE STUDIES")}
@@ -1595,19 +1655,60 @@ export function PortfolioRenderer({
       {/* =====================================================================
           TEMPLATE 5: WAMEED (وَمِيض) — High-Velocity Tele-Sales & Revenue Closer
          ===================================================================== */}
-      {activeTemplate === "wameed" && (
+      {activeTemplate === "wameed" && (() => {
+        const contactCandidate =
+          (data.links || []).find((l) => /wa\.me|whatsapp|tel:|mailto:/i.test(l.url || "")) ||
+          (data.links || []).find((l) => safePortfolioUrl(l.url) !== "#");
+        const directCtaHref = contactCandidate
+          ? safePortfolioUrl(contactCandidate.url)
+          : data.username === "tariq"
+          ? "https://wa.me/201000000000"
+          : "#wameed-contact-section";
+        const defaultWameedRings = [
+          { pct: "148%", labelAr: "تحقيق التارجت السنوي", labelEn: "Annual Quota Attainment", stroke: 92 },
+          { pct: "31.5%", labelAr: "تحويل المكالمات لإغلاق", labelEn: "Call-to-Close Ratio", stroke: 78 },
+          { pct: "$2.4M", labelAr: "مبيعات مغلقة موثّقة", labelEn: "Verified Closed Revenue", stroke: 88 },
+          { pct: "94%", labelAr: "نسبة حضور العروض", labelEn: "Demo Show-Up Rate", stroke: 94 },
+        ];
+        const wameedRings =
+          (data.metrics || []).length > 0
+            ? (data.metrics || []).slice(0, 4).map((m, idx) => {
+                const numericMatch = String(m.value || "").match(/(\d+(?:\.\d+)?)/);
+                const parsedNum = numericMatch ? parseFloat(numericMatch[1]) : 85;
+                const stroke = Math.max(22, Math.min(98, parsedNum > 100 ? 94 : Math.round(parsedNum)));
+                return {
+                  pct: m.value,
+                  labelAr: m.label.ar,
+                  labelEn: m.label.en,
+                  stroke: stroke || (80 + idx * 4),
+                };
+              })
+            : defaultWameedRings;
+        const speakerLabel = data.username === "tariq" ? t("طارق", "Tariq") : t(data.name.ar || data.username, data.name.en || data.username);
+        return (
         <div data-canvas-template-root className="bg-[#0A0A09] text-[#F4F1EA] min-h-screen py-12 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl space-y-10">
             {/* Hero Deal Desk Banner */}
             <div data-canvas-section="hero" className="portfolio-canvas-section rounded-3xl border border-[#C89D66]/35 bg-[#121210] p-7 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
               <div className="lg:col-span-7 space-y-5">
-                <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-4 py-1 text-xs font-bold text-emerald-400">
-                  <PhoneCall className="h-3.5 w-3.5" />
-                  <span>
-                    {data.badge
-                      ? t(data.badge.ar, data.badge.en)
-                      : t("خبير إغلاق مبيعات هاتفية • 148% Quota Closer", "Top 1% Tele-Sales Closer • 148% Quota")}
-                  </span>
+                <div className="flex items-center gap-4">
+                  <div className="relative h-16 w-16 rounded-2xl overflow-hidden border border-[#C89D66]/60 shrink-0 bg-[#181815]">
+                    <SafeImage
+                      src={data.avatar}
+                      fallbackSrc="/images/taqdom-avatar-placeholder.svg"
+                      alt={t(data.name.ar, data.name.en)}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 border border-emerald-500/40 px-4 py-1 text-xs font-bold text-emerald-400">
+                    <PhoneCall className="h-3.5 w-3.5" />
+                    <span>
+                      {data.badge
+                        ? t(data.badge.ar, data.badge.en)
+                        : t("خبير إغلاق مبيعات هاتفية • Revenue Closer", "Top Revenue & Deal Desk Closer")}
+                    </span>
+                  </div>
                 </div>
                 <h1 className="arabic-diacritics text-3xl sm:text-5xl font-black tracking-tight">
                   {t(data.name.ar, data.name.en)}
@@ -1619,17 +1720,21 @@ export function PortfolioRenderer({
                   {t(data.bio.ar, data.bio.en)}
                 </p>
 
-                {/* Instant WhatsApp & Discovery Call Booking CTA */}
+                {/* Instant Contact & Discovery Call Booking CTA */}
                 <div className="pt-2 flex flex-wrap items-center gap-3">
                   <a
-                    href="https://wa.me/201000000000"
-                    target="_blank"
-                    rel="noreferrer"
+                    href={directCtaHref}
+                    target={directCtaHref.startsWith("#") ? undefined : "_blank"}
+                    rel={directCtaHref.startsWith("#") ? undefined : "noreferrer"}
                     data-testid="wameed-whatsapp-cta"
                     className="inline-flex items-center gap-2 rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-6 py-3.5 text-xs sm:text-sm font-extrabold text-[#0A0A09] shadow-lg transition"
                   >
                     <MessageCircle className="h-4 w-4" />
-                    <span>{t("تواصل فوري عبر واتساب", "Instant WhatsApp Deal Desk")}</span>
+                    <span>
+                      {contactCandidate && data.username !== "tariq"
+                        ? contactCandidate.label || t("تواصل مباشر الآن", "Direct Contact Desk")
+                        : t("تواصل فوري عبر واتساب", "Instant WhatsApp Deal Desk")}
+                    </span>
                   </a>
                   <a
                     href="#wameed-pitch-player"
@@ -1643,12 +1748,7 @@ export function PortfolioRenderer({
 
               {/* Quota Attainment Rings */}
               <div data-canvas-section="metrics" className="portfolio-canvas-section lg:col-span-5 grid grid-cols-2 gap-4" style={canvasSectionStyle("metrics")} data-canvas-selected={selectedCanvasSection === "metrics" ? "true" : "false"}>
-                {[
-                  { pct: "148%", labelAr: "تحقيق التارجت السنوي", labelEn: "Annual Quota Attainment", stroke: 92 },
-                  { pct: "31.5%", labelAr: "تحويل المكالمات لإغلاق", labelEn: "Call-to-Close Ratio", stroke: 78 },
-                  { pct: "$2.4M", labelAr: "مبيعات مغلقة موثّقة", labelEn: "Verified Closed Revenue", stroke: 88 },
-                  { pct: "94%", labelAr: "نسبة حضور العروض", labelEn: "Demo Show-Up Rate", stroke: 94 },
-                ].map((ring, idx) => (
+                {wameedRings.map((ring, idx) => (
                   <div
                     key={idx}
                     className="rounded-2xl border border-[#F4F1EA]/10 bg-[#181815] p-4 flex flex-col items-center text-center"
@@ -1759,8 +1859,8 @@ export function PortfolioRenderer({
                 <div className="rounded-2xl bg-[#181815] border border-[#C89D66]/30 p-4 text-xs sm:text-sm leading-relaxed text-[#F4F1EA]">
                   {activePitchStage === 0 &&
                     t(
-                      "«أهلاً أستاذ خالد، معك طارق — أعلم أن جدولك مزدحم، خلال ٢٥ ثانية سأوضح لك كيف قلصنا تكلفة اكتساب العملاء لشركتين في نفس قطاعك بنسبة ٤٠٪ هذا الربع...»",
-                      "“Hi Khaled, Tariq here — I know I'm calling out of the blue. Give me 25 seconds to share how we cut acquisition burn by 40% for two GCC peers this quarter...”"
+                      `«أهلاً بك، معك ${speakerLabel} — أعلم أن جدولك مزدحم، خلال ٢٥ ثانية سأوضح لك كيف قلصنا تكلفة اكتساب العملاء لشركتين في نفس قطاعك بنسبة ٤٠٪ هذا الربع...»`,
+                      `“Hi there, ${speakerLabel} here — I know I'm calling out of the blue. Give me 25 seconds to share how we cut acquisition burn by 40% for two GCC peers this quarter...”`
                     )}
                   {activePitchStage === 1 &&
                     t(
@@ -1862,8 +1962,9 @@ export function PortfolioRenderer({
                   className="cursor-pointer rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] overflow-hidden hover:border-[#C89D66] transition"
                 >
                   <div className="relative h-52 w-full">
-                    <Image
+                    <SafeImage
                       src={proj.images?.[0] || data.cover}
+                      fallbackSrc="/images/ultra/haven-hero.webp"
                       alt={t(proj.title.ar, proj.title.en)}
                       fill
                       className="object-cover"
@@ -1889,8 +1990,8 @@ export function PortfolioRenderer({
             </div>
 
             {/* Wameed Sales Leadership Timeline & External Links */}
-            {data.timeline && data.timeline.length > 0 && (
-              <div data-canvas-section="timeline" className="portfolio-canvas-section rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 space-y-5" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
+            {data.timeline && data.timeline.length > 0 ? (
+              <div id="wameed-contact-section" data-canvas-section="timeline" className="portfolio-canvas-section rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 space-y-5" style={canvasSectionStyle("timeline")} data-canvas-selected={selectedCanvasSection === "timeline" ? "true" : "false"}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="arabic-diacritics text-xl sm:text-2xl font-bold">
                     {t("سجل الإنجازات البيعية وقيادة فرق الإيرادات", "Revenue Leadership & Quota Attainment Record")}
@@ -1930,23 +2031,138 @@ export function PortfolioRenderer({
                   ))}
                 </div>
               </div>
+            ) : (
+              <div id="wameed-contact-section" className="rounded-3xl border border-[#F4F1EA]/10 bg-[#121210] p-7 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="arabic-diacritics text-lg font-bold">
+                    {t("قنوات التواصل المباشر والصفقات", "Direct Deal Desk & Contact Channels")}
+                  </h2>
+                  <p className="text-xs text-[#A09C94] mt-1">
+                    {t(data.city.ar, data.city.en)}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(data.links || []).map((l, i) => (
+                    <a
+                      key={i}
+                      href={safePortfolioUrl(l.url)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#C89D66]/40 bg-[#181815] px-3.5 py-1.5 text-xs font-bold text-[#C89D66]"
+                    >
+                      <span>{l.label}</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* =====================================================================
           TEMPLATE 6: SALAM (سَلَام) — MarTech, Digital Marketing Tech & Growth
          ===================================================================== */}
-      {activeTemplate === "salam" && (
+      {activeTemplate === "salam" && (() => {
+        const isDefaultSalma = data.username === "salma";
+        const defaultPipelineNodes = [
+          {
+            id: 0,
+            titleAr: "١. استخراج البيانات",
+            titleEn: "1. Web Scraper",
+            tool: "Playwright + Apify",
+            inspector: '{ "stage": "Playwright Cluster", "scraped_profiles": "250,000/mo", "proxy_rotation": "healthy" }',
+          },
+          {
+            id: 1,
+            titleAr: "٢. إثراء الذكاء الاصطناعي",
+            titleEn: "2. AI Enrichment",
+            tool: "Clay.com + n8n",
+            inspector: '{ "stage": "Clay + n8n Webhook", "waterfall_enrichment": "96.8% valid emails", "ai_personalization": "active" }',
+          },
+          {
+            id: 2,
+            titleAr: "٣. التتبع السحابي",
+            titleEn: "3. Server-Side GTM",
+            tool: "Cloudflare + sGTM",
+            inspector: '{ "stage": "Server-Side GTM", "first_party_cookie": "taqdom_fp_id", "meta_capi_emq": "9.4/10" }',
+          },
+          {
+            id: 3,
+            titleAr: "٤. مزامنة الإعلانات والـ CRM",
+            titleEn: "4. CAPI & CRM Sync",
+            tool: "Meta/TikTok CAPI + HubSpot",
+            inspector: '{ "stage": "HubSpot + Ad Networks", "offline_conversion_sync": "real-time (<120ms)", "cpa_reduction": "-44%" }',
+          },
+          {
+            id: 4,
+            titleAr: "٥. تحليل العائد المالي",
+            titleEn: "5. SQL Attribution",
+            tool: "BigQuery + Looker",
+            inspector: '{ "stage": "BigQuery Multi-Touch Attribution", "blended_roas": "6.8x", "incremental_revenue": "$1.85M" }',
+          },
+        ];
+        const pipelineNodes = isDefaultSalma
+          ? defaultPipelineNodes
+          : [
+              ...data.projects.slice(0, 5).map((p, idx) => ({
+                id: idx,
+                titleAr: `${idx + 1}. ${p.title.ar || p.title.en || `Stage ${idx + 1}`}`,
+                titleEn: `${idx + 1}. ${p.title.en || p.title.ar || `Stage ${idx + 1}`}`,
+                tool: (p.tags && p.tags.slice(0, 2).join(" + ")) || skillsList[idx] || p.year || "Production Node",
+                inspector: JSON.stringify({
+                  stage: p.title.en || p.title.ar || `Stage ${idx + 1}`,
+                  metrics: p.metrics || "verified",
+                  year: p.year || "active",
+                  stack: p.tags || skillsList.slice(idx, idx + 2),
+                }),
+              })),
+              ...(data.projects.length === 0
+                ? skillsList.slice(0, 5).map((sk, idx) => ({
+                    id: idx,
+                    titleAr: `${idx + 1}. ${sk}`,
+                    titleEn: `${idx + 1}. ${sk}`,
+                    tool: data.username,
+                    inspector: JSON.stringify({ capability: sk, owner: data.username, status: "active" }),
+                  }))
+                : []),
+            ];
+        const safeNodeIdx = Math.min(activePipelineNode, Math.max(0, pipelineNodes.length - 1));
+        const activeNodeObj = pipelineNodes[safeNodeIdx];
+        const afterMetrics =
+          !isDefaultSalma && data.metrics && data.metrics.length > 0
+            ? data.metrics.slice(0, 3)
+            : [
+                { value: "3.98%", label: { ar: "Conversion (+184%)", en: "Conversion (+184%)" } },
+                { value: "6.8x", label: { ar: "Verified ROAS", en: "Verified ROAS" } },
+                { value: "99.2%", label: { ar: "Signal Recovery", en: "Signal Recovery" } },
+              ];
+        return (
         <div data-canvas-template-root className="bg-[#F7F5F0] text-[#141413] min-h-screen py-12 px-4 sm:px-8">
           <div className="mx-auto max-w-7xl space-y-10">
             {/* MarTech Hero Header */}
             <div data-canvas-section="hero" className="portfolio-canvas-section rounded-3xl bg-[#141413] text-[#F4F1EA] p-8 sm:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center" style={canvasSectionStyle("hero")} data-canvas-selected={selectedCanvasSection === "hero" ? "true" : "false"}>
               <div className="lg:col-span-8 space-y-4">
-                <div className="inline-flex items-center gap-2 rounded-full bg-[#C89D66]/20 border border-[#C89D66]/40 px-3.5 py-1 font-mono text-xs text-[#C89D66]">
-                  <Workflow className="h-3.5 w-3.5" />
-                  <span>MARTECH • GROWTH ENGINEERING • DATA SCRAPING</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative h-14 w-14 rounded-2xl overflow-hidden border border-[#C89D66]/60 bg-[#1C1C19] shrink-0">
+                    <SafeImage
+                      src={data.avatar}
+                      fallbackSrc="/images/taqdom-avatar-placeholder.svg"
+                      alt={t(data.name.ar, data.name.en)}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#C89D66]/20 border border-[#C89D66]/40 px-3.5 py-1 font-mono text-xs text-[#C89D66]">
+                    <Workflow className="h-3.5 w-3.5" />
+                    <span>
+                      {data.badge
+                        ? t(data.badge.ar, data.badge.en)
+                        : "MARTECH • GROWTH ENGINEERING • DATA SCRAPING"}
+                    </span>
+                  </div>
                 </div>
                 <h1 className="arabic-diacritics text-3xl sm:text-5xl font-extrabold">
                   {t(data.name.ar, data.name.en)}
@@ -1994,6 +2210,7 @@ export function PortfolioRenderer({
             </div>
 
             {/* Interactive Automation & Data Scraping Pipeline Nodes */}
+            {pipelineNodes.length > 0 && (
             <div data-canvas-section="projects" className="portfolio-canvas-section rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-6" style={canvasSectionStyle("projects")} data-canvas-selected={selectedCanvasSection === "projects" ? "true" : "false"}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -2012,45 +2229,9 @@ export function PortfolioRenderer({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-                {[
-                  {
-                    id: 0,
-                    titleAr: "١. استخراج البيانات",
-                    titleEn: "1. Web Scraper",
-                    tool: "Playwright + Apify",
-                    payload: '{ "scraped_domains": 12400, "verified_b2b": "98.4%" }',
-                  },
-                  {
-                    id: 1,
-                    titleAr: "٢. إثراء الذكاء الاصطناعي",
-                    titleEn: "2. AI Enrichment",
-                    tool: "Clay.com + n8n",
-                    payload: '{ "intent_score": 92, "decision_maker": "CMO / VP Growth" }',
-                  },
-                  {
-                    id: 2,
-                    titleAr: "٣. التتبع السحابي",
-                    titleEn: "3. Server-Side GTM",
-                    tool: "Cloudflare + sGTM",
-                    payload: '{ "event": "Purchase", "emq_score": 9.3, "cookie_lifetime": "400d" }',
-                  },
-                  {
-                    id: 3,
-                    titleAr: "٤. مزامنة الإعلانات والـ CRM",
-                    titleEn: "4. CAPI & CRM Sync",
-                    tool: "Meta/TikTok CAPI + HubSpot",
-                    payload: '{ "capi_match": "99.2%", "roas_lift": "+134%" }',
-                  },
-                  {
-                    id: 4,
-                    titleAr: "٥. تحليل العائد المالي",
-                    titleEn: "5. SQL Attribution",
-                    tool: "BigQuery + Looker",
-                    payload: '{ "blended_roas": "6.8x", "cac_delta": "-44%" }',
-                  },
-                ].map((node) => {
-                  const selected = activePipelineNode === node.id;
+              <div className={`grid grid-cols-1 gap-3 ${pipelineNodes.length >= 5 ? "sm:grid-cols-5" : pipelineNodes.length >= 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+                {pipelineNodes.map((node) => {
+                  const selected = safeNodeIdx === node.id;
                   return (
                     <button
                       key={node.id}
@@ -2072,22 +2253,17 @@ export function PortfolioRenderer({
                 })}
               </div>
 
+              {activeNodeObj && (
               <div
                 dir="ltr"
                 className="rounded-2xl bg-[#141413] text-emerald-400 p-4 font-mono text-xs overflow-x-auto"
               >
-                <span className="text-[#C89D66]">NODE_INSPECTOR[{activePipelineNode}] $ </span>
-                {
-                  [
-                    '{ "stage": "Playwright Cluster", "scraped_profiles": "250,000/mo", "proxy_rotation": "healthy" }',
-                    '{ "stage": "Clay + n8n Webhook", "waterfall_enrichment": "96.8% valid emails", "ai_personalization": "active" }',
-                    '{ "stage": "Server-Side GTM", "first_party_cookie": "taqdom_fp_id", "meta_capi_emq": "9.4/10" }',
-                    '{ "stage": "HubSpot + Ad Networks", "offline_conversion_sync": "real-time (<120ms)", "cpa_reduction": "-44%" }',
-                    '{ "stage": "BigQuery Multi-Touch Attribution", "blended_roas": "6.8x", "incremental_revenue": "$1.85M" }',
-                  ][activePipelineNode]
-                }
+                <span className="text-[#C89D66]">NODE_INSPECTOR[{safeNodeIdx}] $ </span>
+                {activeNodeObj.inspector}
               </div>
+              )}
             </div>
+            )}
 
             {/* Interactive CRO Before / After Comparator */}
             <div className="rounded-3xl border border-[#141413]/15 bg-[#EFECE6] p-7 sm:p-9 space-y-6">
@@ -2163,28 +2339,14 @@ export function PortfolioRenderer({
                       )}
                     </span>
                     <div className="grid grid-cols-3 gap-3 pt-2">
-                      <div>
-                        <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">
-                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>3.98%</span>
-                        </p>
-                        <p className="text-[11px] text-[#5E5B55]">
-                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>
-                            Conversion (+184%)
-                          </span>
-                        </p>
-                      </div>
-                      <div>
-                        <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">
-                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>6.8x</span>
-                        </p>
-                        <p className="text-[11px] text-[#5E5B55]">Verified ROAS</p>
-                      </div>
-                      <div>
-                        <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">
-                          <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>99.2%</span>
-                        </p>
-                        <p className="text-[11px] text-[#5E5B55]">Signal Recovery</p>
-                      </div>
+                      {afterMetrics.map((am, idx) => (
+                        <div key={idx}>
+                          <p className="font-mono text-2xl font-extrabold text-[#1E3A2F]">
+                            <span dir="ltr" className="inline-block" style={{ unicodeBidi: "isolate" }}>{am.value}</span>
+                          </p>
+                          <p className="text-[11px] text-[#5E5B55]">{t(am.label.ar, am.label.en)}</p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -2241,8 +2403,9 @@ export function PortfolioRenderer({
                   className="cursor-pointer rounded-3xl border border-[#141413]/15 bg-[#EFECE6] overflow-hidden hover:border-[#1E3A2F] transition"
                 >
                   <div className="relative h-56 w-full">
-                    <Image
+                    <SafeImage
                       src={proj.images?.[0] || data.cover}
+                      fallbackSrc="/images/ultra/haven-hero.webp"
                       alt={t(proj.title.ar, proj.title.en)}
                       fill
                       className="object-cover"
@@ -2292,7 +2455,8 @@ export function PortfolioRenderer({
             )}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* =====================================================================
           TEMPLATE 7: MESHWAR (مِشْوَار) — Human-Centric HR & Talent Acquisition
@@ -2339,8 +2503,9 @@ export function PortfolioRenderer({
               </div>
               <div className="lg:col-span-4 flex flex-col items-center">
                 <div className="relative h-44 w-44 rounded-full overflow-hidden border-4 border-[#9A7B4F] shadow-xl">
-                  <Image
+                  <SafeImage
                     src={data.avatar}
+                    fallbackSrc="/images/taqdom-avatar-placeholder.svg"
                     alt={t(data.name.ar, data.name.en)}
                     fill
                     className="object-cover"
@@ -2434,8 +2599,9 @@ export function PortfolioRenderer({
                   className="cursor-pointer rounded-3xl bg-[#EFECE6] border border-[#141413]/12 overflow-hidden hover:border-[#9A7B4F] transition"
                 >
                   <div className="relative h-52 w-full">
-                    <Image
+                    <SafeImage
                       src={proj.images?.[0] || data.cover}
+                      fallbackSrc="/images/ultra/haven-hero.webp"
                       alt={t(proj.title.ar, proj.title.en)}
                       fill
                       className="object-cover"
@@ -2496,23 +2662,87 @@ export function PortfolioRenderer({
                   </button>
                 </div>
 
-                {hrSubmitted ? (
-                  <div className="rounded-2xl bg-emerald-500/15 border border-emerald-500/40 p-5 text-center space-y-2">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-400 mx-auto" />
-                    <p className="font-bold text-sm">
-                      {t(
-                        `تم استلام طلبك بنجاح! سيتواصل معك فريق ${data.name.ar || data.username} خلال ٢٤ ساعة.`,
-                        "Your request has been scheduled! We will reach out within 24 hours."
+                {hrSubmitted ? (() => {
+                  const inquiryText = [
+                    `${hrBookingMode === "advisory" ? "1:1 Career & CV Advisory" : "Talent Nomination / Hiring"} — ${data.name.ar || data.username}`,
+                    `Name: ${hrVisitorName}`,
+                    `Role / Company: ${hrVisitorRole}`,
+                    hrVisitorEmail ? `Email: ${hrVisitorEmail}` : "",
+                    hrVisitorNote ? `Notes: ${hrVisitorNote}` : "",
+                  ].filter(Boolean).join("\n");
+                  const creatorMailLink = (data.links || []).find((l) => /^mailto:/i.test(l.url || ""));
+                  const mailHref = creatorMailLink
+                    ? `${creatorMailLink.url}${creatorMailLink.url.includes("?") ? "&" : "?"}subject=${encodeURIComponent(`Portfolio Inquiry: ${hrVisitorName}`)}&body=${encodeURIComponent(inquiryText)}`
+                    : null;
+                  return (
+                  <div className="rounded-2xl bg-emerald-500/15 border border-emerald-500/40 p-6 space-y-4">
+                    <div className="text-center space-y-2">
+                      <CheckCircle2 className="h-6 w-6 text-emerald-400 mx-auto" />
+                      <p className="font-bold text-sm">
+                        {t(
+                          `تم تسجيل طلبك بنجاح! يمكنك نسخه أو إرساله مباشرة إلى ${data.name.ar || data.username}.`,
+                          `Inquiry prepared for ${data.name.en || data.username}! Copy details or send directly.`
+                        )}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-[#141413]/70 border border-[#F4F1EA]/10 p-3.5 text-xs text-[#E0DDD5] space-y-1 text-start">
+                      <p><span className="text-[#C89D66] font-semibold">{t("النوع:", "Type:")}</span> {hrBookingMode === "advisory" ? t("استشارة مهنية", "Career Advisory") : t("استقطاب كفاءات", "Talent Mandate")}</p>
+                      <p><span className="text-[#C89D66] font-semibold">{t("الاسم:", "Name:")}</span> {hrVisitorName}</p>
+                      <p><span className="text-[#C89D66] font-semibold">{t("التخصص / الشركة:", "Role / Company:")}</span> {hrVisitorRole}</p>
+                      {hrVisitorEmail && <p><span className="text-[#C89D66] font-semibold">{t("البريد:", "Email:")}</span> {hrVisitorEmail}</p>}
+                      {hrVisitorNote && <p><span className="text-[#C89D66] font-semibold">{t("التفاصيل:", "Details:")}</span> {hrVisitorNote}</p>}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-2.5">
+                      <button
+                        type="button"
+                        data-testid="meshwar-copy-inquiry-btn"
+                        onClick={async () => {
+                          try {
+                            if (!navigator.clipboard?.writeText) throw new Error("unavailable");
+                            await navigator.clipboard.writeText(inquiryText);
+                            toast.success(t("تم نسخ ملخص الطلب!", "Inquiry summary copied!"));
+                          } catch {
+                            toast.error(t("تعذر النسخ التلقائي — انسخ النص يدوياً", "Clipboard unavailable — copy text manually"));
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#C89D66] px-4 py-2 text-xs font-extrabold text-[#0A0A09] cursor-pointer"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>{t("نسخ ملخص الطلب", "Copy summary")}</span>
+                      </button>
+                      {mailHref && (
+                        <a
+                          href={mailHref}
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-[#C89D66]/50 bg-[#1C1C19] px-4 py-2 text-xs font-bold text-[#F4F1EA]"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-[#C89D66]" />
+                          <span>{t("إرسال عبر البريد", "Open Email App")}</span>
+                        </a>
                       )}
-                    </p>
+                      <button
+                        type="button"
+                        data-testid="meshwar-reset-inquiry-btn"
+                        onClick={() => {
+                          setHrSubmitted(false);
+                          setHrVisitorName("");
+                          setHrVisitorRole("");
+                          setHrVisitorEmail("");
+                          setHrVisitorNote("");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#F4F1EA]/20 px-4 py-2 text-xs font-bold text-[#E0DDD5] hover:border-[#C89D66] cursor-pointer"
+                      >
+                        <span>{t("إرسال طلب آخر", "Send another")}</span>
+                      </button>
+                    </div>
                   </div>
-                ) : (
+                  );
+                })() : (
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       setHrSubmitted(true);
                       toast.success(
-                        t("تم تأكيد حجز جلسة الاستشارة المهنية!", "Consultation request confirmed!")
+                        t("تم تجهيز طلب الاستشارة المهنية بنجاح!", "Consultation inquiry prepared!")
                       );
                     }}
                     className="grid grid-cols-1 sm:grid-cols-2 gap-4"
@@ -2536,6 +2766,20 @@ export function PortfolioRenderer({
                           : t("اسم الشركة والوظيفة المطلوبة", "Company & Open Role")
                       }
                       className="rounded-xl border border-[#F4F1EA]/15 bg-[#1C1C19] px-4 py-3 text-sm text-[#F4F1EA]"
+                    />
+                    <input
+                      type="email"
+                      value={hrVisitorEmail}
+                      onChange={(e) => setHrVisitorEmail(e.target.value)}
+                      placeholder={t("بريدك الإلكتروني للتواصل (اختياري)", "Your reply email (optional)")}
+                      className="sm:col-span-2 rounded-xl border border-[#F4F1EA]/15 bg-[#1C1C19] px-4 py-3 text-sm text-[#F4F1EA]"
+                    />
+                    <textarea
+                      rows={2}
+                      value={hrVisitorNote}
+                      onChange={(e) => setHrVisitorNote(e.target.value)}
+                      placeholder={t("نبذة سريعة أو الموعد المناسب لك (اختياري)", "Brief notes or preferred time slot (optional)")}
+                      className="sm:col-span-2 rounded-xl border border-[#F4F1EA]/15 bg-[#1C1C19] px-4 py-3 text-sm text-[#F4F1EA]"
                     />
                     <button
                       type="submit"

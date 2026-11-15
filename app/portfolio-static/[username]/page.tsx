@@ -9,6 +9,7 @@ export function generateStaticParams() {
     { username: "tariq" },
     { username: "salma" },
     { username: "nora" },
+    { username: "_shell" },
   ];
 }
 

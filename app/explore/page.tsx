@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Compass, ExternalLink, MapPin, Search } from "lucide-react";
 import { Header } from "@/components/header";
 import { FooterSection } from "@/components/sections/footer-section";
+import { SafeImage } from "@/components/safe-image";
 import { useLanguage } from "@/lib/i18n";
 import { useTaqdomStore } from "@/lib/store";
 import { SEED_PORTFOLIOS, TEMPLATES_CATALOG } from "@/lib/seed-data";
@@ -15,6 +15,7 @@ export default function ExplorePage() {
   const { lang, t } = useLanguage();
   const publishedPortfolios = useTaqdomStore((s) => s.publishedPortfolios);
   const [serverPortfolios, setServerPortfolios] = useState<Record<string, PortfolioData>>({});
+  const [serverLoaded, setServerLoaded] = useState(false);
   const [filterTemplate, setFilterTemplate] = useState<TemplateId | "all">("all");
   const [query, setQuery] = useState("");
   const [host, setHost] = useState("taqdom.me");
@@ -34,12 +35,15 @@ export default function ExplorePage() {
             }
           }
           setServerPortfolios(map);
+          setServerLoaded(true);
         }
       })
       .catch(() => {});
   }, []);
 
-  const mergedMap = { ...SEED_PORTFOLIOS, ...publishedPortfolios, ...serverPortfolios };
+  const mergedMap = serverLoaded
+    ? { ...SEED_PORTFOLIOS, ...serverPortfolios }
+    : { ...SEED_PORTFOLIOS, ...publishedPortfolios, ...serverPortfolios };
   const allCreators = Object.values(mergedMap).filter((c) => {
     if (c.isFlagshipShowcase !== true && c.discoverable !== true) return false;
     if (filterTemplate !== "all" && c.template !== filterTemplate) return false;
@@ -122,8 +126,9 @@ export default function ExplorePage() {
                   className="glass-panel rounded-3xl overflow-hidden flex flex-col justify-between border border-border hover:border-[#9A7B4F] dark:hover:border-[#C89D66] transition-all duration-300 shadow-xl"
                 >
                   <div className="relative h-48 w-full overflow-hidden bg-[#0F172A]">
-                    <Image
+                    <SafeImage
                       src={creator.projects?.[0]?.images?.[0] || creator.cover}
+                      fallbackSrc="/images/ultra/haven-hero.webp"
                       alt={t(creator.name.ar, creator.name.en)}
                       fill
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -139,8 +144,9 @@ export default function ExplorePage() {
                     </div>
                     <div className="absolute bottom-3.5 inset-x-4 flex items-center gap-3">
                       <div className="relative h-14 w-14 shrink-0 rounded-2xl overflow-hidden border-2 border-[#C89D66] bg-[#141D2E]">
-                        <Image
+                        <SafeImage
                           src={creator.avatar}
+                          fallbackSrc="/images/taqdom-avatar-placeholder.svg"
                           alt={t(creator.name.ar, creator.name.en)}
                           fill
                           sizes="56px"

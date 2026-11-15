@@ -37,22 +37,28 @@ export function PublishedPortfolioClient({
   username: string;
 }) {
   const ssrUsername = username.trim().toLowerCase();
+  const isShellSsr = ssrUsername === "_shell";
 
-  const [activeUsername, setActiveUsername] = useState<string>(ssrUsername);
+  const [activeUsername, setActiveUsername] = useState<string>(isShellSsr ? "" : ssrUsername);
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(initialPortfolio);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(isShellSsr);
 
   const trackedViewForRef = useRef<string>("");
 
   useEffect(() => {
     const detected = detectBrowserSubdomain(ssrUsername);
-    setActiveUsername(detected);
+    const resolvedDetected = detected === "_shell" ? "" : detected;
+    setActiveUsername(resolvedDetected);
     const localPublished = useTaqdomStore.getState().publishedPortfolios;
 
     // 1. If Edge Worker already injected fresh D1 data, use it immediately after hydration
     if (typeof window !== "undefined" && window.__TAQDOM_PORTFOLIO__ !== undefined) {
       setPortfolio(window.__TAQDOM_PORTFOLIO__);
       setIsLoading(false);
+    } else if (!resolvedDetected) {
+      setPortfolio(null);
+      setIsLoading(false);
+      return;
     } else if (detected !== ssrUsername) {
       if (localPublished[detected]) {
         setPortfolio(localPublished[detected]);
@@ -70,9 +76,11 @@ export function PublishedPortfolioClient({
       });
     }
 
+    if (!resolvedDetected) return;
+
     // 2. Fetch fresh published state from server API
     let cancelled = false;
-    fetch(`/api/portfolio?u=${encodeURIComponent(detected)}&mode=published`, {
+    fetch(`/api/portfolio?u=${encodeURIComponent(resolvedDetected)}&mode=published`, {
       cache: "no-store",
     })
       .then(async (r) => {
@@ -80,7 +88,18 @@ export function PublishedPortfolioClient({
         if (r.ok) {
           const data = await r.json();
           if (data?.portfolio) {
-            setPortfolio(data.portfolio);
+            setPortfolio((prev) => {
+              if (
+                prev &&
+                prev.username === data.portfolio.username &&
+                prev.updatedAt &&
+                prev.updatedAt === data.portfolio.updatedAt &&
+                prev.publishedAt === data.portfolio.publishedAt
+              ) {
+                return prev;
+              }
+              return data.portfolio;
+            });
           }
         } else if (r.status === 404) {
           setPortfolio(null);
@@ -92,12 +111,12 @@ export function PublishedPortfolioClient({
       });
 
     // 3. Increment view counter once per creator slug and drain response stream cleanly
-    if (trackedViewForRef.current !== detected) {
-      trackedViewForRef.current = detected;
+    if (trackedViewForRef.current !== resolvedDetected) {
+      trackedViewForRef.current = resolvedDetected;
       fetch("/api/views", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: detected }),
+        body: JSON.stringify({ username: resolvedDetected }),
       })
         .then((res) => res.text())
         .catch(() => {});
@@ -149,9 +168,11 @@ export function PublishedPortfolioClient({
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6 py-20 text-center bg-background text-foreground">
         <TaqdomLogo size={56} showWordmark={false} />
-        <p dir="ltr" className="mt-4 font-mono text-xs text-[#9A7B4F] dark:text-[#C89D66] animate-pulse">
-          https://{activeUsername}.taqdom.me
-        </p>
+        {activeUsername && activeUsername !== "_shell" && (
+          <p dir="ltr" className="mt-4 font-mono text-xs text-[#9A7B4F] dark:text-[#C89D66] animate-pulse">
+            https://{activeUsername}.taqdom.me
+          </p>
+        )}
       </div>
     );
   }

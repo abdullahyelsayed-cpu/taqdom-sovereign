@@ -1128,7 +1128,7 @@ export function createStarterPortfolio(
       noindex: false,
     },
     defaultLang: "ar",
-    publishedAt: now,
+    publishedAt: null,
     updatedAt: now,
     views: 0,
   };

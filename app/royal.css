@@ -328,7 +328,7 @@ html[dir="ltr"] .royal-browser:hover {
 .royal-section-head p, .royal-studio-copy > p, .royal-publish-card p, .royal-founder-inner p, .royal-final-cta p { margin: 0; color: var(--muted-foreground); font-size: 14px; line-height: 2; }
 .royal-inline-link { display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; color: #7e521c; font-size: 12px; font-weight: 900; }
 .dark .royal-inline-link { color: #f0c57d; }
-.royal-template-carousel { display: grid; grid-template-columns: 42px minmax(0,1fr) 42px; align-items: center; gap: 12px; direction: rtl; }
+.royal-template-carousel { display: grid; grid-template-columns: 42px minmax(0,1fr) 42px; align-items: center; gap: 12px; direction: ltr; }
 .royal-template-arrow { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid rgba(180,132,65,.38); border-radius: 50%; color: #77501f; background: rgba(255,255,255,.76); box-shadow: 0 7px 20px rgba(30,46,72,.09); transition: transform .22s ease, background .22s ease, box-shadow .22s ease; }
 .royal-template-arrow:hover { transform: translateY(-2px); background: #fff; box-shadow: 0 11px 25px rgba(30,46,72,.15); }
 .dark .royal-template-arrow { color: #f2ca86; border-color: rgba(228,182,111,.32); background: rgba(10,20,34,.82); }

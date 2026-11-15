@@ -177,6 +177,49 @@ async function prepareImageUpload(file: File): Promise<{ dataUrl: string; mime: 
 
 type StudioTab = "identity" | "template" | "projects" | "canvas" | "look3d" | "seo" | "domain";
 
+function CsvTagInput({
+  value,
+  onChange,
+  placeholder,
+  className,
+}: {
+  value: string[];
+  onChange: (tags: string[]) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [raw, setRaw] = useState(value.join(", "));
+  useEffect(() => {
+    const parsed = raw
+      .split(/[,،]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (JSON.stringify(parsed) !== JSON.stringify(value)) {
+      setRaw(value.join(", "));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return (
+    <input
+      type="text"
+      dir="ltr"
+      value={raw}
+      placeholder={placeholder}
+      className={className}
+      onChange={(e) => {
+        const next = e.target.value;
+        setRaw(next);
+        onChange(
+          next
+            .split(/[,،]/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+        );
+      }}
+    />
+  );
+}
+
 function StudioContent() {
   const { lang, toggleLang, t } = useLanguage();
   const { resolvedTheme, setTheme } = useTheme();
@@ -195,6 +238,7 @@ function StudioContent() {
   const pastDrafts = useTaqdomStore((s) => s.pastDrafts);
   const futureDrafts = useTaqdomStore((s) => s.futureDrafts);
   const publishCurrentDraft = useTaqdomStore((s) => s.publishCurrentDraft);
+  const unpublishPortfolio = useTaqdomStore((s) => s.unpublishPortfolio);
 
   const [activeTab, setActiveTab] = useState<StudioTab>("identity");
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
@@ -205,10 +249,18 @@ function StudioContent() {
   const [host, setHost] = useState("taqdom.me");
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
+  const [usernameInput, setUsernameInput] = useState(draft.username);
+  const [seoKeywordsInput, setSeoKeywordsInput] = useState(
+    (draft.seo.keywords || [draft.name.ar, draft.name.en, "Portfolio"]).filter(Boolean).join(", ")
+  );
+  const [newSkillText, setNewSkillText] = useState("");
   const [canvasArrangeMode, setCanvasArrangeMode] = useState(false);
   const [selectedCanvasSection, setSelectedCanvasSection] = useState<CanvasSectionId>("hero");
   const [backgroundUploading, setBackgroundUploading] = useState(false);
   const canvasStageRef = useRef<HTMLElement | null>(null);
+  const syncEpochRef = useRef(0);
+  const lastServerSyncedAtRef = useRef<number | null>(null);
+  const autosaveAbortRef = useRef<AbortController | null>(null);
   const canvasDragRef = useRef<{
     element: HTMLElement;
     id: CanvasSectionId;
@@ -225,6 +277,7 @@ function StudioContent() {
       setHost(window.location.host);
     }
     let cancelled = false;
+    const reqEpoch = syncEpochRef.current;
     const uQuery = searchParams.get("u");
     const tplQuery = searchParams.get("template") as TemplateId | null;
     const validTplQuery =
@@ -234,7 +287,7 @@ function StudioContent() {
     fetch("/api/auth/me", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !data?.authenticated || !data?.user) return;
+        if (cancelled || reqEpoch !== syncEpochRef.current || !data?.authenticated || !data?.user) return;
         const isFlagship = Boolean(data.user.isTestAccount);
         useTaqdomStore.setState({
           user: {
@@ -257,6 +310,7 @@ function StudioContent() {
               }
             : data.portfolio;
           setDraft(syncedPortfolio, false);
+          lastServerSyncedAtRef.current = useTaqdomStore.getState().draft.updatedAt ?? null;
         }
       })
       .catch(() => {});
@@ -269,6 +323,33 @@ function StudioContent() {
     setSelectedCanvasSection("hero");
     setCanvasArrangeMode(false);
   }, [draft.template]);
+
+  useEffect(() => {
+    setUsernameInput(draft.username);
+  }, [draft.username]);
+
+  useEffect(() => {
+    const parsedCurrent = seoKeywordsInput
+      .split(/[,،]/)
+      .map((k) => k.trim())
+      .filter(Boolean);
+    const targetKeywords = (draft.seo.keywords || [draft.name.ar, draft.name.en, "Portfolio"]).filter(Boolean);
+    if (JSON.stringify(parsedCurrent) !== JSON.stringify(targetKeywords)) {
+      setSeoKeywordsInput(targetKeywords.join(", "));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.username, draft.seo.keywords]);
+
+  useEffect(() => {
+    if (!fullscreenPreview) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setFullscreenPreview(false);
+      }
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [fullscreenPreview]);
 
   // Apply URL query parameters (?template=... & ?u=...) and fetch user's draft from server
   useEffect(() => {
@@ -309,12 +390,13 @@ function StudioContent() {
           return;
         }
         let cancelled = false;
+        const reqEpoch = syncEpochRef.current;
         fetch(`/api/portfolio?u=${encodeURIComponent(clean)}&mode=draft`, {
           cache: "no-store",
         })
           .then((r) => (r.ok ? r.json() : null))
           .then((data) => {
-            if (cancelled) return;
+            if (cancelled || reqEpoch !== syncEpochRef.current) return;
             if (data?.portfolio) {
               const loaded = {
                 ...data.portfolio,
@@ -325,6 +407,7 @@ function StudioContent() {
                     : data.portfolio.customDesign,
               };
               setDraft(loaded, false);
+              lastServerSyncedAtRef.current = useTaqdomStore.getState().draft.updatedAt ?? null;
             } else if (SEED_PORTFOLIOS[clean]) {
               const seeded = {
                 ...structuredClone(SEED_PORTFOLIOS[clean]),
@@ -411,17 +494,29 @@ function StudioContent() {
 
   // Debounced autosave is acknowledged by the server before the draft is marked saved.
   useEffect(() => {
-    if (isDemoReadOnly || (!hasInteracted && pastDrafts.length === 0)) return;
+    if (
+      isDemoReadOnly ||
+      (!hasInteracted && pastDrafts.length === 0) ||
+      (lastServerSyncedAtRef.current !== null && draft.updatedAt === lastServerSyncedAtRef.current)
+    ) {
+      return;
+    }
     const snapshot = structuredClone(draft);
+    const reqEpoch = syncEpochRef.current;
     const timer = window.setTimeout(async () => {
+      autosaveAbortRef.current?.abort();
+      const controller = new AbortController();
+      autosaveAbortRef.current = controller;
       useTaqdomStore.setState({ saveStatus: "saving" });
       try {
         const response = await fetch("/api/portfolio", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ portfolio: snapshot }),
+          signal: controller.signal,
         });
         const result = await response.json().catch(() => null);
+        if (controller.signal.aborted || reqEpoch !== syncEpochRef.current) return;
         if (!response.ok || !result?.ok) {
           const errMsg = result?.error || "Could not save this draft.";
           if (response.status === 409 || response.status === 403 || response.status === 400) {
@@ -436,15 +531,23 @@ function StudioContent() {
             draft: { ...s.draft, username: nextUsername },
           }));
           if (typeof window !== "undefined") {
-            window.history.replaceState(null, "", `/studio?u=${encodeURIComponent(nextUsername)}`);
+            const curU = normalizeUsername(new URLSearchParams(window.location.search).get("u") || "");
+            if (curU !== nextUsername) {
+              window.history.replaceState(null, "", `/studio?u=${encodeURIComponent(nextUsername)}`);
+            }
           }
         }
         if (useTaqdomStore.getState().draft.updatedAt === snapshot.updatedAt) {
           useTaqdomStore.setState({ saveStatus: "saved" });
         }
-      } catch {
+      } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") return;
         if (useTaqdomStore.getState().draft.updatedAt === snapshot.updatedAt) {
           useTaqdomStore.setState({ saveStatus: "unsaved" });
+        }
+      } finally {
+        if (autosaveAbortRef.current === controller) {
+          autosaveAbortRef.current = null;
         }
       }
     }, 800);
@@ -456,11 +559,21 @@ function StudioContent() {
       toast.info(t("حساب المعاينة للعرض فقط؛ سجّل حسابك لحفظ أو نشر بورتفوليو خاص بك.", "The demo is read-only. Create your own account to save or publish."));
       return;
     }
+    if (normalizeUsername(usernameInput).length < 3) {
+      toast.error(t("يجب أن يكون اسم الرابط 3 أحرف إنجليزية على الأقل قبل النشر.", "Personal address must be at least 3 characters before publishing."));
+      return;
+    }
+    syncEpochRef.current += 1;
+    autosaveAbortRef.current?.abort();
     setPublishing(true);
     try {
       const published = await publishCurrentDraft();
+      lastServerSyncedAtRef.current = useTaqdomStore.getState().draft.updatedAt ?? null;
       if (typeof window !== "undefined" && published?.username) {
-        window.history.replaceState(null, "", `/studio?u=${encodeURIComponent(published.username)}`);
+        const curU = normalizeUsername(new URLSearchParams(window.location.search).get("u") || "");
+        if (curU !== published.username) {
+          window.history.replaceState(null, "", `/studio?u=${encodeURIComponent(published.username)}`);
+        }
       }
       const targetUrl = getSubdomainUrl(published.username, host);
       setPublishedSuccessUrl(targetUrl);
@@ -496,6 +609,9 @@ function StudioContent() {
       toast.info(t("حساب المعاينة للعرض فقط.", "The demo account is read-only."));
       return;
     }
+    syncEpochRef.current += 1;
+    autosaveAbortRef.current?.abort();
+    setPublishing(true);
     try {
       const res = await fetch(`/api/portfolio/publish?u=${encodeURIComponent(draft.username)}`, {
         method: "DELETE",
@@ -504,6 +620,8 @@ function StudioContent() {
       if (!res.ok || !result?.ok) {
         throw new Error(result?.error || t("تعذر إيقاف النشر", "Failed to unpublish"));
       }
+      unpublishPortfolio(draft.username);
+      lastServerSyncedAtRef.current = useTaqdomStore.getState().draft.updatedAt ?? null;
       setPublishedSuccessUrl(null);
       toast.success(
         t(
@@ -515,6 +633,8 @@ function StudioContent() {
       toast.error(
         error instanceof Error ? error.message : t("تعذر إيقاف النشر", "Failed to unpublish")
       );
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -1006,13 +1126,23 @@ function StudioContent() {
                       type="text"
                       dir="ltr"
                       data-testid="studio-username-input"
-                      value={draft.username}
+                      value={usernameInput}
                       onChange={(e) => {
-                        const clean = normalizeUsername(e.target.value);
-                        setDraft((prev) => ({
-                          ...prev,
-                          username: clean || "layla",
-                        }));
+                        const raw = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+                        setUsernameInput(raw);
+                        setHasInteracted(true);
+                        const valid = normalizeUsername(raw);
+                        if (valid.length >= 3) {
+                          setDraft((prev) => ({
+                            ...prev,
+                            username: valid,
+                          }));
+                        }
+                      }}
+                      onBlur={() => {
+                        if (normalizeUsername(usernameInput).length < 3) {
+                          setUsernameInput(draft.username);
+                        }
                       }}
                       className="w-full bg-transparent font-mono text-sm focus:outline-none text-left"
                     />
@@ -1020,9 +1150,15 @@ function StudioContent() {
                       .taqdom.me
                     </span>
                   </div>
-                  <p dir="ltr" className="mt-1 font-mono text-[11px] text-[#9A7B4F] dark:text-[#C89D66]">
-                    https://{draft.username}.taqdom.me
-                  </p>
+                  {normalizeUsername(usernameInput).length < 3 ? (
+                    <p className="mt-1 text-[11px] font-semibold text-red-500">
+                      {t("أدخل 3 أحرف إنجليزية صغيرة على الأقل.", "Enter at least 3 lowercase letters or digits.")}
+                    </p>
+                  ) : (
+                    <p dir="ltr" className="mt-1 font-mono text-[11px] text-[#9A7B4F] dark:text-[#C89D66]">
+                      https://{draft.username}.taqdom.me
+                    </p>
+                  )}
                 </div>
 
                 {/* Avatar Picker */}
@@ -1033,7 +1169,7 @@ function StudioContent() {
                   <div className="flex items-center gap-3 mb-2">
                     <div className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 border-[#9A7B4F] dark:border-[#C89D66] shrink-0">
                       <Image
-                        src={draft.avatar || "/images/creators/layla.jpg"}
+                        src={draft.avatar || "/images/taqdom-avatar-placeholder.svg"}
                         alt="Avatar"
                         fill
                         className="object-cover"
@@ -1058,12 +1194,59 @@ function StudioContent() {
                       <button
                         key={av}
                         type="button"
-                        onClick={() => setDraft((prev) => ({ ...prev, avatar: av }))}
+                        onClick={() => {
+                          setHasInteracted(true);
+                          setDraft((prev) => ({ ...prev, avatar: av }));
+                        }}
                         className={`relative h-10 w-10 rounded-xl overflow-hidden border-2 ${
                           draft.avatar === av ? "border-[#9A7B4F] scale-105" : "border-transparent opacity-70"
                         }`}
                       >
                         <Image src={av} alt="" fill className="object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cover Image Picker */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-bold">
+                      {t("صورة الغلاف (Cover)", "Portfolio Cover Image")}
+                    </label>
+                    <label className="cursor-pointer rounded-xl border border-border bg-secondary px-2.5 py-1 text-[11px] font-bold hover:border-[#9A7B4F]">
+                      <span>{t("رفع غلاف", "Upload Cover")}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) =>
+                          handleFileUpload(e, (url) =>
+                            setDraft((prev) => ({ ...prev, cover: url }))
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                  {draft.cover && (
+                    <div className="relative h-20 w-full overflow-hidden rounded-xl border border-border">
+                      <Image src={draft.cover} alt="Cover preview" fill className="object-cover" />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                    {PRESET_PROJECT_IMAGES.slice(0, 5).map((img) => (
+                      <button
+                        key={img}
+                        type="button"
+                        onClick={() => {
+                          setHasInteracted(true);
+                          setDraft((prev) => ({ ...prev, cover: img }));
+                        }}
+                        className={`relative h-9 w-14 shrink-0 rounded-lg overflow-hidden border-2 ${
+                          draft.cover === img ? "border-[#9A7B4F]" : "border-transparent opacity-65"
+                        }`}
+                      >
+                        <Image src={img} alt="" fill className="object-cover" />
                       </button>
                     ))}
                   </div>
@@ -1079,12 +1262,13 @@ function StudioContent() {
                       type="text"
                       data-testid="studio-name-ar-input"
                       value={draft.name.ar}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           name: { ...prev.name, ar: e.target.value },
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                     />
                   </div>
@@ -1097,12 +1281,13 @@ function StudioContent() {
                       dir="ltr"
                       data-testid="studio-name-en-input"
                       value={draft.name.en}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           name: { ...prev.name, en: e.target.value },
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                     />
                   </div>
@@ -1117,12 +1302,13 @@ function StudioContent() {
                     <input
                       type="text"
                       value={draft.title.ar}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           title: { ...prev.title, ar: e.target.value },
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                     />
                   </div>
@@ -1134,12 +1320,13 @@ function StudioContent() {
                       type="text"
                       dir="ltr"
                       value={draft.title.en}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           title: { ...prev.title, en: e.target.value },
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                     />
                   </div>
@@ -1154,12 +1341,13 @@ function StudioContent() {
                     rows={3}
                     data-testid="studio-bio-ar-input"
                     value={draft.bio.ar}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setHasInteracted(true);
                       setDraft((prev) => ({
                         ...prev,
                         bio: { ...prev.bio, ar: e.target.value },
-                      }))
-                    }
+                      }));
+                    }}
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                   />
                 </div>
@@ -1173,12 +1361,13 @@ function StudioContent() {
                     dir="ltr"
                     data-testid="studio-bio-en-input"
                     value={draft.bio.en}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      setHasInteracted(true);
                       setDraft((prev) => ({
                         ...prev,
                         bio: { ...prev.bio, en: e.target.value },
-                      }))
-                    }
+                      }));
+                    }}
                     className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                   />
                 </div>
@@ -1192,12 +1381,13 @@ function StudioContent() {
                     <input
                       type="text"
                       value={draft.city.ar}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           city: { ...prev.city, ar: e.target.value },
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                     />
                   </div>
@@ -1209,14 +1399,485 @@ function StudioContent() {
                       type="text"
                       dir="ltr"
                       value={draft.city.en}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           city: { ...prev.city, en: e.target.value },
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
                     />
+                  </div>
+                </div>
+
+                {/* Default Portfolio Language + Badge */}
+                <div className="border-t border-border pt-4 space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold mb-1.5">
+                      {t("اللغة الافتراضية للزائر", "Default Visitor Language")}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["ar", "en"] as const).map((dl) => (
+                        <button
+                          key={dl}
+                          type="button"
+                          onClick={() => {
+                            setHasInteracted(true);
+                            setDraft((prev) => ({ ...prev, defaultLang: dl }));
+                            setPreviewLang(dl);
+                          }}
+                          className={`rounded-xl border px-3 py-2 text-xs font-bold ${
+                            draft.defaultLang === dl
+                              ? "border-[#9A7B4F] bg-[#9A7B4F]/15"
+                              : "border-border bg-background"
+                          }`}
+                        >
+                          {dl === "ar" ? t("العربية (RTL)", "Arabic (RTL)") : t("الإنجليزية (LTR)", "English (LTR)")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold mb-1">
+                        {t("شارة التخصص (عربي)", "Specialty Badge (AR)")}
+                      </label>
+                      <input
+                        type="text"
+                        value={draft.badge?.ar || ""}
+                        placeholder={t("مثال: متاح للمشاريع", "e.g. Available for projects")}
+                        onChange={(e) => {
+                          setHasInteracted(true);
+                          setDraft((prev) => ({
+                            ...prev,
+                            badge: { ar: e.target.value, en: prev.badge?.en || "" },
+                          }));
+                        }}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1">
+                        {t("شارة التخصص (EN)", "Specialty Badge (EN)")}
+                      </label>
+                      <input
+                        type="text"
+                        dir="ltr"
+                        value={draft.badge?.en || ""}
+                        placeholder="e.g. Principal Architect"
+                        onChange={(e) => {
+                          setHasInteracted(true);
+                          setDraft((prev) => ({
+                            ...prev,
+                            badge: { ar: prev.badge?.ar || "", en: e.target.value },
+                          }));
+                        }}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-1.5 text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Skills Manager */}
+                <div className="border-t border-border pt-4 space-y-2.5">
+                  <label className="block text-xs font-bold">
+                    {t("المهارات والتخصصات", "Skills & Core Capabilities")}
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      data-testid="studio-add-skill-input"
+                      value={newSkillText}
+                      onChange={(e) => setNewSkillText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const trimmed = newSkillText.trim();
+                          if (!trimmed) return;
+                          setHasInteracted(true);
+                          setDraft((prev) => ({
+                            ...prev,
+                            skills: Array.from(new Set([...(prev.skills || []), trimmed])),
+                          }));
+                          setNewSkillText("");
+                        }
+                      }}
+                      placeholder={t("أضف مهارة واضغط إدخال...", "Add a skill and press Enter...")}
+                      className="flex-1 rounded-xl border border-border bg-background px-3 py-1.5 text-xs"
+                    />
+                    <button
+                      type="button"
+                      data-testid="studio-add-skill-btn"
+                      onClick={() => {
+                        const trimmed = newSkillText.trim();
+                        if (!trimmed) return;
+                        setHasInteracted(true);
+                        setDraft((prev) => ({
+                          ...prev,
+                          skills: Array.from(new Set([...(prev.skills || []), trimmed])),
+                        }));
+                        setNewSkillText("");
+                      }}
+                      className="rounded-xl bg-[#9A7B4F] dark:bg-[#C89D66] px-3 py-1.5 text-xs font-bold text-[#F7F5F0] dark:text-[#0A0A09]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(draft.skills || []).map((sk, idx) => (
+                      <span
+                        key={`${sk}-${idx}`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1 text-[11px] font-semibold"
+                      >
+                        <span>{sk}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHasInteracted(true);
+                            setDraft((prev) => ({
+                              ...prev,
+                              skills: (prev.skills || []).filter((_, i) => i !== idx),
+                            }));
+                          }}
+                          className="text-muted-foreground hover:text-red-500"
+                          aria-label={`Remove ${sk}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Contact & Social Links Manager */}
+                <div className="border-t border-border pt-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold">{t("روابط التواصل", "Contact & Social Links")}</span>
+                    <button
+                      type="button"
+                      data-testid="studio-add-link-btn"
+                      onClick={() => {
+                        setHasInteracted(true);
+                        setDraft((prev) => ({
+                          ...prev,
+                          links: [...(prev.links || []), { label: "Website", url: "https://" }],
+                        }));
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-secondary px-2 py-1 text-[11px] font-bold hover:border-[#9A7B4F]"
+                    >
+                      <Plus className="h-3 w-3" />
+                      <span>{t("رابط جديد", "Add Link")}</span>
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(draft.links || []).map((lk, idx) => (
+                      <div key={idx} className="grid grid-cols-12 gap-1.5 items-center">
+                        <input
+                          type="text"
+                          value={lk.label}
+                          onChange={(e) => {
+                            setHasInteracted(true);
+                            const v = e.target.value;
+                            setDraft((prev) => ({
+                              ...prev,
+                              links: (prev.links || []).map((row, i) => (i === idx ? { ...row, label: v } : row)),
+                            }));
+                          }}
+                          placeholder="Label"
+                          className="col-span-4 rounded-lg border border-border bg-background px-2 py-1.5 text-[11px] font-semibold"
+                        />
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={lk.url}
+                          onChange={(e) => {
+                            setHasInteracted(true);
+                            const v = e.target.value;
+                            setDraft((prev) => ({
+                              ...prev,
+                              links: (prev.links || []).map((row, i) => (i === idx ? { ...row, url: v } : row)),
+                            }));
+                          }}
+                          placeholder="https://... or mailto:..."
+                          className="col-span-7 rounded-lg border border-border bg-background px-2 py-1.5 font-mono text-[11px]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHasInteracted(true);
+                            setDraft((prev) => ({
+                              ...prev,
+                              links: (prev.links || []).filter((_, i) => i !== idx),
+                            }));
+                          }}
+                          className="col-span-1 flex items-center justify-center rounded-lg border border-border p-1.5 text-red-500 hover:border-red-500"
+                          aria-label="Delete link"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Key Metrics Manager */}
+                <div className="border-t border-border pt-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold">{t("أبرز المؤشرات والأرقام", "Key Metrics & Stats")}</span>
+                    <button
+                      type="button"
+                      data-testid="studio-add-metric-btn"
+                      onClick={() => {
+                        setHasInteracted(true);
+                        setDraft((prev) => ({
+                          ...prev,
+                          metrics: [...(prev.metrics || []), { value: "100%", label: { ar: "إنجاز المشاريع", en: "Delivery Rate" } }],
+                        }));
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-secondary px-2 py-1 text-[11px] font-bold hover:border-[#9A7B4F]"
+                    >
+                      <Plus className="h-3 w-3" />
+                      <span>{t("مؤشر جديد", "Add Stat")}</span>
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {(draft.metrics || []).map((m, idx) => (
+                      <div key={idx} className="rounded-xl border border-border bg-background p-2.5 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            dir="ltr"
+                            value={m.value}
+                            onChange={(e) => {
+                              setHasInteracted(true);
+                              const v = e.target.value;
+                              setDraft((prev) => ({
+                                ...prev,
+                                metrics: (prev.metrics || []).map((row, i) => (i === idx ? { ...row, value: v } : row)),
+                              }));
+                            }}
+                            placeholder="148% / +$2M"
+                            className="w-24 rounded-lg border border-border bg-card px-2 py-1 font-mono text-xs font-bold"
+                          />
+                          <input
+                            type="text"
+                            value={m.label.ar}
+                            onChange={(e) => {
+                              setHasInteracted(true);
+                              const v = e.target.value;
+                              setDraft((prev) => ({
+                                ...prev,
+                                metrics: (prev.metrics || []).map((row, i) =>
+                                  i === idx ? { ...row, label: { ...row.label, ar: v } } : row
+                                ),
+                              }));
+                            }}
+                            placeholder="الوصف عربي"
+                            className="flex-1 rounded-lg border border-border bg-card px-2 py-1 text-[11px]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHasInteracted(true);
+                              setDraft((prev) => ({
+                                ...prev,
+                                metrics: (prev.metrics || []).filter((_, i) => i !== idx),
+                              }));
+                            }}
+                            className="rounded-lg border border-border p-1 text-red-500 hover:border-red-500"
+                            aria-label="Delete metric"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={m.label.en}
+                          onChange={(e) => {
+                            setHasInteracted(true);
+                            const v = e.target.value;
+                            setDraft((prev) => ({
+                              ...prev,
+                              metrics: (prev.metrics || []).map((row, i) =>
+                                i === idx ? { ...row, label: { ...row.label, en: v } } : row
+                              ),
+                            }));
+                          }}
+                          placeholder="Metric Label (EN)"
+                          className="w-full rounded-lg border border-border bg-card px-2 py-1 text-[11px]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Experience Timeline Manager */}
+                <div className="border-t border-border pt-4 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold">{t("الخط الزمني للخبرة", "Career Timeline")}</span>
+                    <button
+                      type="button"
+                      data-testid="studio-add-timeline-btn"
+                      onClick={() => {
+                        setHasInteracted(true);
+                        setDraft((prev) => ({
+                          ...prev,
+                          timeline: [
+                            ...(prev.timeline || []),
+                            {
+                              year: "2024 – 2026",
+                              role: { ar: "دور قيادي جديد", en: "Senior Role" },
+                              org: { ar: "المؤسسة", en: "Organization" },
+                              summary: { ar: "ملخص الأثر والإنجازات.", en: "Impact and deliverables summary." },
+                            },
+                          ],
+                        }));
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-secondary px-2 py-1 text-[11px] font-bold hover:border-[#9A7B4F]"
+                    >
+                      <Plus className="h-3 w-3" />
+                      <span>{t("محطة جديدة", "Add Milestone")}</span>
+                    </button>
+                  </div>
+                  <div className="space-y-2.5">
+                    {(draft.timeline || []).map((item, idx) => (
+                      <div key={idx} className="rounded-xl border border-border bg-background p-2.5 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <input
+                            type="text"
+                            dir="ltr"
+                            value={item.year}
+                            onChange={(e) => {
+                              setHasInteracted(true);
+                              const v = e.target.value;
+                              setDraft((prev) => ({
+                                ...prev,
+                                timeline: (prev.timeline || []).map((row, i) => (i === idx ? { ...row, year: v } : row)),
+                              }));
+                            }}
+                            placeholder="2023 – 2026"
+                            className="w-28 rounded-lg border border-border bg-card px-2 py-1 font-mono text-[11px]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHasInteracted(true);
+                              setDraft((prev) => ({
+                                ...prev,
+                                timeline: (prev.timeline || []).filter((_, i) => i !== idx),
+                              }));
+                            }}
+                            className="rounded-lg border border-border p-1 text-red-500 hover:border-red-500"
+                            aria-label="Delete timeline item"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={item.role.ar}
+                            onChange={(e) => {
+                              setHasInteracted(true);
+                              const v = e.target.value;
+                              setDraft((prev) => ({
+                                ...prev,
+                                timeline: (prev.timeline || []).map((row, i) =>
+                                  i === idx ? { ...row, role: { ...row.role, ar: v } } : row
+                                ),
+                              }));
+                            }}
+                            placeholder="المنصب (عربي)"
+                            className="rounded-lg border border-border bg-card px-2 py-1 text-[11px]"
+                          />
+                          <input
+                            type="text"
+                            dir="ltr"
+                            value={item.role.en}
+                            onChange={(e) => {
+                              setHasInteracted(true);
+                              const v = e.target.value;
+                              setDraft((prev) => ({
+                                ...prev,
+                                timeline: (prev.timeline || []).map((row, i) =>
+                                  i === idx ? { ...row, role: { ...row.role, en: v } } : row
+                                ),
+                              }));
+                            }}
+                            placeholder="Role (EN)"
+                            className="rounded-lg border border-border bg-card px-2 py-1 text-[11px]"
+                          />
+                          <input
+                            type="text"
+                            value={item.org.ar}
+                            onChange={(e) => {
+                              setHasInteracted(true);
+                              const v = e.target.value;
+                              setDraft((prev) => ({
+                                ...prev,
+                                timeline: (prev.timeline || []).map((row, i) =>
+                                  i === idx ? { ...row, org: { ...row.org, ar: v } } : row
+                                ),
+                              }));
+                            }}
+                            placeholder="الجهة (عربي)"
+                            className="rounded-lg border border-border bg-card px-2 py-1 text-[11px]"
+                          />
+                          <input
+                            type="text"
+                            dir="ltr"
+                            value={item.org.en}
+                            onChange={(e) => {
+                              setHasInteracted(true);
+                              const v = e.target.value;
+                              setDraft((prev) => ({
+                                ...prev,
+                                timeline: (prev.timeline || []).map((row, i) =>
+                                  i === idx ? { ...row, org: { ...row.org, en: v } } : row
+                                ),
+                              }));
+                            }}
+                            placeholder="Org (EN)"
+                            className="rounded-lg border border-border bg-card px-2 py-1 text-[11px]"
+                          />
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={item.summary.ar}
+                          onChange={(e) => {
+                            setHasInteracted(true);
+                            const v = e.target.value;
+                            setDraft((prev) => ({
+                              ...prev,
+                              timeline: (prev.timeline || []).map((row, i) =>
+                                i === idx ? { ...row, summary: { ...row.summary, ar: v } } : row
+                              ),
+                            }));
+                          }}
+                          placeholder="الملخص (عربي)"
+                          className="w-full rounded-lg border border-border bg-card px-2 py-1 text-[11px]"
+                        />
+                        <textarea
+                          rows={2}
+                          dir="ltr"
+                          value={item.summary.en}
+                          onChange={(e) => {
+                            setHasInteracted(true);
+                            const v = e.target.value;
+                            setDraft((prev) => ({
+                              ...prev,
+                              timeline: (prev.timeline || []).map((row, i) =>
+                                i === idx ? { ...row, summary: { ...row.summary, en: v } } : row
+                              ),
+                            }));
+                          }}
+                          placeholder="Summary (EN)"
+                          className="w-full rounded-lg border border-border bg-card px-2 py-1 text-[11px]"
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1244,14 +1905,15 @@ function StudioContent() {
                     <button
                       type="button"
                       data-testid="studio-disable-custom-design-btn"
-                      onClick={() =>
+                      onClick={() => {
+                        setHasInteracted(true);
                         setDraft((prev) => ({
                           ...prev,
                           customDesign: prev.customDesign
                             ? { ...prev.customDesign, enabled: false }
                             : undefined,
-                        }))
-                      }
+                        }));
+                      }}
                       className="w-full rounded-xl border border-[#9A7B4F]/40 bg-background px-3 py-2 text-xs font-bold text-foreground hover:border-[#9A7B4F] transition cursor-pointer"
                     >
                       {t("إلغاء التصميم المخصص والعودة للقالب", "Switch Back to Built-in Template")}
@@ -1367,6 +2029,7 @@ function StudioContent() {
                         type="text"
                         value={proj.title.ar}
                         onChange={(e) => {
+                          setHasInteracted(true);
                           const val = e.target.value;
                           setDraft((prev) => ({
                             ...prev,
@@ -1386,6 +2049,7 @@ function StudioContent() {
                         dir="ltr"
                         value={proj.title.en}
                         onChange={(e) => {
+                          setHasInteracted(true);
                           const val = e.target.value;
                           setDraft((prev) => ({
                             ...prev,
@@ -1404,6 +2068,7 @@ function StudioContent() {
                         rows={2}
                         value={proj.desc.ar}
                         onChange={(e) => {
+                          setHasInteracted(true);
                           const val = e.target.value;
                           setDraft((prev) => ({
                             ...prev,
@@ -1414,37 +2079,217 @@ function StudioContent() {
                             ),
                           }));
                         }}
+                        placeholder={t("وصف المشروع بالعربية", "Project description (Arabic)")}
                         className="w-full rounded-xl border border-border bg-card px-3 py-1.5 text-xs"
                       />
 
-                      {/* Quick 4K Image Selector & Custom Upload */}
+                      <textarea
+                        rows={2}
+                        dir="ltr"
+                        value={proj.desc.en}
+                        onChange={(e) => {
+                          setHasInteracted(true);
+                          const val = e.target.value;
+                          setDraft((prev) => ({
+                            ...prev,
+                            projects: prev.projects.map((item) =>
+                              item.id === proj.id
+                                ? { ...item, desc: { ...item.desc, en: val } }
+                                : item
+                            ),
+                          }));
+                        }}
+                        placeholder="Project description in English"
+                        className="w-full rounded-xl border border-border bg-card px-3 py-1.5 text-xs"
+                      />
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={proj.year}
+                          onChange={(e) => {
+                            setHasInteracted(true);
+                            const val = e.target.value;
+                            setDraft((prev) => ({
+                              ...prev,
+                              projects: prev.projects.map((item) =>
+                                item.id === proj.id ? { ...item, year: val } : item
+                              ),
+                            }));
+                          }}
+                          placeholder="Year (e.g. 2026)"
+                          className="rounded-xl border border-border bg-card px-3 py-1.5 font-mono text-xs"
+                        />
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={proj.metrics || ""}
+                          onChange={(e) => {
+                            setHasInteracted(true);
+                            const val = e.target.value;
+                            setDraft((prev) => ({
+                              ...prev,
+                              projects: prev.projects.map((item) =>
+                                item.id === proj.id ? { ...item, metrics: val } : item
+                              ),
+                            }));
+                          }}
+                          placeholder="Metric (e.g. +148% ROI)"
+                          className="rounded-xl border border-border bg-card px-3 py-1.5 font-mono text-xs"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={proj.client?.ar || ""}
+                          onChange={(e) => {
+                            setHasInteracted(true);
+                            const val = e.target.value;
+                            setDraft((prev) => ({
+                              ...prev,
+                              projects: prev.projects.map((item) =>
+                                item.id === proj.id
+                                  ? { ...item, client: { ar: val, en: item.client?.en || "" } }
+                                  : item
+                              ),
+                            }));
+                          }}
+                          placeholder={t("اسم العميل (عربي)", "Client (AR)")}
+                          className="rounded-xl border border-border bg-card px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={proj.client?.en || ""}
+                          onChange={(e) => {
+                            setHasInteracted(true);
+                            const val = e.target.value;
+                            setDraft((prev) => ({
+                              ...prev,
+                              projects: prev.projects.map((item) =>
+                                item.id === proj.id
+                                  ? { ...item, client: { ar: item.client?.ar || "", en: val } }
+                                  : item
+                              ),
+                            }));
+                          }}
+                          placeholder="Client (EN)"
+                          className="rounded-xl border border-border bg-card px-3 py-1.5 text-xs"
+                        />
+                      </div>
+
+                      <input
+                        type="url"
+                        dir="ltr"
+                        value={proj.url || ""}
+                        onChange={(e) => {
+                          setHasInteracted(true);
+                          const val = e.target.value;
+                          setDraft((prev) => ({
+                            ...prev,
+                            projects: prev.projects.map((item) =>
+                              item.id === proj.id ? { ...item, url: val } : item
+                            ),
+                          }));
+                        }}
+                        placeholder="https://live-project-url.com (optional)"
+                        className="w-full rounded-xl border border-border bg-card px-3 py-1.5 font-mono text-xs"
+                      />
+
+                      <CsvTagInput
+                        value={proj.tags || []}
+                        onChange={(tags) => {
+                          setHasInteracted(true);
+                          setDraft((prev) => ({
+                            ...prev,
+                            projects: prev.projects.map((item) =>
+                              item.id === proj.id ? { ...item, tags } : item
+                            ),
+                          }));
+                        }}
+                        placeholder="Tags: Architecture, Design, 2026"
+                        className="w-full rounded-xl border border-border bg-card px-3 py-1.5 text-xs"
+                      />
+
+                      {/* Quick 4K Image Selector & Multi-Image Gallery */}
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="block text-[11px] text-muted-foreground">
-                            {t("صورة المشروع (4K):", "Primary Project Image (4K):")}
+                            {t(`صور المشروع (${proj.images.length})`, `Project Images (${proj.images.length})`)}
                           </span>
-                          <label className="cursor-pointer rounded-lg border border-border bg-secondary px-2.5 py-1 text-[11px] font-bold hover:border-[#9A7B4F]">
-                            <span>{t("رفع صورة للمشروع", "Upload Project Image")}</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              data-testid={`studio-upload-project-img-${idx}`}
-                              className="hidden"
-                              onChange={(e) =>
-                                handleFileUpload(e, (url) =>
-                                  setDraft((prev) => ({
-                                    ...prev,
-                                    projects: prev.projects.map((item) =>
-                                      item.id === proj.id
-                                        ? { ...item, images: [url, ...item.images.slice(1)] }
-                                        : item
-                                    ),
-                                  }))
-                                )
-                              }
-                            />
-                          </label>
+                          <div className="flex items-center gap-1.5">
+                            <label className="cursor-pointer rounded-lg border border-border bg-secondary px-2.5 py-1 text-[11px] font-bold hover:border-[#9A7B4F]">
+                              <span>{t("استبدال الرئيسية", "Replace Primary")}</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                data-testid={`studio-upload-project-img-${idx}`}
+                                className="hidden"
+                                onChange={(e) =>
+                                  handleFileUpload(e, (url) =>
+                                    setDraft((prev) => ({
+                                      ...prev,
+                                      projects: prev.projects.map((item) =>
+                                        item.id === proj.id
+                                          ? { ...item, images: [url, ...item.images.slice(1)] }
+                                          : item
+                                      ),
+                                    }))
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="cursor-pointer rounded-lg border border-[#9A7B4F]/40 bg-[#9A7B4F]/10 px-2.5 py-1 text-[11px] font-bold hover:border-[#9A7B4F]">
+                              <span>+ {t("صورة إضافية", "Add Slide")}</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) =>
+                                  handleFileUpload(e, (url) =>
+                                    setDraft((prev) => ({
+                                      ...prev,
+                                      projects: prev.projects.map((item) =>
+                                        item.id === proj.id
+                                          ? { ...item, images: [...(item.images || []), url] }
+                                          : item
+                                      ),
+                                    }))
+                                  )
+                                }
+                              />
+                            </label>
+                          </div>
                         </div>
+                        {proj.images && proj.images.length > 0 && (
+                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                            {proj.images.map((gImg, gIdx) => (
+                              <div key={`${gImg}-${gIdx}`} className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden border border-border group">
+                                <Image src={gImg} alt="" fill className="object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setHasInteracted(true);
+                                    setDraft((prev) => ({
+                                      ...prev,
+                                      projects: prev.projects.map((item) =>
+                                        item.id === proj.id
+                                          ? { ...item, images: item.images.filter((_, i) => i !== gIdx) }
+                                          : item
+                                      ),
+                                    }));
+                                  }}
+                                  className="absolute top-0.5 end-0.5 rounded bg-black/75 p-0.5 text-white opacity-85 hover:opacity-100"
+                                  aria-label="Remove image"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
                           {PRESET_PROJECT_IMAGES.slice(0, 6).map((img) => (
                             <button
@@ -1677,7 +2522,8 @@ function StudioContent() {
                   </label>
                   <input
                     type="text"
-                    value={draft.seo.title || `${draft.name.ar} | ${draft.name.en} — ${draft.title.ar}`}
+                    value={draft.seo.title ?? ""}
+                    placeholder={`${draft.name.ar} | ${draft.name.en} — ${draft.title.ar}`}
                     onChange={(e) => {
                       setHasInteracted(true);
                       setDraft((prev) => ({
@@ -1695,7 +2541,8 @@ function StudioContent() {
                   </label>
                   <textarea
                     rows={3}
-                    value={draft.seo.description || draft.bio.ar}
+                    value={draft.seo.description ?? ""}
+                    placeholder={draft.bio.ar || draft.bio.en}
                     onChange={(e) => {
                       setHasInteracted(true);
                       setDraft((prev) => ({
@@ -1713,11 +2560,14 @@ function StudioContent() {
                   </label>
                   <input
                     type="text"
-                    value={(draft.seo.keywords || [draft.name.ar, draft.name.en, "Portfolio"]).join(", ")}
+                    data-testid="studio-seo-keywords-input"
+                    value={seoKeywordsInput}
                     onChange={(e) => {
+                      const raw = e.target.value;
+                      setSeoKeywordsInput(raw);
                       setHasInteracted(true);
-                      const kw = e.target.value
-                        .split(",")
+                      const kw = raw
+                        .split(/[,،]/)
                         .map((k) => k.trim())
                         .filter(Boolean);
                       setDraft((prev) => ({
@@ -1769,21 +2619,39 @@ function StudioContent() {
             {activeTab === "domain" && (
               <div className="space-y-5">
                 <div className="rounded-2xl border border-[#9A7B4F]/50 bg-[#9A7B4F]/10 p-4 space-y-3">
-                  <span className="text-xs font-mono uppercase text-[#9A7B4F] dark:text-[#C89D66]">
-                    YOUR TAQDOM ADDRESS
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono uppercase text-[#9A7B4F] dark:text-[#C89D66]">
+                      YOUR TAQDOM ADDRESS
+                    </span>
+                    <span
+                      data-testid="studio-publish-status-badge"
+                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${
+                        draft.publishedAt
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                      }`}
+                    >
+                      {draft.publishedAt ? t("منشور الآن", "Published Live") : t("مسودة غير منشورة", "Unpublished Draft")}
+                    </span>
+                  </div>
                   <p dir="ltr" className="font-mono text-lg font-extrabold text-foreground break-all">
                     https://{draft.username}.taqdom.me
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        navigator.clipboard?.writeText(`https://${draft.username}.taqdom.me`);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
+                      onClick={async () => {
+                        try {
+                          if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+                          await navigator.clipboard.writeText(`https://${draft.username}.taqdom.me`);
+                          setCopied(true);
+                          toast.success(t("تم نسخ الرابط!", "URL copied!"));
+                          setTimeout(() => setCopied(false), 2000);
+                        } catch {
+                          toast.error(t("تعذر النسخ التلقائي — انسخ الرابط يدوياً", "Clipboard unavailable — copy the URL manually"));
+                        }
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-background border border-border px-3 py-1.5 text-xs font-bold"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-background border border-border px-3 py-1.5 text-xs font-bold cursor-pointer"
                     >
                       {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
                       <span>{copied ? t("تم النسخ", "Copied") : t("نسخ الرابط", "Copy URL")}</span>
@@ -1815,9 +2683,10 @@ function StudioContent() {
                       data-testid="studio-explore-visibility"
                       type="checkbox"
                       checked={draft.discoverable === true}
-                      onChange={(event) =>
-                        setDraft((prev) => ({ ...prev, discoverable: event.target.checked }))
-                      }
+                      onChange={(event) => {
+                        setHasInteracted(true);
+                        setDraft((prev) => ({ ...prev, discoverable: event.target.checked }));
+                      }}
                       className="mt-1 h-4 w-4 accent-[#C7F36B]"
                     />
                     <span className="space-y-1">
@@ -1851,8 +2720,10 @@ function StudioContent() {
 
                 <button
                   type="button"
+                  data-testid="studio-unpublish-btn"
+                  disabled={publishing}
                   onClick={handleUnpublish}
-                  className="w-full rounded-xl border border-border bg-background hover:border-red-500/60 py-2.5 text-xs font-bold text-muted-foreground hover:text-red-500 transition cursor-pointer"
+                  className="w-full rounded-xl border border-border bg-background hover:border-red-500/60 py-2.5 text-xs font-bold text-muted-foreground hover:text-red-500 transition cursor-pointer disabled:opacity-50"
                 >
                   {t("إلغاء النشر", "Unpublish portfolio")}
                 </button>
@@ -1903,7 +2774,12 @@ function StudioContent() {
 
       {/* Fullscreen Live Preview Modal */}
       {fullscreenPreview && (
-        <div className="fixed inset-0 z-[95] flex flex-col bg-background">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("معاينة بملء الشاشة", "Fullscreen preview")}
+          className="fixed inset-0 z-[95] flex flex-col bg-background"
+        >
           <div className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
             <span className="font-mono text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
               https://{draft.username}.taqdom.me • FULLSCREEN PREVIEW

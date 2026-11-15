@@ -237,4 +237,32 @@ assert.match(firebaseClientText, /GoogleAuthProvider/, "Client must use Firebase
 assert.match(firebaseRouteText, /verifyFirebaseIdToken/, "Next.js API must verify Firebase ID tokens.");
 assert.match(authPageText, /signInWithGoogleFirebase/, "Auth page must provide Firebase Google Sign-In.");
 
+// Regression guards for unpublish, subdomain SSR leak, image integrity, OAuth bounds & custom-code integrity
+const customPortfolioText = read("../components/templates/custom-sovereign-portfolio.tsx");
+const settingsText = read("../app/dashboard/settings/page.tsx");
+const mediaRouteText = read("../app/api/media/[key]/route.ts");
+assert.match(workerText, /if \(total === 0\) return \{ ok: true, value: \{\} \};/, "Worker parseJsonBody must allow 0-byte bodies such as bodyless DELETE requests.");
+assert.match(workerText, /\/portfolio\/_shell/, "Worker unknown-subdomain fallback must serve neutral _shell instead of leaking layla.");
+assert.match(workerText, /const storedPublishedVal = isPublish[\s\S]*?:\s*null;/, "Initial draft inserts must keep published_json NULL unless explicitly published.");
+assert.match(workerText, /toExploreSummaryPortfolio/, "Explore ?all=1 listing must strip heavyweight full-code payloads.");
+assert.match(wranglerText, /"\/studio"/, "Worker-first routing must intercept /studio before static assets.");
+assert.match(wranglerText, /"\/__\/\*"/, "Worker-first routing must intercept /__/* Firebase Auth proxy routes.");
+assert.match(customPortfolioText, /\(\) => nameStr \|\| ""/, "Full-code placeholder replacement must use replacer functions so $$ in custom JS stays intact.");
+assert.match(customPortfolioText, /h-\[100dvh\]/, "Live custom full-code subdomains must keep a full-viewport scroll container so scrollY & IntersectionObserver work.");
+assert.match(oauthServerText, /MAX_ACTIVE_TOKENS = 100/, "OAuth token endpoint must enforce per-user active token limit.");
+assert.match(oauthServerText, /access_token_id/, "OAuth refresh rotation must revoke the superseded access token.");
+assert.match(dashboardText, /\(user\?\.isFlagshipAccount \|\| user\?\.isTestAccount\) &&[\s\S]*?onClick=\{handleRestoreShowcase\}/, "Restore sample data button must only render for flagship showcase accounts.");
+assert.match(settingsText, /confirmDelete/, "Account deletion must require explicit two-step confirmation.");
+assert.match(studioText, /unpublishPortfolio\(draft\.username\)/, "Studio unpublish handler must sync client Zustand store state.");
+assert.match(studioText, /setUsernameInput/, "Studio username input must not snap back to layla while editing.");
+assert.match(mediaRouteText, /X-Content-Type-Options.*nosniff/, "Media API route must enforce X-Content-Type-Options: nosniff.");
+const publishedClientText = read("../components/templates/published-portfolio-client.tsx");
+assert.match(workerText, /parsedDraft\.publishedAt = null/, "Worker DELETE /api/portfolio/publish must clear publishedAt inside draft_json.");
+assert.match(workerText, /parsed\.publishedAt = row\.published_json/, "Worker getDraftPortfolioFromD1 must align draft publishedAt with published_json presence.");
+assert.match(workerText, /<meta name="robots" content="\$\{robotsValue\}"\/>/, "Worker rewriteSubdomainHtml must restore indexable robots meta on custom subdomains built from _shell.");
+assert.match(workerText, /hasProfileLdHead && !hasProfileLdBody \? jsonLdScript/, "Worker rewriteSubdomainHtml must inject ProfilePage JSON-LD when _shell lacks it.");
+assert.match(publishedClientText, /prev\.updatedAt === data\.portfolio\.updatedAt/, "PublishedPortfolioClient must avoid double-reloading identical full-code iframe payloads.");
+assert.match(studioText, /value=\{draft\.seo\.title \?\? ""\}/, "Studio SEO title input must stay clearable instead of snapping back.");
+assert.match(studioText, /data-testid="studio-unpublish-btn"/, "Studio unpublish button must expose deterministic test hook and busy state.");
+
 console.log("Taqdom quality guards: PASS");

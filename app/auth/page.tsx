@@ -110,7 +110,22 @@ export default function AuthPage() {
         if (outcome.status !== "ok") return;
         setGoogleLoading(true);
         try {
-          await exchangeFirebaseToken(outcome.idToken);
+          let pending: { mode?: string; username?: string; displayName?: string; template?: TemplateId } = {};
+          try {
+            const rawPending = window.sessionStorage.getItem("taqdom_oauth_pending");
+            window.sessionStorage.removeItem("taqdom_oauth_pending");
+            if (rawPending) pending = JSON.parse(rawPending);
+          } catch {}
+          const pendingMode = pending?.mode || "login";
+          const cleanOptional = pendingMode === "register" ? normalizeUsername(pending?.username || "") : "";
+          await exchangeFirebaseToken(
+            outcome.idToken,
+            cleanOptional.length >= 3 ? cleanOptional : undefined,
+            pendingMode === "register"
+              ? (pending?.displayName || "").trim() || outcome.displayName
+              : outcome.displayName,
+            pendingMode === "register" ? pending?.template : undefined
+          );
         } catch (err) {
           toast.error(err instanceof Error ? err.message : t("تعذر إتمام تسجيل الدخول", "Could not finish Google sign-in"));
         } finally {
@@ -126,14 +141,22 @@ export default function AuthPage() {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
+      try {
+        window.sessionStorage.setItem(
+          "taqdom_oauth_pending",
+          JSON.stringify({ mode, username, displayName, template })
+        );
+      } catch {}
       const outcome = await signInWithGoogleFirebase();
       if (outcome.status === "error") {
+        try { window.sessionStorage.removeItem("taqdom_oauth_pending"); } catch {}
         toast.error(outcome.message);
         return;
       }
       if (outcome.status !== "ok") {
         return;
       }
+      try { window.sessionStorage.removeItem("taqdom_oauth_pending"); } catch {}
       const cleanOptional = mode === "register" ? normalizeUsername(username) : "";
       await exchangeFirebaseToken(
         outcome.idToken,

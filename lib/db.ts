@@ -235,7 +235,7 @@ export async function saveDraftPortfolio(portfolio: PortfolioData): Promise<Port
   });
   db.portfolios[clean] = {
     draft: updated,
-    published: existing ? existing.published : updated,
+    published: existing ? existing.published : null,
   };
   await writeDiskAndMemoryDb(db);
   return updated;

@@ -177,8 +177,8 @@ export function TaqdomWorldExperience() {
               <Link href="/templates" className="royal-inline-link">{t("استعرض القوالب كلها", "View all templates")}<Arrow size={17} /></Link>
             </div>
             <div className="royal-template-carousel" aria-label={t("معرض القوالب", "Template gallery")}>
-              <button type="button" className="royal-template-arrow" onClick={() => scrollTemplateRail(1)} aria-label={t("القوالب التالية", "Next templates")}>
-                <ChevronRight size={19} />
+              <button type="button" className="royal-template-arrow" onClick={() => scrollTemplateRail(-1)} aria-label={t("القوالب السابقة", "Previous templates")}>
+                <ChevronLeft size={19} />
               </button>
               <div className="royal-template-grid" ref={templateRailRef}>
                 {templateCards.map((item, index) => (
@@ -192,8 +192,8 @@ export function TaqdomWorldExperience() {
                   </Link>
                 ))}
               </div>
-              <button type="button" className="royal-template-arrow" onClick={() => scrollTemplateRail(-1)} aria-label={t("القوالب السابقة", "Previous templates")}>
-                <ChevronLeft size={19} />
+              <button type="button" className="royal-template-arrow" onClick={() => scrollTemplateRail(1)} aria-label={t("القوالب التالية", "Next templates")}>
+                <ChevronRight size={19} />
               </button>
             </div>
           </div>

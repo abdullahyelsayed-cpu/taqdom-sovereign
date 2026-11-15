@@ -91,33 +91,54 @@ html:not(.dark) body {
 }
 
 /* Legacy palette adapter: old template utility classes now inherit the
-   current semantic palette, including saved portfolios using old markup. */
+   current semantic palette across BOTH dark-first and light-first templates. */
 .portfolio-mode-dark [class*="bg-[#0A0A09]"],
 .portfolio-mode-dark [class*="bg-[#080807]"],
-.portfolio-mode-dark [class*="bg-[#141413]"] {
+.portfolio-mode-dark [class*="bg-[#F7F5F0]"] {
   background-color: #10111B !important;
 }
 .portfolio-mode-dark [class*="bg-[#121210]"],
-.portfolio-mode-dark [class*="bg-[#1C1C19]"] {
+.portfolio-mode-dark [class*="bg-[#1C1C19]"],
+.portfolio-mode-dark [class*="bg-[#EFECE6]"],
+.portfolio-mode-dark [class*="bg-[#E8E4DC]"] {
   background-color: #181B29 !important;
 }
 .portfolio-mode-dark [class*="bg-[#181815]"],
 .portfolio-mode-dark [class*="bg-[#1E1E1A]"] {
   background-color: #22263A !important;
 }
-.portfolio-mode-dark [class*="text-[#F4F1EA]"] { color: #F7F5FC !important; }
+.portfolio-mode-dark [class*="bg-[#141413]"] {
+  background-color: #1E2235 !important;
+  color: #F7F5FC !important;
+}
+.portfolio-mode-dark [class*="text-[#F4F1EA]"],
+.portfolio-mode-dark [class*="text-[#F7F5F0]"],
+.portfolio-mode-dark [class*="text-[#141413]"] {
+  color: #F7F5FC !important;
+}
 .portfolio-mode-dark [class*="text-[#A09C94]"],
-.portfolio-mode-dark [class*="text-[#9FAAB5]"] { color: #B7B8C8 !important; }
-.portfolio-mode-dark [class*="text-[#5E5B55]"] { color: #B7B8C8 !important; }
+.portfolio-mode-dark [class*="text-[#9FAAB5]"],
+.portfolio-mode-dark [class*="text-[#5E5B55]"] {
+  color: #B7B8C8 !important;
+}
 .portfolio-mode-dark [class*="text-[#C89D66]"],
 .portfolio-mode-dark [class*="text-[#9A7B4F]"],
 .portfolio-mode-dark [class*="text-[#B68C51]"],
 .portfolio-mode-dark [class*="text-[#D7B77B]"],
-.portfolio-mode-dark [class*="text-[#E2C18D]"] { color: #A78BFA !important; }
-.portfolio-mode-dark [class*="text-[#1E3A2F]"] { color: #7EE7C4 !important; }
+.portfolio-mode-dark [class*="text-[#E2C18D]"] {
+  color: #A78BFA !important;
+}
+.portfolio-mode-dark [class*="text-[#1E3A2F]"] {
+  color: #7EE7C4 !important;
+}
+.portfolio-mode-dark [class*="border-[#141413]"] {
+  border-color: rgba(247,245,252,.18) !important;
+}
 .portfolio-mode-dark [class*="border-[#C89D66]"],
 .portfolio-mode-dark [class*="border-[#9A7B4F]"],
-.portfolio-mode-dark [class*="border-[#D7B77B]"] { border-color: rgba(167,139,250,.56) !important; }
+.portfolio-mode-dark [class*="border-[#D7B77B]"] {
+  border-color: rgba(167,139,250,.56) !important;
+}
 .portfolio-mode-dark [class~="bg-[#C89D66]"],
 .portfolio-mode-dark [class~="bg-[#9A7B4F]"] {
   background-color: #FF8396 !important;
@@ -128,23 +149,51 @@ html:not(.dark) body {
   background-color: rgba(167,139,250,.14) !important;
 }
 
-.portfolio-mode-light [class*="bg-[#F7F5F0]"] { background-color: #F4F2FA !important; }
-.portfolio-mode-light [class*="bg-[#EFECE6]"],
-.portfolio-mode-light [class*="bg-[#E8E4DC]"] { background-color: #ECEAF5 !important; }
-.portfolio-mode-light [class*="bg-[#141413]"],
-.portfolio-mode-light [class*="bg-[#0A0A09]"] {
-  background-color: #25213B !important;
-  color: #F7F5FC !important;
+.portfolio-mode-light [class*="bg-[#F7F5F0]"],
+.portfolio-mode-light [class*="bg-[#0A0A09]"],
+.portfolio-mode-light [class*="bg-[#080807]"] {
+  background-color: #F4F2FA !important;
 }
-.portfolio-mode-light [class*="text-[#141413]"] { color: #191729 !important; }
-.portfolio-mode-light [class*="text-[#5E5B55]"] { color: #55536B !important; }
+.portfolio-mode-light [class*="bg-[#EFECE6]"],
+.portfolio-mode-light [class*="bg-[#E8E4DC]"],
+.portfolio-mode-light [class*="bg-[#121210]"],
+.portfolio-mode-light [class*="bg-[#1C1C19]"],
+.portfolio-mode-light [class*="bg-[#141413]"] {
+  background-color: #ECEAF5 !important;
+  color: #191729 !important;
+}
+.portfolio-mode-light [class*="bg-[#181815]"],
+.portfolio-mode-light [class*="bg-[#1E1E1A]"] {
+  background-color: #E2DFEE !important;
+  color: #191729 !important;
+}
+.portfolio-mode-light [class*="text-[#141413]"],
+.portfolio-mode-light [class*="text-[#F4F1EA]"],
+.portfolio-mode-light [class*="text-[#F7F5F0]"] {
+  color: #191729 !important;
+}
+.portfolio-mode-light [class*="text-[#5E5B55]"],
+.portfolio-mode-light [class*="text-[#A09C94]"],
+.portfolio-mode-light [class*="text-[#9FAAB5]"] {
+  color: #55536B !important;
+}
 .portfolio-mode-light [class*="text-[#9A7B4F]"],
 .portfolio-mode-light [class*="text-[#C89D66]"],
 .portfolio-mode-light [class*="text-[#B68C51]"],
-.portfolio-mode-light [class*="text-[#D7B77B]"] { color: #6047B7 !important; }
-.portfolio-mode-light [class*="text-[#1E3A2F]"] { color: #087567 !important; }
+.portfolio-mode-light [class*="text-[#D7B77B]"] {
+  color: #6047B7 !important;
+}
+.portfolio-mode-light [class*="text-[#1E3A2F]"] {
+  color: #087567 !important;
+}
+.portfolio-mode-light [class*="border-[#F4F1EA]"],
+.portfolio-mode-light [class*="border-[#141413]"] {
+  border-color: rgba(25,23,41,.16) !important;
+}
 .portfolio-mode-light [class*="border-[#9A7B4F]"],
-.portfolio-mode-light [class*="border-[#C89D66]"] { border-color: rgba(96,71,183,.45) !important; }
+.portfolio-mode-light [class*="border-[#C89D66]"] {
+  border-color: rgba(96,71,183,.45) !important;
+}
 .portfolio-mode-light [class~="bg-[#9A7B4F]"],
 .portfolio-mode-light [class~="bg-[#C89D66]"] {
   background-color: #6047B7 !important;
@@ -365,4 +414,30 @@ html:not(.dark) [class~="bg-emerald-500"]:not(.portfolio-mode-light *):not(.port
   .taq-motion-ready [data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
   [data-canvas-editable="true"] .portfolio-canvas-section { transition: none !important; }
   .taqdom-lux-card, .taqdom-lux-btn, .taqdom-lux-pill, .portfolio-canvas-section article.cursor-pointer { transition: none !important; transform: none !important; }
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .siyada-cv-printable,
+  .siyada-cv-printable * {
+    visibility: visible !important;
+  }
+  .siyada-cv-printable {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #141413 !important;
+    z-index: 99999 !important;
+  }
+  .siyada-cv-print-hide {
+    display: none !important;
+  }
 }

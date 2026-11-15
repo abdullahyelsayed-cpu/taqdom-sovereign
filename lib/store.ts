@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { PortfolioData, TemplateId } from "./types";
+import { PortfolioData, TemplateId, normalizeUsername } from "./types";
 import { SEED_PORTFOLIOS, createStarterPortfolio } from "./seed-data";
 
 export interface AuthUser {
@@ -29,6 +29,7 @@ interface TaqdomStoreState {
   undo: () => void;
   redo: () => void;
   publishCurrentDraft: () => Promise<PortfolioData>;
+  unpublishPortfolio: (username?: string) => void;
   loginFlagshipShowcase: () => Promise<PortfolioData>;
   resetTestAccount: () => Promise<PortfolioData>;
   loadPortfolioForUsername: (username: string) => PortfolioData | null;
@@ -187,6 +188,27 @@ export const useTaqdomStore = create<TaqdomStoreState>()(
           set({ saveStatus: "unsaved" });
           throw error;
         }
+      },
+
+      unpublishPortfolio: (username) => {
+        set((state) => {
+          const target = normalizeUsername(username || state.draft.username);
+          const nextPublished = { ...state.publishedPortfolios };
+          delete nextPublished[target];
+          const updatedDraft =
+            state.draft.username === target
+              ? {
+                  ...state.draft,
+                  publishedAt: null,
+                  updatedAt: Date.now(),
+                }
+              : state.draft;
+          return {
+            draft: updatedDraft,
+            publishedPortfolios: nextPublished,
+            saveStatus: "saved",
+          };
+        });
       },
 
       loginFlagshipShowcase: async () => {

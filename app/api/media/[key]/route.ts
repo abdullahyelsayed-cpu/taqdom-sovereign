@@ -19,11 +19,16 @@ export async function GET(
   const base64Data = media.dataUrl.slice(base64Idx + 7);
   const binary = Buffer.from(base64Data, "base64");
 
+  const mime = media.mime || "image/webp";
   return new NextResponse(binary, {
     status: 200,
     headers: {
-      "Content-Type": media.mime || "image/webp",
+      "Content-Type": mime,
       "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+      ...(mime === "image/svg+xml"
+        ? { "Content-Security-Policy": "default-src 'none'; script-src 'none'; sandbox" }
+        : {}),
     },
   });
 }
