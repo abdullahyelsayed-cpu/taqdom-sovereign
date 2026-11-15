@@ -2686,12 +2686,29 @@ export default {
         "server",
         "x-powered-by",
         "via",
+        "cross-origin-opener-policy",
       ]) {
         resHeaders.delete(internalHeader);
       }
       resHeaders.set("X-Content-Type-Options", "nosniff");
       resHeaders.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-      resHeaders.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+
+      // Never set COOP: same-origin-allow-popups on the auth popup itself, otherwise navigating
+      // to/from Google OAuth severs window.opener and stalls popup.close() for 15-60 seconds.
+      const contentType = (resHeaders.get("content-type") || "").toLowerCase();
+      if (pathname === "/__/auth/handler" && upstreamRes.ok && contentType.includes("text/html")) {
+        const html = await upstreamRes.text();
+        resHeaders.delete("content-length");
+        resHeaders.delete("content-encoding");
+        const helperUi = `<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,sans-serif;background:#faf9f6;color:#111827}@media(prefers-color-scheme:dark){body{background:#0b0f17;color:#f3f4f6}}.tqd-auth-wait{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;padding:24px}.tqd-spin{width:28px;height:28px;border:3px solid rgba(212,175,55,.25);border-top-color:#d4af37;border-radius:50%;animation:tqdSpin .75s linear infinite}@keyframes tqdSpin{to{transform:rotate(360deg)}}</style><div class="tqd-auth-wait" aria-live="polite"><div class="tqd-spin"></div><div style="font-size:14px;font-weight:600">جاري إتمام المصادقة مع Google...</div></div><script nonce="firebase-auth-helper">(function(){try{var s=location.search||"";if((s.indexOf("state=")!==-1||s.indexOf("code=")!==-1)&&typeof BroadcastChannel!=="undefined"){var ch=new BroadcastChannel("taqdom_oauth_popup");ch.onmessage=function(ev){if(ev&&ev.data&&ev.data.type==="done"){setTimeout(function(){try{window.close();}catch(e){}},200);try{ch.close();}catch(e){}}};}}catch(e){}})();</script>`;
+        const patchedHtml = html.includes("</body>") ? html.replace("</body>", `${helperUi}</body>`) : `${html}${helperUi}`;
+        return new Response(patchedHtml, {
+          status: upstreamRes.status,
+          statusText: upstreamRes.statusText,
+          headers: resHeaders,
+        });
+      }
+
       return new Response(upstreamRes.body, {
         status: upstreamRes.status,
         statusText: upstreamRes.statusText,

@@ -39,6 +39,17 @@ export type GoogleSignInOutcome =
   | { status: "cancelled" }
   | { status: "error"; message: string };
 
+function notifyAuthPopupDone(): void {
+  if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") return;
+  try {
+    const ch = new BroadcastChannel("taqdom_oauth_popup");
+    ch.postMessage({ type: "done" });
+    ch.close();
+  } catch {
+    // Ignore BroadcastChannel unavailability
+  }
+}
+
 export async function signInWithGoogleFirebase(): Promise<GoogleSignInOutcome> {
   const auth = getFirebaseAuthInstance();
   const provider = new GoogleAuthProvider();
@@ -49,6 +60,7 @@ export async function signInWithGoogleFirebase(): Promise<GoogleSignInOutcome> {
   try {
     const result = await signInWithPopup(auth, provider);
     const idToken = await result.user.getIdToken();
+    notifyAuthPopupDone();
     return {
       status: "ok",
       idToken,
