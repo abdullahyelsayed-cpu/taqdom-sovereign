@@ -1954,6 +1954,14 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     cleanCustomHtml = undefined;
   }
 
+  const hasExplicitFullHtmlArg =
+    "fullPageHtml" in args ||
+    "html" in args ||
+    "fullHtml" in args ||
+    "pageHtml" in args ||
+    "html" in codeSrc ||
+    promoteCustomHtmlToFullPage;
+
   let cleanFullPageHtml = existingDesign?.fullPageHtml || existingDesign?.customCode?.html;
   const rawFullHtmlInput =
     args.fullPageHtml ??
@@ -1962,20 +1970,15 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     args.pageHtml ??
     codeSrc.html ??
     (promoteCustomHtmlToFullPage ? customHtmlRaw : undefined);
-  if (
-    "fullPageHtml" in args ||
-    "html" in args ||
-    "fullHtml" in args ||
-    "pageHtml" in args ||
-    "html" in codeSrc ||
-    promoteCustomHtmlToFullPage
-  ) {
+  if (hasExplicitFullHtmlArg) {
     cleanFullPageHtml = rawFullHtmlInput
       ? bilingualLarge(rawFullHtmlInput, "fullPageHtml")
       : undefined;
   }
 
-  let cleanCustomCss = existingDesign?.customCss ?? existingDesign?.customCode?.css;
+  let cleanCustomCss = hasExplicitFullHtmlArg
+    ? undefined
+    : existingDesign?.customCss ?? existingDesign?.customCode?.css;
   const rawCssInput =
     args.customCss ?? args.css ?? args.styles ?? args.stylesheet ?? codeSrc.css;
   if (
@@ -1988,7 +1991,9 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     cleanCustomCss = rawCssInput ? String(rawCssInput).slice(0, 6000000) : undefined;
   }
 
-  let cleanCustomJs = existingDesign?.customJs ?? existingDesign?.customCode?.js;
+  let cleanCustomJs = hasExplicitFullHtmlArg
+    ? undefined
+    : existingDesign?.customJs ?? existingDesign?.customCode?.js;
   const rawJsInput = args.customJs ?? args.js ?? args.script ?? args.javascript ?? codeSrc.js;
   if (
     "customJs" in args ||
@@ -2000,7 +2005,9 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     cleanCustomJs = rawJsInput ? String(rawJsInput).slice(0, 6000000) : undefined;
   }
 
-  let cleanHeadHtml = existingDesign?.headHtml ?? existingDesign?.customCode?.headHtml;
+  let cleanHeadHtml = hasExplicitFullHtmlArg
+    ? undefined
+    : existingDesign?.headHtml ?? existingDesign?.customCode?.headHtml;
   const rawHeadInput = args.headHtml ?? args.head ?? codeSrc.headHtml;
   if ("headHtml" in args || "head" in args || "headHtml" in codeSrc) {
     cleanHeadHtml = rawHeadInput ? String(rawHeadInput).slice(0, 1000000) : undefined;
@@ -2079,7 +2086,8 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
       args.pills ||
       args.companyPills ||
       args.heroEyebrow ||
-      args.eyebrow
+      args.eyebrow ||
+      Boolean(cleanCustomHtml && "customHtml" in args && !promoteCustomHtmlToFullPage)
   );
   const cleanRenderMode =
     args.renderMode === "bespoke-components"

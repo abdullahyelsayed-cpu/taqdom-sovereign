@@ -78,16 +78,37 @@ export function PublishedPortfolioClient({
 
     if (!resolvedDetected) return;
 
-    // 2. Fetch fresh published state from server API
+    const trackViewOnce = (targetSlug: string) => {
+      if (trackedViewForRef.current === targetSlug) return;
+      trackedViewForRef.current = targetSlug;
+      // Increment view counter once for confirmed published portfolio & drain response stream cleanly
+      fetch("/api/views", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: targetSlug }),
+      })
+        .then((res) => res.text())
+        .catch(() => {});
+    };
+
+    if (typeof window !== "undefined" && window.__TAQDOM_PORTFOLIO__) {
+      trackViewOnce(resolvedDetected);
+    }
+
+    // 2. Fetch fresh published state from server API and always consume response stream
     let cancelled = false;
     fetch(`/api/portfolio?u=${encodeURIComponent(resolvedDetected)}&mode=published`, {
       cache: "no-store",
     })
       .then(async (r) => {
-        if (cancelled) return;
+        if (cancelled) {
+          await r.text().catch(() => {});
+          return;
+        }
         if (r.ok) {
           const data = await r.json();
           if (data?.portfolio) {
+            trackViewOnce(resolvedDetected);
             setPortfolio((prev) => {
               if (
                 prev &&
@@ -101,26 +122,17 @@ export function PublishedPortfolioClient({
               return data.portfolio;
             });
           }
-        } else if (r.status === 404) {
-          setPortfolio(null);
+        } else {
+          await r.text().catch(() => {});
+          if (r.status === 404) {
+            setPortfolio(null);
+          }
         }
         setIsLoading(false);
       })
       .catch(() => {
         if (!cancelled) setIsLoading(false);
       });
-
-    // 3. Increment view counter once per creator slug and drain response stream cleanly
-    if (trackedViewForRef.current !== resolvedDetected) {
-      trackedViewForRef.current = resolvedDetected;
-      fetch("/api/views", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: resolvedDetected }),
-      })
-        .then((res) => res.text())
-        .catch(() => {});
-    }
 
     return () => {
       cancelled = true;

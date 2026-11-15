@@ -37,6 +37,7 @@ import {
   X,
 } from "lucide-react";
 import { TaqdomLogo } from "@/components/brand/taqdom-logo";
+import { SafeImage } from "@/components/safe-image";
 import { useTheme } from "next-themes";
 import { useLanguage } from "@/lib/i18n";
 import { useTaqdomStore } from "@/lib/store";
@@ -46,6 +47,7 @@ import {
   TemplateId,
   ALL_TEMPLATE_IDS,
   normalizeUsername,
+  validateUsername,
   getSubdomainUrl,
   PortfolioProject,
   CanvasSectionId,
@@ -450,6 +452,7 @@ function StudioContent() {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
+        setHasInteracted(true);
         undo();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
@@ -463,6 +466,17 @@ function StudioContent() {
           .then(async (response) => {
             const result = await response.json().catch(() => null);
             if (!response.ok || !result?.ok) {
+              const currentOwner = useTaqdomStore.getState().user?.username;
+              if (
+                (response.status === 409 || response.status === 403 || response.status === 400) &&
+                currentOwner &&
+                snapshot.username !== currentOwner
+              ) {
+                useTaqdomStore.setState((s) => ({
+                  draft: { ...s.draft, username: currentOwner },
+                }));
+                setUsernameInput(currentOwner);
+              }
               throw new Error(result?.error || "Could not save this draft.");
             }
             if (result?.user && result?.portfolio?.username) {
@@ -519,7 +533,14 @@ function StudioContent() {
         if (controller.signal.aborted || reqEpoch !== syncEpochRef.current) return;
         if (!response.ok || !result?.ok) {
           const errMsg = result?.error || "Could not save this draft.";
+          const currentOwner = useTaqdomStore.getState().user?.username;
           if (response.status === 409 || response.status === 403 || response.status === 400) {
+            if (currentOwner && snapshot.username !== currentOwner) {
+              useTaqdomStore.setState((s) => ({
+                draft: { ...s.draft, username: currentOwner },
+              }));
+              setUsernameInput(currentOwner);
+            }
             toast.error(errMsg);
           }
           throw new Error(errMsg);
@@ -554,13 +575,33 @@ function StudioContent() {
     return () => window.clearTimeout(timer);
   }, [draft, hasInteracted, pastDrafts.length, isDemoReadOnly]);
 
+  const commitUsernameInput = (): boolean => {
+    const candidate = normalizeUsername(usernameInput);
+    if (candidate === draft.username) {
+      setUsernameInput(draft.username);
+      return true;
+    }
+    const check = validateUsername(candidate);
+    if (!check.valid) {
+      toast.error(lang === "ar" ? check.reasonAr : check.reasonEn);
+      setUsernameInput(draft.username);
+      return false;
+    }
+    setHasInteracted(true);
+    setUsernameInput(candidate);
+    setDraft((prev) => ({
+      ...prev,
+      username: candidate,
+    }));
+    return true;
+  };
+
   const handlePublish = async () => {
     if (isDemoReadOnly) {
       toast.info(t("حساب المعاينة للعرض فقط؛ سجّل حسابك لحفظ أو نشر بورتفوليو خاص بك.", "The demo is read-only. Create your own account to save or publish."));
       return;
     }
-    if (normalizeUsername(usernameInput).length < 3) {
-      toast.error(t("يجب أن يكون اسم الرابط 3 أحرف إنجليزية على الأقل قبل النشر.", "Personal address must be at least 3 characters before publishing."));
+    if (!commitUsernameInput()) {
       return;
     }
     syncEpochRef.current += 1;
@@ -570,6 +611,7 @@ function StudioContent() {
       const published = await publishCurrentDraft();
       lastServerSyncedAtRef.current = useTaqdomStore.getState().draft.updatedAt ?? null;
       if (typeof window !== "undefined" && published?.username) {
+        setUsernameInput(published.username);
         const curU = normalizeUsername(new URLSearchParams(window.location.search).get("u") || "");
         if (curU !== published.username) {
           window.history.replaceState(null, "", `/studio?u=${encodeURIComponent(published.username)}`);
@@ -594,6 +636,13 @@ function StudioContent() {
         )
       );
     } catch (error) {
+      const currentOwner = useTaqdomStore.getState().user?.username;
+      if (currentOwner && useTaqdomStore.getState().draft.username !== currentOwner) {
+        useTaqdomStore.setState((s) => ({
+          draft: { ...s.draft, username: currentOwner },
+        }));
+        setUsernameInput(currentOwner);
+      }
       toast.error(
         error instanceof Error
           ? error.message
@@ -612,21 +661,30 @@ function StudioContent() {
     syncEpochRef.current += 1;
     autosaveAbortRef.current?.abort();
     setPublishing(true);
+    const targetUsername = !isDemoReadOnly && user?.username ? user.username : draft.username;
     try {
-      const res = await fetch(`/api/portfolio/publish?u=${encodeURIComponent(draft.username)}`, {
+      const res = await fetch(`/api/portfolio/publish?u=${encodeURIComponent(targetUsername)}`, {
         method: "DELETE",
       });
       const result = await res.json().catch(() => null);
       if (!res.ok || !result?.ok) {
         throw new Error(result?.error || t("تعذر إيقاف النشر", "Failed to unpublish"));
       }
-      unpublishPortfolio(draft.username);
+      if (draft.username !== targetUsername) {
+        unpublishPortfolio(targetUsername);
+        useTaqdomStore.setState((s) => ({
+          draft: { ...s.draft, username: targetUsername, publishedAt: null, updatedAt: Date.now() },
+        }));
+      } else {
+        unpublishPortfolio(draft.username);
+      }
+      setUsernameInput(targetUsername);
       lastServerSyncedAtRef.current = useTaqdomStore.getState().draft.updatedAt ?? null;
       setPublishedSuccessUrl(null);
       toast.success(
         t(
-          `تم إيقاف النشر المؤقت للنطاق ${draft.username}.taqdom.me`,
-          `Unpublished ${draft.username}.taqdom.me`
+          `تم إيقاف النشر المؤقت للنطاق ${targetUsername}.taqdom.me`,
+          `Unpublished ${targetUsername}.taqdom.me`
         )
       );
     } catch (error) {
@@ -713,7 +771,7 @@ function StudioContent() {
         body: JSON.stringify({
           dataUrl,
           mime,
-          username: draft.username,
+          username: !isDemoReadOnly && user?.username ? user.username : draft.username,
         }),
       });
       const uploaded = await response.json().catch(() => null);
@@ -854,7 +912,7 @@ function StudioContent() {
       const response = await fetch("/api/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, mime, username: draft.username }),
+        body: JSON.stringify({ dataUrl, mime, username: !isDemoReadOnly && user?.username ? user.username : draft.username }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.url) throw new Error(payload.error || "Upload failed");
@@ -914,7 +972,10 @@ function StudioContent() {
             <div className="flex items-center rounded-xl border border-border bg-secondary/70 p-1">
               <button
                 type="button"
-                onClick={undo}
+                onClick={() => {
+                  setHasInteracted(true);
+                  undo();
+                }}
                 disabled={pastDrafts.length === 0}
                 className="rounded-lg p-1.5 text-foreground disabled:opacity-35 hover:bg-background"
                 title="Undo (Ctrl+Z)"
@@ -923,7 +984,10 @@ function StudioContent() {
               </button>
               <button
                 type="button"
-                onClick={redo}
+                onClick={() => {
+                  setHasInteracted(true);
+                  redo();
+                }}
                 disabled={futureDrafts.length === 0}
                 className="rounded-lg p-1.5 text-foreground disabled:opacity-35 hover:bg-background"
                 title="Redo"
@@ -1063,8 +1127,9 @@ function StudioContent() {
           <div className="studio-side-intro shrink-0">
             <div className="studio-side-intro-top">
               <div className="studio-side-avatar">
-                <Image
+                <SafeImage
                   src={draft.avatar || "/images/taqdom-avatar-placeholder.svg"}
+                  fallbackSrc="/images/taqdom-avatar-placeholder.svg"
                   alt={t(draft.name.ar, draft.name.en)}
                   fill
                   sizes="48px"
@@ -1130,35 +1195,49 @@ function StudioContent() {
                       onChange={(e) => {
                         const raw = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
                         setUsernameInput(raw);
-                        setHasInteracted(true);
-                        const valid = normalizeUsername(raw);
-                        if (valid.length >= 3) {
-                          setDraft((prev) => ({
-                            ...prev,
-                            username: valid,
-                          }));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitUsernameInput();
                         }
                       }}
                       onBlur={() => {
-                        if (normalizeUsername(usernameInput).length < 3) {
-                          setUsernameInput(draft.username);
-                        }
+                        commitUsernameInput();
                       }}
                       className="w-full bg-transparent font-mono text-sm focus:outline-none text-left"
                     />
                     <span dir="ltr" className="font-mono text-xs font-bold text-[#9A7B4F] dark:text-[#C89D66]">
                       .taqdom.me
                     </span>
+                    {normalizeUsername(usernameInput) !== draft.username && (
+                      <button
+                        type="button"
+                        data-testid="studio-username-apply-btn"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => commitUsernameInput()}
+                        className="ms-2 shrink-0 rounded-lg bg-[#9A7B4F] dark:bg-[#C89D66] px-2.5 py-1 text-[11px] font-bold text-[#F7F5F0] dark:text-[#0A0A09] cursor-pointer"
+                      >
+                        {t("تطبيق", "Apply")}
+                      </button>
+                    )}
                   </div>
-                  {normalizeUsername(usernameInput).length < 3 ? (
-                    <p className="mt-1 text-[11px] font-semibold text-red-500">
-                      {t("أدخل 3 أحرف إنجليزية صغيرة على الأقل.", "Enter at least 3 lowercase letters or digits.")}
-                    </p>
-                  ) : (
-                    <p dir="ltr" className="mt-1 font-mono text-[11px] text-[#9A7B4F] dark:text-[#C89D66]">
-                      https://{draft.username}.taqdom.me
-                    </p>
-                  )}
+                  {(() => {
+                    const cleanInput = normalizeUsername(usernameInput);
+                    const check = validateUsername(cleanInput);
+                    if (!check.valid) {
+                      return (
+                        <p className="mt-1 text-[11px] font-semibold text-red-500">
+                          {lang === "ar" ? check.reasonAr : check.reasonEn}
+                        </p>
+                      );
+                    }
+                    return (
+                      <p dir="ltr" className="mt-1 font-mono text-[11px] text-[#9A7B4F] dark:text-[#C89D66]">
+                        https://{cleanInput}.taqdom.me
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* Avatar Picker */}
@@ -1168,8 +1247,9 @@ function StudioContent() {
                   </label>
                   <div className="flex items-center gap-3 mb-2">
                     <div className="relative h-14 w-14 rounded-2xl overflow-hidden border-2 border-[#9A7B4F] dark:border-[#C89D66] shrink-0">
-                      <Image
+                      <SafeImage
                         src={draft.avatar || "/images/taqdom-avatar-placeholder.svg"}
+                        fallbackSrc="/images/taqdom-avatar-placeholder.svg"
                         alt="Avatar"
                         fill
                         className="object-cover"
@@ -1230,7 +1310,7 @@ function StudioContent() {
                   </div>
                   {draft.cover && (
                     <div className="relative h-20 w-full overflow-hidden rounded-xl border border-border">
-                      <Image src={draft.cover} alt="Cover preview" fill className="object-cover" />
+                      <SafeImage src={draft.cover} fallbackSrc="/images/ultra/haven-hero.webp" alt="Cover preview" fill className="object-cover" />
                     </div>
                   )}
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
@@ -1933,7 +2013,10 @@ function StudioContent() {
                       key={tpl.id}
                       type="button"
                       data-testid={`studio-select-template-${tpl.id}`}
-                      onClick={() => switchTemplate(tpl.id)}
+                      onClick={() => {
+                        setHasInteracted(true);
+                        switchTemplate(tpl.id);
+                      }}
                       className={`w-full text-start rounded-2xl border p-3.5 transition flex items-center gap-3.5 cursor-pointer ${
                         selected
                           ? "border-[#9A7B4F] dark:border-[#C89D66] bg-[#9A7B4F]/15 shadow-md"
@@ -2267,7 +2350,7 @@ function StudioContent() {
                           <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
                             {proj.images.map((gImg, gIdx) => (
                               <div key={`${gImg}-${gIdx}`} className="relative h-12 w-16 shrink-0 rounded-lg overflow-hidden border border-border group">
-                                <Image src={gImg} alt="" fill className="object-cover" />
+                                <SafeImage src={gImg} fallbackSrc="/images/ultra/haven-hero.webp" alt="" fill className="object-cover" />
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -2369,7 +2452,7 @@ function StudioContent() {
                   </div>
                   {draft.canvas?.backgroundImage ? (
                     <div className="relative overflow-hidden rounded-xl border border-border">
-                      <Image src={draft.canvas.backgroundImage} alt="Canvas background preview" width={600} height={220} className="h-28 w-full object-cover" unoptimized />
+                      <SafeImage src={draft.canvas.backgroundImage} fallbackSrc="/images/ultra/haven-hero.webp" alt="Canvas background preview" width={600} height={220} className="h-28 w-full object-cover" unoptimized />
                       <button type="button" onClick={() => updateCanvasBackground({ backgroundImage: undefined })} className="absolute end-2 top-2 rounded-lg bg-black/70 p-1.5 text-white" aria-label={t("إزالة الخلفية", "Remove background")}><X className="h-3.5 w-3.5" /></button>
                     </div>
                   ) : (

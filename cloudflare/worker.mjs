@@ -706,8 +706,6 @@ async function verifyEdgeSession(token, secret) {
   }
 }
 
-const sessionUserCache = new Map();
-const SESSION_CACHE_TTL_MS = 15_000;
 const initializedWorkerMediaDbs = new WeakSet();
 
 async function ensureWorkerMediaSchema(env) {
@@ -781,33 +779,19 @@ async function parseSessionFromRequest(request, env) {
       !verified.isTestAccount &&
       !SEED_PORTFOLIOS[normalizeUsername(verified.username)]
     ) {
-      const now = Date.now();
-      const cached = sessionUserCache.get(uid);
-      if (cached && cached.expiresAt > now) {
-        verified.username = cached.username;
-        verified.email = cached.email || verified.email;
-        return verified;
-      }
       try {
         const row = await env.DB.prepare(
           "SELECT username, email FROM users WHERE id = ?1 LIMIT 1"
         )
           .bind(uid)
           .first();
-        if (row?.username) {
-          const cleanName = normalizeUsername(row.username);
-          const cleanEmail = row.email || verified.email;
-          if (sessionUserCache.size > 500) sessionUserCache.clear();
-          sessionUserCache.set(uid, {
-            username: cleanName,
-            email: cleanEmail,
-            expiresAt: now + SESSION_CACHE_TTL_MS,
-          });
-          verified.username = cleanName;
-          verified.email = cleanEmail;
+        if (!row?.username) {
+          return null;
         }
+        verified.username = normalizeUsername(row.username);
+        verified.email = row.email || verified.email;
       } catch {
-        // Keep token claims if D1 lookup fails
+        // Keep token claims only on transient D1 failure
       }
     }
     return verified;
@@ -888,6 +872,22 @@ async function getDraftPortfolioFromD1(env, username) {
             parsed.publishedAt = row.published_json
               ? (parsed.publishedAt || row.published_at || Date.now())
               : null;
+            try {
+              const viewRow = await env.DB.prepare(
+                "SELECT COALESCE(SUM(count), 0) AS total FROM views WHERE username = ?1"
+              )
+                .bind(clean)
+                .first();
+              const recordedViews = Number(viewRow?.total || 0);
+              const seedBaseline = Number(SEED_PORTFOLIOS[clean]?.views || 0);
+              if (parsed.isFlagshipShowcase && seedBaseline > 0) {
+                parsed.views = Math.max(Number(parsed.views || 0), seedBaseline + recordedViews);
+              } else {
+                parsed.views = Math.max(recordedViews, Number(parsed.views || 0));
+              }
+            } catch {
+              // views table optional fallback
+            }
           }
           return parsed;
         }
@@ -1215,7 +1215,7 @@ async function renameAndSaveAccountInD1(env, curUsername, targetRawUsername, opt
       );
     }
     const { results: optionalTables = [] } = await env.DB.prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes', 'views')"
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes', 'views', 'media')"
     )
       .all()
       .catch(() => ({ results: [] }));
@@ -1234,6 +1234,14 @@ async function renameAndSaveAccountInD1(env, curUsername, targetRawUsername, opt
         env.DB.prepare("UPDATE views SET username = ?1 WHERE username = ?2").bind(
           targetUsername,
           cur
+        )
+      );
+    }
+    if (tableNames.has("media")) {
+      renameStatements.push(
+        env.DB.prepare("UPDATE media SET user_id = ?1 WHERE user_id = ?2").bind(
+          `user-${targetUsername}`,
+          `user-${cur}`
         )
       );
     }
@@ -1271,11 +1279,6 @@ async function renameAndSaveAccountInD1(env, curUsername, targetRawUsername, opt
     passwordHash: preservedHash,
     salt: preservedSalt,
   };
-  sessionUserCache.set(preservedUserId, {
-    username: targetUsername,
-    email: preservedEmail,
-    expiresAt: Date.now() + SESSION_CACHE_TTL_MS,
-  });
 
   const sessionPayload = {
     id: preservedUserId,
@@ -1912,17 +1915,32 @@ async function handleApiRequest(request, url, env) {
       }
       if (!ownsUsername(u)) return forbidden();
 
-      const targetUserRow = await env.DB.prepare("SELECT id FROM users WHERE username = ?1 LIMIT 1")
-        .bind(u)
-        .first()
-        .catch(() => null);
-      const uid = String(targetUserRow?.id || session?.userId || session?.id || "");
-      const portfolioRow = await env.DB.prepare(
-        "SELECT draft_json, published_json FROM portfolios WHERE username = ?1 LIMIT 1"
-      )
-        .bind(u)
-        .first()
-        .catch(() => null);
+      const sessionUid = String(session?.userId || session?.id || "");
+      const targetUserRow = sessionUid
+        ? await env.DB.prepare("SELECT id, username FROM users WHERE id = ?1 OR username = ?2 LIMIT 1")
+            .bind(sessionUid, u)
+            .first()
+            .catch(() => null)
+        : await env.DB.prepare("SELECT id, username FROM users WHERE username = ?1 LIMIT 1")
+            .bind(u)
+            .first()
+            .catch(() => null);
+      const uid = String(targetUserRow?.id || sessionUid || "");
+      const actualU = normalizeUsername(targetUserRow?.username || u);
+      const portfolioRow = uid
+        ? await env.DB.prepare(
+            "SELECT username, draft_json, published_json FROM portfolios WHERE user_id = ?1 OR username = ?2 LIMIT 1"
+          )
+            .bind(uid, actualU)
+            .first()
+            .catch(() => null)
+        : await env.DB.prepare(
+            "SELECT username, draft_json, published_json FROM portfolios WHERE username = ?1 LIMIT 1"
+          )
+            .bind(actualU)
+            .first()
+            .catch(() => null);
+      const portfolioUsername = normalizeUsername(portfolioRow?.username || actualU);
 
       const { results: existingTables = [] } = await env.DB.prepare(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes', 'portfolio_chunks', 'views', 'media', 'media_blobs', 'media_chunks')"
@@ -1934,8 +1952,8 @@ async function handleApiRequest(request, url, env) {
       const mediaKeysToDelete = new Set();
       if (portfolioRow) {
         const rawParts = [
-          await resolveChunkedPortfolioJson(env, u, "draft", portfolioRow.draft_json).catch(() => ""),
-          await resolveChunkedPortfolioJson(env, u, "published", portfolioRow.published_json).catch(() => ""),
+          await resolveChunkedPortfolioJson(env, portfolioUsername, "draft", portfolioRow.draft_json).catch(() => ""),
+          await resolveChunkedPortfolioJson(env, portfolioUsername, "published", portfolioRow.published_json).catch(() => ""),
         ].filter(Boolean);
         for (const raw of rawParts) {
           for (const match of raw.matchAll(/\/api\/media\/([A-Za-z0-9._-]+)/g)) {
@@ -1945,9 +1963,9 @@ async function handleApiRequest(request, url, env) {
       }
       if (tableNames.has("media") && uid) {
         const { results: userMediaRows = [] } = await env.DB.prepare(
-          "SELECT key FROM media WHERE user_id = ?1 OR user_id = ?2"
+          "SELECT key FROM media WHERE user_id = ?1 OR user_id = ?2 OR user_id = ?3"
         )
-          .bind(uid, `user-${u}`)
+          .bind(uid, `user-${actualU}`, `user-${u}`)
           .all()
           .catch(() => ({ results: [] }));
         for (const r of userMediaRows) {
@@ -1960,27 +1978,27 @@ async function handleApiRequest(request, url, env) {
         if (!tableNames.has(tbl)) continue;
         if (uid) {
           deleteStatements.push(
-            env.DB.prepare(`DELETE FROM ${tbl} WHERE username = ?1 OR user_id = ?2`).bind(u, uid)
+            env.DB.prepare(`DELETE FROM ${tbl} WHERE username = ?1 OR username = ?2 OR user_id = ?3`).bind(actualU, u, uid)
           );
         } else {
           deleteStatements.push(
-            env.DB.prepare(`DELETE FROM ${tbl} WHERE username = ?1`).bind(u)
+            env.DB.prepare(`DELETE FROM ${tbl} WHERE username = ?1 OR username = ?2`).bind(actualU, u)
           );
         }
       }
       if (tableNames.has("portfolio_chunks")) {
         deleteStatements.push(
-          env.DB.prepare("DELETE FROM portfolio_chunks WHERE username = ?1").bind(u)
+          env.DB.prepare("DELETE FROM portfolio_chunks WHERE username = ?1 OR username = ?2").bind(actualU, u)
         );
       }
       if (tableNames.has("views")) {
         deleteStatements.push(
-          env.DB.prepare("DELETE FROM views WHERE username = ?1").bind(u)
+          env.DB.prepare("DELETE FROM views WHERE username = ?1 OR username = ?2").bind(actualU, u)
         );
       }
       if (tableNames.has("media") && uid) {
         deleteStatements.push(
-          env.DB.prepare("DELETE FROM media WHERE user_id = ?1 OR user_id = ?2").bind(uid, `user-${u}`)
+          env.DB.prepare("DELETE FROM media WHERE user_id = ?1 OR user_id = ?2 OR user_id = ?3").bind(uid, `user-${actualU}`, `user-${u}`)
         );
       }
       for (const mKey of mediaKeysToDelete) {
@@ -1994,18 +2012,29 @@ async function handleApiRequest(request, url, env) {
           deleteStatements.push(env.DB.prepare("DELETE FROM media_blobs WHERE key = ?1").bind(mKey));
         }
       }
-      deleteStatements.push(
-        env.DB.prepare("DELETE FROM portfolios WHERE username = ?1").bind(u),
-        env.DB.prepare("DELETE FROM users WHERE username = ?1").bind(u)
-      );
+      if (uid) {
+        deleteStatements.push(
+          env.DB.prepare("DELETE FROM portfolios WHERE user_id = ?1 OR username = ?2 OR username = ?3").bind(uid, actualU, u),
+          env.DB.prepare("DELETE FROM users WHERE id = ?1 OR username = ?2 OR username = ?3").bind(uid, actualU, u)
+        );
+      } else {
+        deleteStatements.push(
+          env.DB.prepare("DELETE FROM portfolios WHERE username = ?1 OR username = ?2").bind(actualU, u),
+          env.DB.prepare("DELETE FROM users WHERE username = ?1 OR username = ?2").bind(actualU, u)
+        );
+      }
       for (let i = 0; i < deleteStatements.length; i += 20) {
         await env.DB.batch(deleteStatements.slice(i, i + 20));
       }
-      if (uid) sessionUserCache.delete(uid);
-      delete edgeStore.portfolios[u];
-      delete edgeStore.users[u];
-      delete edgeStore.views[u];
-      edgeStore.unpublished.add(u);
+      for (const mKey of mediaKeysToDelete) {
+        delete edgeStore.media[mKey];
+      }
+      for (const nameToClear of new Set([actualU, u, portfolioUsername].filter(Boolean))) {
+        delete edgeStore.portfolios[nameToClear];
+        delete edgeStore.users[nameToClear];
+        delete edgeStore.views[nameToClear];
+        edgeStore.unpublished.add(nameToClear);
+      }
       return jsonResponse(
         { ok: true },
         200,
@@ -2247,7 +2276,6 @@ async function handleApiRequest(request, url, env) {
       )
         .bind(key, mime, size, cleanDataUrl, now)
         .run();
-      edgeStore.media[key] = { key, mime, size, dataUrl: cleanDataUrl };
     } else {
       const CHUNK_CHARS = 800_000;
       const chunkStmts = [];
@@ -2283,7 +2311,7 @@ async function handleApiRequest(request, url, env) {
     if (!/^\d{10,}-[0-9a-f-]{36}\.(?:jpg|jpeg|png|webp|gif|avif|svg)$/i.test(key)) {
       return new Response("Not found", { status: 404 });
     }
-    let item = edgeStore.media[key];
+    let item = !env.DB ? edgeStore.media[key] : null;
     let mime = item?.mime || "image/webp";
     let bytes = null;
     if (item?.dataUrl) {
@@ -2328,7 +2356,6 @@ async function handleApiRequest(request, url, env) {
         const binStr = atob(row.data_url.slice(base64Idx + 7));
         bytes = new Uint8Array(binStr.length);
         for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
-        edgeStore.media[key] = { key, mime, size: row.size, dataUrl: row.data_url };
       }
     }
     if (!bytes) return new Response("Not found", { status: 404 });
@@ -2336,7 +2363,7 @@ async function handleApiRequest(request, url, env) {
       "Content-Type": mime,
       "Content-Disposition": "inline",
       "X-Content-Type-Options": "nosniff",
-      "Cache-Control": "public, max-age=31536000, immutable",
+      "Cache-Control": "no-store",
     };
     if (mime === "image/svg+xml") {
       responseHeaders["Content-Security-Policy"] =
@@ -2365,7 +2392,14 @@ async function handleApiRequest(request, url, env) {
     )
       .bind(clean, day)
       .first();
-    const total = Number(result?.count || 0);
+    const sumRow = await env.DB.prepare(
+      "SELECT COALESCE(SUM(count), 0) AS total FROM views WHERE username = ?1"
+    )
+      .bind(clean)
+      .first();
+    const recordedTotal = Number(sumRow?.total || result?.count || 0);
+    const seedBaseline = published.isFlagshipShowcase ? Number(SEED_PORTFOLIOS[clean]?.views || 0) : 0;
+    const total = seedBaseline + recordedTotal;
     edgeStore.views[clean] = total;
     return jsonResponse({ ok: true, views: edgeStore.views[clean] });
   }

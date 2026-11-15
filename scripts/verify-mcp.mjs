@@ -1094,6 +1094,100 @@ assert.equal(
   "Component layout update alongside customCss/googleFonts (without new fullPageHtml) must switch from full-code to bespoke-components"
 );
 
+// 7f-2. Fresh deploy_custom_code_portfolio must not leak stale customCss/customJs/headHtml, and fragment customHtml switches back to bespoke-components
+const fullCodeBaseRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2156,
+      method: "tools/call",
+      params: {
+        name: "deploy_custom_code_portfolio",
+        arguments: {
+          designName: "V1 Full Code",
+          fullPageHtml: "<div class='v1'>V1</div>",
+          customCss: ".v1 { color: red; }",
+          customJs: "window.__staleV1 = true;",
+          headHtml: "<meta name='v1' content='1' />",
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(fullCodeBaseRes.status, 200);
+const fullCodeReplaceRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2157,
+      method: "tools/call",
+      params: {
+        name: "deploy_custom_code_portfolio",
+        arguments: {
+          designName: "V2 Full Code",
+          fullPageHtml: "<div class='v2'>V2 Clean</div>",
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(fullCodeReplaceRes.status, 200);
+const fullCodeReplacePayload = await fullCodeReplaceRes.json();
+assert.equal(
+  fullCodeReplacePayload.result.structuredContent.customDesign.customCss,
+  undefined,
+  "Replacing fullPageHtml without customCss must not inherit stale customCss from previous redesign"
+);
+assert.equal(
+  fullCodeReplacePayload.result.structuredContent.customDesign.customJs,
+  undefined,
+  "Replacing fullPageHtml without customJs must not inherit stale customJs from previous redesign"
+);
+assert.equal(
+  fullCodeReplacePayload.result.structuredContent.customDesign.headHtml,
+  undefined,
+  "Replacing fullPageHtml without headHtml must not inherit stale headHtml from previous redesign"
+);
+
+const fragmentSwitchRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2158,
+      method: "tools/call",
+      params: {
+        name: "design_custom_portfolio_theme",
+        arguments: {
+          designName: "Fragment Bespoke Switch",
+          customHtml: "<section class='bespoke-frag'><h2>Selected Works</h2></section>",
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(fragmentSwitchRes.status, 200);
+const fragmentSwitchPayload = await fragmentSwitchRes.json();
+assert.equal(
+  fragmentSwitchPayload.result.structuredContent.customDesign.renderMode,
+  "bespoke-components",
+  "Passing a bespoke customHtml section fragment without full HTML must switch renderMode back to bespoke-components"
+);
+
 // 7g. Verify 6MB+ per-language fullPageHtml chunked D1 persistence & reassembly (never hits SQLITE_TOOBIG)
 const sixMbHtmlEn = "<div class='enterprise-6mb'>" + "A".repeat(6_000_000) + "</div>";
 const sixMbHtmlAr = "<div class='enterprise-6mb' dir='rtl'>" + "ب".repeat(6_000_000) + "</div>";
