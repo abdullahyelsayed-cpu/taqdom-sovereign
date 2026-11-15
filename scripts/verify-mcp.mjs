@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { handleMcpRequest, handleMcpTokenApi, handleOpenApiSpec, handleMcpRestRequest } from "../cloudflare/mcp.mjs";
+import {
+  handleMcpRequest,
+  handleMcpTokenApi,
+  handleOpenApiSpec,
+  handleMcpRestRequest,
+  resolveMcpBearerIdentity,
+} from "../cloudflare/mcp.mjs";
 import { handleOAuthRequest, isPublicSafeHttpsUrl } from "../cloudflare/oauth.mjs";
+import {
+  deleteUserMediaAsset,
+  listUserMediaAssets,
+  normalizeAndValidateImagePayload,
+  validRasterBytes,
+} from "../cloudflare/media-utils.mjs";
 
 const encoder = new TextEncoder();
 const tokens = new Map();
@@ -9,6 +21,10 @@ const oauthClients = new Map();
 const oauthCodes = new Map();
 const oauthRefreshTokens = new Map();
 const portfolioChunks = new Map();
+const mediaRows = new Map();
+const mediaBlobs = new Map();
+const mediaChunks = new Map();
+const mediaUploadSessions = new Map();
 let rawDraftJson = null;
 let rawPublishedJson = null;
 let portfolio = {
@@ -120,6 +136,50 @@ const db = {
           }
           portfolio.publishedAt = publishedAt;
           return { success: true, meta: { changes: 1 } };
+        } else if (sql.includes("INSERT OR IGNORE INTO media (")) {
+          if (this.values.length === 10) {
+            const [id, user_id, username, key, mime, size, label, alt, slot, created_at] = this.values;
+            if (!mediaRows.has(key)) {
+              mediaRows.set(key, { id, user_id, username, key, mime, size, label, alt, slot, created_at });
+            }
+          } else {
+            const [id, user_id, key, mime, size, created_at] = this.values;
+            if (!mediaRows.has(key)) {
+              mediaRows.set(key, { id, user_id, username: null, key, mime, size, label: null, alt: null, slot: null, created_at });
+            }
+          }
+        } else if (sql.includes("INSERT INTO media_blobs")) {
+          const [key, mime, size, data_url, created_at] = this.values;
+          mediaBlobs.set(key, { key, mime, size, data_url, created_at });
+        } else if (sql.includes("INSERT INTO media_chunks")) {
+          const [key, seq, chunk] = this.values;
+          const arr = mediaChunks.get(key) || [];
+          arr.push({ seq, chunk });
+          mediaChunks.set(key, arr);
+        } else if (sql.includes("INSERT INTO media_upload_sessions")) {
+          const [upload_id, username, seq, chunk, mime, label, alt, slot, created_at] = this.values;
+          const sKey = `${upload_id}:${username}`;
+          const m = mediaUploadSessions.get(sKey) || new Map();
+          const prev = m.get(seq) || {};
+          m.set(seq, {
+            seq,
+            chunk,
+            mime: mime || prev.mime || null,
+            label: label || prev.label || null,
+            alt: alt || prev.alt || null,
+            slot: slot || prev.slot || null,
+            created_at,
+          });
+          mediaUploadSessions.set(sKey, m);
+        } else if (sql.includes("DELETE FROM media_upload_sessions")) {
+          const [upload_id, username] = this.values;
+          mediaUploadSessions.delete(`${upload_id}:${username}`);
+        } else if (sql.includes("DELETE FROM media WHERE key =")) {
+          mediaRows.delete(this.values[0]);
+        } else if (sql.includes("DELETE FROM media_chunks WHERE key =")) {
+          mediaChunks.delete(this.values[0]);
+        } else if (sql.includes("DELETE FROM media_blobs WHERE key =")) {
+          mediaBlobs.delete(this.values[0]);
         } else if (sql.includes("UPDATE portfolios SET draft_json")) {
           const [draft, template, updatedAt] = this.values;
           rawDraftJson = draft;
@@ -158,6 +218,36 @@ const db = {
         if (sql.includes("FROM oauth_refresh_tokens WHERE token_hash =")) {
           return oauthRefreshTokens.get(this.values[0]) || null;
         }
+        if (sql.includes("SUM(length(chunk)) AS total_chars FROM media_upload_sessions")) {
+          const [upload_id, username] = this.values;
+          const m = mediaUploadSessions.get(`${upload_id}:${username}`);
+          let total = 0;
+          if (m) {
+            for (const item of m.values()) total += String(item.chunk || "").length;
+          }
+          return { total_chars: total };
+        }
+        if (sql.includes("FROM media_blobs WHERE key =")) {
+          return mediaBlobs.get(this.values[0]) || null;
+        }
+        if (sql.includes("SELECT key FROM media WHERE key = ?1 AND")) {
+          const [key, uName, u1, u2, u3] = this.values;
+          const row = mediaRows.get(key);
+          if (!row) return null;
+          if (
+            row.username === uName ||
+            row.user_id === u1 ||
+            row.user_id === u2 ||
+            row.user_id === u3
+          ) {
+            return { key: row.key };
+          }
+          return null;
+        }
+        if (sql.includes("SELECT key FROM media WHERE key = ?1 LIMIT 1")) {
+          const row = mediaRows.get(this.values[0]);
+          return row ? { key: row.key } : null;
+        }
         if (sql.includes("FROM portfolios")) {
           if (this.values[0] !== "mcp-owner" || this.values[1] !== "user-123") return null;
           return {
@@ -168,6 +258,41 @@ const db = {
         return null;
       },
       async all() {
+        if (sql.includes("FROM media_upload_sessions")) {
+          const [upload_id, username] = this.values;
+          const m = mediaUploadSessions.get(`${upload_id}:${username}`);
+          const results = m ? [...m.values()].sort((a, b) => a.seq - b.seq) : [];
+          return { results };
+        }
+        if (sql.includes("FROM media m")) {
+          const [uName, u1, u2, u3] = this.values;
+          const results = [...mediaRows.values()]
+            .filter(
+              (r) =>
+                r.username === uName ||
+                r.user_id === u1 ||
+                r.user_id === u2 ||
+                r.user_id === u3
+            )
+            .map((r) => {
+              const b = mediaBlobs.get(r.key);
+              return {
+                key: r.key,
+                mime: b?.mime || r.mime,
+                size: b?.size ?? r.size,
+                label: r.label,
+                alt: r.alt,
+                slot: r.slot,
+                created_at: r.created_at ?? b?.created_at ?? 0,
+              };
+            })
+            .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+          return { results };
+        }
+        if (sql.includes("FROM media_chunks WHERE key =")) {
+          const arr = (mediaChunks.get(this.values[0]) || []).sort((a, b) => a.seq - b.seq);
+          return { results: arr };
+        }
         if (sql.includes("FROM portfolio_chunks")) {
           const [u, kind] = this.values;
           const arr = (portfolioChunks.get(`${u}:${kind}`) || []).sort((a, b) => a.seq - b.seq);
@@ -224,7 +349,8 @@ assert.deepEqual(payload.result.tools.map((tool) => tool.name), [
   "get_portfolio_blueprint", "list_templates_and_capabilities",
   "update_portfolio_content", "design_custom_portfolio_theme",
   "deploy_custom_code_portfolio", "install_portfolio_libraries",
-  "upload_portfolio_image",
+  "upload_portfolio_image", "upload_portfolio_images",
+  "list_portfolio_images", "place_portfolio_image", "delete_portfolio_image",
 ]);
 
 response = await rpc({ jsonrpc: "2.0", id: 21, method: "resources/list" });
@@ -1735,4 +1861,227 @@ assert.equal(postRevokeMcp.status, 401);
   }
 }
 
-console.log("Taqdom MCP & OAuth 2.1 integration tests: PASS (DCR, CIMD, PKCE S256, root /mcp, direct URLs, SSE, rotation, bespoke design normalization, tenant isolation, revocation)");
+// 12. Real binary & unlimited multi-image uploads: permissive base64, chunked upload, batch upload, list, non-destructive place, cross-tenant delete, and OpenAPI multipart routes
+{
+  const newOwnerRes = await handleMcpTokenApi(
+    new Request("https://taqdom.me/api/mcp/tokens", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ label: "Media upload suite" }),
+    }),
+    new URL("https://taqdom.me/api/mcp/tokens"),
+    env,
+    session
+  );
+  const newOwnerTok = (await newOwnerRes.json()).token;
+
+  // 12a. Permissive base64 (whitespace/newlines, URL-safe, unpadded) + omitted MIME sniffing + GIF trailing NUL + AVIF compatible brand
+  const pngRawB64 = tinyPngDataUrl.split("base64,")[1];
+  const urlSafeNoPadWhitespaceB64 = pngRawB64
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "")
+    .replace(/(.{16})/g, "$1\n  ");
+  const normPng = await normalizeAndValidateImagePayload({ base64: urlSafeNoPadWhitespaceB64 });
+  assert.equal(normPng.mime, "image/png", "URL-safe, unpadded, wrapped base64 with omitted mime must sniff to image/png");
+
+  const normJpgAlias = await normalizeAndValidateImagePayload({
+    dataUrl: `data:image/jpg;base64,${pngRawB64}`,
+  });
+  assert.equal(normJpgAlias.mime, "image/png", "image/jpg alias carrying PNG bytes must auto-correct to image/png");
+
+  const gifWithTrailingNull = new Uint8Array([
+    0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3b, 0x00,
+  ]);
+  assert.equal(validRasterBytes("image/gif", gifWithTrailingNull), true, "GIF89a with trailing 0x00 after 0x3b trailer must be valid");
+
+  const avifCompatMsf1 = new Uint8Array([
+    0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x73, 0x66, 0x31,
+    0x00, 0x00, 0x00, 0x00, 0x6d, 0x73, 0x66, 0x31, 0x61, 0x76, 0x69, 0x66,
+    0x00, 0x00, 0x00, 0x0c, 0x6d, 0x65, 0x74, 0x61, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x0a, 0x6d, 0x64, 0x61, 0x74, 0x42, 0x43,
+  ]);
+  assert.equal(validRasterBytes("image/avif", avifCompatMsf1), true, "AVIF with compatible brand avif inside ftyp must be valid");
+
+  // Snapshot existing customDesign before placing images to prove non-destructive guarantees
+  const preHtmlEn = String(portfolio.customDesign?.fullPageHtml?.en || "");
+  const preHtmlAr = String(portfolio.customDesign?.fullPageHtml?.ar || "");
+  assert.ok(preHtmlEn.length > 0 && preHtmlAr.length > 0, "Expected fullPageHtml fixture to exist");
+
+  // Inject an image placeholder URL we can replace non-destructively later
+  portfolio.customDesign.fullPageHtml.en = `${preHtmlEn}<img id="slot-a" src="https://placeholder.example/old-photo.jpg" />`;
+  portfolio.customDesign.fullPageHtml.ar = `${preHtmlAr}<img id="slot-a" src="https://placeholder.example/old-photo.jpg" />`;
+  rawDraftJson = JSON.stringify(portfolio);
+
+  // 12b. Chunked upload across 3 chunks via upload_portfolio_image
+  const chunkLen = Math.ceil(pngRawB64.length / 3);
+  const uploadId = "chunk-suite-1";
+  for (let c = 0; c < 3; c++) {
+    const chunkRes = await rpc(
+      {
+        jsonrpc: "2.0",
+        id: 230 + c,
+        method: "tools/call",
+        params: {
+          name: "upload_portfolio_image",
+          arguments: {
+            uploadId,
+            chunk: pngRawB64.slice(c * chunkLen, (c + 1) * chunkLen),
+            chunkIndex: c,
+            totalChunks: 3,
+            mime: "image/png",
+            label: "Chunked Portrait",
+            alt: "Founder portrait",
+            assignTo: "gallery",
+          },
+        },
+      },
+      newOwnerTok
+    );
+    assert.equal(chunkRes.status, 200);
+    const chunkPayload = await chunkRes.json();
+    assert.equal(chunkPayload.result.isError, undefined, JSON.stringify(chunkPayload.result));
+    const sc = chunkPayload.result.structuredContent;
+    if (c < 2) {
+      assert.equal(sc.partial, true);
+      assert.equal(sc.receivedChunks, c + 1);
+    } else {
+      assert.equal(sc.ok, true);
+      assert.match(sc.url, /^\/api\/media\/.+\.png$/);
+      assert.ok(sc.placedIn.some((p) => p.startsWith("customSection:")), "Chunked upload final step must apply placement");
+    }
+  }
+
+  // 12c. Batch upload multiple images in one call via upload_portfolio_images
+  const webpDataUrl = `data:image/webp;base64,${Buffer.from(validWebp1x1).toString("base64")}`;
+  const batchRes = await rpc(
+    {
+      jsonrpc: "2.0",
+      id: 240,
+      method: "tools/call",
+      params: {
+        name: "upload_portfolio_images",
+        arguments: {
+          images: [
+            { dataUrl: tinyPngDataUrl, label: "Batch Photo 1", assignTo: "gallery" },
+            { base64: Buffer.from(validWebp1x1).toString("base64"), mime: "image/webp", label: "Batch Photo 2", assignTo: "customSection", customSectionTitle: "Photo Showcase" },
+          ],
+        },
+      },
+    },
+    newOwnerTok
+  );
+  assert.equal(batchRes.status, 200);
+  const batchPayload = await batchRes.json();
+  assert.equal(batchPayload.result.isError, undefined, JSON.stringify(batchPayload.result));
+  assert.equal(batchPayload.result.structuredContent.uploadedCount, 2);
+  assert.equal(batchPayload.result.structuredContent.failedCount, 0);
+  const batchItem0 = batchPayload.result.structuredContent.images[0];
+  const batchItem1 = batchPayload.result.structuredContent.images[1];
+
+  // 12d. list_portfolio_images + blueprint uploadedImages + cross-account isolation
+  const listImgsRes = await rpc(
+    { jsonrpc: "2.0", id: 241, method: "tools/call", params: { name: "list_portfolio_images", arguments: {} } },
+    newOwnerTok
+  );
+  const listImgsJson = (await listImgsRes.json()).result.structuredContent;
+  assert.ok(listImgsJson.count >= 4, `Expected >= 4 listed images, got ${listImgsJson.count}`);
+  const listedBatch1 = listImgsJson.images.find((it) => it.key === batchItem1.key);
+  assert.equal(listedBatch1?.label, "Batch Photo 2");
+
+  const bpWithImages = await rpc(
+    { jsonrpc: "2.0", id: 242, method: "tools/call", params: { name: "get_portfolio_blueprint", arguments: {} } },
+    newOwnerTok
+  );
+  const bpImages = (await bpWithImages.json()).result.structuredContent.uploadedImages;
+  assert.ok(Array.isArray(bpImages) && bpImages.length >= 4, "Blueprint must surface uploadedImages");
+
+  const foreignImages = await listUserMediaAssets({
+    env,
+    username: "intruder-user",
+    userId: "user-intruder",
+    portfolio: null,
+  });
+  assert.equal(foreignImages.length, 0, "Another account must never see mcp-owner uploaded media");
+  await assert.rejects(
+    () =>
+      deleteUserMediaAsset({
+        env,
+        username: "intruder-user",
+        userId: "user-intruder",
+        key: batchItem0.key,
+        portfolio: null,
+      }),
+    /another account|not found/i,
+    "Another account must never delete mcp-owner media"
+  );
+
+  // 12e. Non-destructive place_portfolio_image inside fullPageHtml (ar & en) + verify rest of HTML preserved
+  const placeRes = await rpc(
+    {
+      jsonrpc: "2.0",
+      id: 243,
+      method: "tools/call",
+      params: {
+        name: "place_portfolio_image",
+        arguments: {
+          url: batchItem0.url,
+          assignTo: "replaceInHtml",
+          replaceTarget: "https://placeholder.example/old-photo.jpg",
+          label: "Replaced Hero Photo",
+        },
+      },
+    },
+    newOwnerTok
+  );
+  const placePayload = (await placeRes.json()).result.structuredContent;
+  assert.equal(placePayload.ok, true);
+  assert.ok(placePayload.placedIn.includes("fullPageHtml.en"));
+  assert.ok(placePayload.placedIn.includes("fullPageHtml.ar"));
+  assert.ok(
+    portfolio.customDesign.fullPageHtml.en.includes(batchItem0.fullUrl),
+    "Replaced placeholder inside fullPageHtml.en must contain full https://taqdom.me/api/media/... URL"
+  );
+  assert.ok(
+    portfolio.customDesign.fullPageHtml.en.startsWith(preHtmlEn),
+    "Pre-existing HTML prefix must stay 100% preserved after placing image"
+  );
+
+  // 12f. delete_portfolio_image removes own asset cleanly
+  const delToolRes = await rpc(
+    {
+      jsonrpc: "2.0",
+      id: 244,
+      method: "tools/call",
+      params: { name: "delete_portfolio_image", arguments: { key: batchItem1.key } },
+    },
+    newOwnerTok
+  );
+  const delToolPayload = (await delToolRes.json()).result.structuredContent;
+  assert.equal(delToolPayload.ok, true);
+  assert.equal(delToolPayload.deletedKey, batchItem1.key);
+
+  // 12g. OpenAPI 3.1 exposes REST binary /api/upload & /api/media endpoints + resolveMcpBearerIdentity works
+  const openApiCheck = await handleOpenApiSpec(
+    new Request("https://taqdom.me/openapi.json"),
+    new URL("https://taqdom.me/openapi.json"),
+    false
+  ).json();
+  assert.ok(openApiCheck.paths["/api/upload"]?.post?.requestBody?.content["multipart/form-data"]);
+  assert.ok(openApiCheck.paths["/api/upload"]?.post?.requestBody?.content["application/json"]?.schema?.properties?.openaiFileIdRefs);
+  assert.ok(openApiCheck.paths["/api/media"]?.get);
+  assert.ok(openApiCheck.paths["/api/media/{key}"]?.delete);
+
+  const bearerRes = await resolveMcpBearerIdentity(
+    new Request("https://taqdom.me/api/upload", {
+      method: "POST",
+      headers: { authorization: `Bearer ${newOwnerTok}` },
+    }),
+    env
+  );
+  assert.equal(bearerRes.ok, true);
+  assert.equal(bearerRes.username, "mcp-owner");
+  assert.equal(webpDataUrl.startsWith("data:image/webp"), true);
+}
+
+console.log("Taqdom MCP & OAuth 2.1 integration tests: PASS (DCR, CIMD, PKCE S256, root /mcp, direct URLs, SSE, rotation, bespoke design normalization, tenant isolation, revocation, real multi-image upload/chunk/place/OpenAPI)");

@@ -228,6 +228,17 @@ export type CustomPortfolioDesign = {
   tokens?: Record<string, string | number | boolean>;
 };
 
+export type PortfolioMediaItem = {
+  key?: string;
+  url: string;
+  mime?: string;
+  size?: number;
+  label?: string;
+  alt?: string;
+  slot?: string;
+  createdAt?: number;
+};
+
 export type PortfolioData = {
   username: string;
   template: TemplateId;
@@ -247,6 +258,7 @@ export type PortfolioData = {
   projects: PortfolioProject[];
   metrics?: PortfolioMetric[];
   timeline?: PortfolioTimelineItem[];
+  mediaLibrary?: PortfolioMediaItem[];
   theme: PortfolioTheme;
   /** Personal background and section layout controls edited in Studio Canvas. */
   canvas?: PortfolioCanvasSettings;

@@ -1,5 +1,15 @@
 import { normalizeUsername } from "../lib/types.ts";
 import { ensureOAuthSchema, isPublicSafeHttpsUrl, oauthCorsHeaders } from "./oauth.mjs";
+import {
+  applyMediaPlacement,
+  deleteUserMediaAsset,
+  ensureMediaTables,
+  handleChunkedMediaUpload,
+  listUserMediaAssets,
+  normalizeAndValidateImagePayload,
+  sanitizeSvgBase64,
+  storeMediaAsset,
+} from "./media-utils.mjs";
 
 const encoder = new TextEncoder();
 
@@ -27,27 +37,12 @@ function randomToken() {
   return "tqd_mcp_" + hex(crypto.getRandomValues(new Uint8Array(32)));
 }
 
-const initializedMcpMediaDbs = new WeakSet();
-
 async function ensureSchema(env) {
   await ensureOAuthSchema(env);
 }
 
 async function ensureMcpMediaSchema(env) {
-  if (!env?.DB || initializedMcpMediaDbs.has(env.DB)) return;
-  await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
-  ).run();
-  await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
-  ).run();
-  await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS portfolio_chunks (username TEXT NOT NULL, kind TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (username, kind, seq))"
-  ).run();
-  await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, user_id TEXT, key TEXT, mime TEXT, size INTEGER, created_at INTEGER)"
-  ).run();
-  initializedMcpMediaDbs.add(env.DB);
+  await ensureMediaTables(env);
 }
 
 const PORTFOLIO_CHUNK_CHARS = 700_000;
@@ -339,7 +334,7 @@ const TOOLS = [
         url: { type: "string", maxLength: 2048 },
         client: BILINGUAL,
         metrics: { type: "string", maxLength: 500 },
-        images: { type: "array", maxItems: 12, items: { type: "string", maxLength: 2048 } },
+        images: { type: "array", maxItems: 100, items: { type: "string", maxLength: 2048 } },
       },
       required: ["title", "desc"],
       additionalProperties: false,
@@ -359,7 +354,7 @@ const TOOLS = [
         url: { type: "string", maxLength: 2048 },
         client: BILINGUAL,
         metrics: { type: "string", maxLength: 500 },
-        images: { type: "array", maxItems: 12, items: { type: "string", maxLength: 2048 } },
+        images: { type: "array", maxItems: 100, items: { type: "string", maxLength: 2048 } },
       },
       required: ["projectId"],
       additionalProperties: false,
@@ -539,8 +534,8 @@ const TOOLS = [
         effects: { type: "object", additionalProperties: true },
         heroCta: { type: "object", additionalProperties: true },
         cta: { type: "object", additionalProperties: true },
-        customSections: { type: "array", maxItems: 12, items: { type: ["object", "string"], additionalProperties: true } },
-        sections: { type: "array", maxItems: 12, items: { type: ["object", "string"], additionalProperties: true } },
+        customSections: { type: "array", maxItems: 30, items: { type: ["object", "string"], additionalProperties: true } },
+        sections: { type: "array", maxItems: 30, items: { type: ["object", "string"], additionalProperties: true } },
         tokens: { type: "object", additionalProperties: true },
       },
       additionalProperties: true,
@@ -611,18 +606,149 @@ const TOOLS = [
   {
     name: "upload_portfolio_image",
     description:
-      "Upload an image (JPG, PNG, WebP, GIF, AVIF, or sanitized SVG up to 20MB) via sourceUrl (preferred public https:// URL fetched server-side without base64 truncation), dataUrl, or complete base64+mime, persist it to Taqdom media storage, and optionally assign its hosted /api/media/... URL to avatar, cover, canvas backgroundImage, or a project.",
+      "Upload a REAL image (JPG, PNG, WebP, GIF, AVIF, or SVG up to 20MB — unlimited total images) via sourceUrl/url, dataUrl, base64 (mime optional), OR chunked upload (uploadId + chunk + chunkIndex + totalChunks for large files), and optionally place it anywhere (avatar, cover, backgroundImage, project, gallery/customSection, mediaLibrary, or replaceTarget inside existing fullPageHtml/customCss) WITHOUT erasing existing work. CRITICAL: Upload actual raster photos (PNG/JPG/WebP) or use list_portfolio_images to reuse user-uploaded photos — NEVER generate fake SVG code placeholders for real photos.",
     inputSchema: {
       type: "object",
       properties: {
         sourceUrl: { type: "string", maxLength: 2048 },
+        url: { type: "string", maxLength: 2048 },
         dataUrl: { type: "string", maxLength: 28000000 },
         base64: { type: "string", maxLength: 28000000 },
-        mime: { type: "string", maxLength: 40 },
-        assignTo: { type: "string", enum: ["avatar", "cover", "backgroundImage", "project", "none"] },
+        mime: { type: "string", maxLength: 80 },
+        svg: { type: "string", maxLength: 2000000 },
+        uploadId: { type: "string", maxLength: 80 },
+        chunk: { type: "string", maxLength: 2000000 },
+        chunkIndex: { type: "integer", minimum: 0, maximum: 500 },
+        totalChunks: { type: "integer", minimum: 1, maximum: 500 },
+        finish: { type: "boolean" },
+        label: { type: "string", maxLength: 140 },
+        alt: { type: "string", maxLength: 240 },
+        slot: { type: "string", maxLength: 80 },
+        assignTo: {
+          type: "string",
+          enum: [
+            "avatar",
+            "cover",
+            "backgroundImage",
+            "project",
+            "gallery",
+            "customSection",
+            "replaceInHtml",
+            "mediaLibrary",
+            "none",
+          ],
+        },
         projectId: { type: "string", maxLength: 100 },
+        projectIndex: { type: "integer", minimum: 0 },
+        customSectionId: { type: "string", maxLength: 60 },
+        customSectionTitle: { type: "string", maxLength: 120 },
+        replaceTarget: { type: "string", maxLength: 500 },
       },
       additionalProperties: true,
+    },
+  },
+  {
+    name: "upload_portfolio_images",
+    description:
+      "Batch upload any number of REAL images (up to 30 per call, call repeatedly for unlimited images) via sourceUrl, dataUrl, base64, or svg, returning hosted https://taqdom.me/api/media/... URLs and optionally placing them into avatar, cover, backgroundImage, projects, galleries, customSections, or replacing targets inside existing fullPageHtml.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        images: {
+          type: "array",
+          minItems: 1,
+          maxItems: 30,
+          items: {
+            type: "object",
+            properties: {
+              sourceUrl: { type: "string", maxLength: 2048 },
+              url: { type: "string", maxLength: 2048 },
+              dataUrl: { type: "string", maxLength: 28000000 },
+              base64: { type: "string", maxLength: 28000000 },
+              mime: { type: "string", maxLength: 80 },
+              svg: { type: "string", maxLength: 2000000 },
+              label: { type: "string", maxLength: 140 },
+              alt: { type: "string", maxLength: 240 },
+              slot: { type: "string", maxLength: 80 },
+              assignTo: {
+                type: "string",
+                enum: [
+                  "avatar",
+                  "cover",
+                  "backgroundImage",
+                  "project",
+                  "gallery",
+                  "customSection",
+                  "replaceInHtml",
+                  "mediaLibrary",
+                  "none",
+                ],
+              },
+              projectId: { type: "string", maxLength: 100 },
+              projectIndex: { type: "integer", minimum: 0 },
+              customSectionId: { type: "string", maxLength: 60 },
+              customSectionTitle: { type: "string", maxLength: 120 },
+              replaceTarget: { type: "string", maxLength: 500 },
+            },
+            additionalProperties: true,
+          },
+        },
+      },
+      required: ["images"],
+      additionalProperties: true,
+    },
+  },
+  {
+    name: "list_portfolio_images",
+    description:
+      "List all real images uploaded to the owner's Taqdom account (via Studio, Dashboard AI Photo Library, REST /api/upload, or MCP) with their exact hosted fullUrl (https://taqdom.me/api/media/...), mime type, size, labels, and where each image is currently placed.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "place_portfolio_image",
+    description:
+      "Place or swap ANY already-uploaded /api/media/... image URL anywhere in the portfolio (avatar, cover, backgroundImage, project, gallery/customSection, or replaceTarget inside existing fullPageHtml/customCss) WITHOUT regenerating or overwriting existing custom work.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string", maxLength: 120 },
+        url: { type: "string", maxLength: 2048 },
+        assignTo: {
+          type: "string",
+          enum: [
+            "avatar",
+            "cover",
+            "backgroundImage",
+            "project",
+            "gallery",
+            "customSection",
+            "replaceInHtml",
+            "mediaLibrary",
+          ],
+        },
+        projectId: { type: "string", maxLength: 100 },
+        projectIndex: { type: "integer", minimum: 0 },
+        customSectionId: { type: "string", maxLength: 60 },
+        customSectionTitle: { type: "string", maxLength: 120 },
+        replaceTarget: { type: "string", maxLength: 500 },
+        label: { type: "string", maxLength: 140 },
+        alt: { type: "string", maxLength: 240 },
+        slot: { type: "string", maxLength: 80 },
+        publish: { type: "boolean" },
+      },
+      additionalProperties: true,
+    },
+  },
+  {
+    name: "delete_portfolio_image",
+    description: "Delete a previously uploaded image from the owner's Taqdom media storage by key or url.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string", maxLength: 120 },
+        url: { type: "string", maxLength: 2048 },
+      },
+      additionalProperties: false,
     },
   },
 ];
@@ -800,228 +926,8 @@ function sanitizeGoogleFonts(rawFonts) {
   return out;
 }
 
-function validJpegBytesMcp(bytes) {
-  if (bytes.length < 16 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return false;
-  let pos = 2;
-  let sawSof = false;
-  let sawSos = false;
-  let sawEoi = false;
-  while (pos < bytes.length - 1) {
-    if (bytes[pos] !== 0xff) {
-      pos++;
-      continue;
-    }
-    while (pos < bytes.length && bytes[pos] === 0xff) pos++;
-    if (pos >= bytes.length) break;
-    const marker = bytes[pos++];
-    if (marker === 0x00 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) continue;
-    if (marker === 0xd9) {
-      sawEoi = true;
-      break;
-    }
-    if (pos + 1 >= bytes.length) return false;
-    const segLen = (bytes[pos] << 8) | bytes[pos + 1];
-    if (segLen < 2 || pos + segLen > bytes.length) return false;
-    if (
-      (marker >= 0xc0 && marker <= 0xc3) ||
-      (marker >= 0xc5 && marker <= 0xc7) ||
-      (marker >= 0xc9 && marker <= 0xcb) ||
-      (marker >= 0xcd && marker <= 0xcf)
-    ) {
-      if (segLen < 7) return false;
-      const h = (bytes[pos + 3] << 8) | bytes[pos + 4];
-      const w = (bytes[pos + 5] << 8) | bytes[pos + 6];
-      if (w < 1 || h < 1) return false;
-      sawSof = true;
-    } else if (marker === 0xda) {
-      sawSos = true;
-      for (let j = bytes.length - 2; j >= pos + segLen; j--) {
-        if (bytes[j] === 0xff && bytes[j + 1] === 0xd9) {
-          sawEoi = true;
-          break;
-        }
-      }
-      break;
-    }
-    pos += segLen;
-  }
-  return sawSof && sawSos && sawEoi;
-}
-
-function validPngBytesMcp(bytes) {
-  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (bytes.length < 45 || !sig.every((b, i) => bytes[i] === b)) return false;
-  let pos = 8;
-  let sawIhdr = false;
-  let sawIdat = false;
-  let sawIend = false;
-  while (pos + 12 <= bytes.length) {
-    const len = ((bytes[pos] << 24) >>> 0) + (bytes[pos + 1] << 16) + (bytes[pos + 2] << 8) + bytes[pos + 3];
-    if (len > bytes.length - pos - 12) return false;
-    const type = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
-    if (type === "IHDR") {
-      if (len < 13) return false;
-      const w = ((bytes[pos + 8] << 24) >>> 0) + (bytes[pos + 9] << 16) + (bytes[pos + 10] << 8) + bytes[pos + 11];
-      const h = ((bytes[pos + 12] << 24) >>> 0) + (bytes[pos + 13] << 16) + (bytes[pos + 14] << 8) + bytes[pos + 15];
-      if (w < 1 || h < 1) return false;
-      sawIhdr = true;
-    } else if (type === "IDAT") {
-      if (len < 1) return false;
-      sawIdat = true;
-    } else if (type === "IEND") {
-      sawIend = true;
-      break;
-    }
-    pos += 12 + len;
-  }
-  return sawIhdr && sawIdat && sawIend;
-}
-
-function validWebpBytesMcp(bytes) {
-  if (bytes.length < 20) return false;
-  if (
-    bytes[0] !== 0x52 || bytes[1] !== 0x49 || bytes[2] !== 0x46 || bytes[3] !== 0x46 ||
-    bytes[8] !== 0x57 || bytes[9] !== 0x45 || bytes[10] !== 0x42 || bytes[11] !== 0x50
-  ) return false;
-  const riffSize = (bytes[4] | (bytes[5] << 8) | (bytes[6] << 16) | (bytes[7] << 24)) >>> 0;
-  if (riffSize < 12 || riffSize + 8 > bytes.length) return false;
-  const end = 8 + riffSize;
-  let pos = 12;
-  let hasFrame = false;
-  while (pos + 8 <= end) {
-    const tag = String.fromCharCode(bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]);
-    const cSize = (bytes[pos + 4] | (bytes[pos + 5] << 8) | (bytes[pos + 6] << 16) | (bytes[pos + 7] << 24)) >>> 0;
-    const padded = cSize + (cSize & 1);
-    if (pos + 8 + cSize > end) return false;
-    if (tag === "VP8 " && cSize >= 10) {
-      if (pos + 18 <= end && bytes[pos + 11] === 0x9d && bytes[pos + 12] === 0x01 && bytes[pos + 13] === 0x2a) {
-        const w = (bytes[pos + 14] | (bytes[pos + 15] << 8)) & 0x3fff;
-        const h = (bytes[pos + 16] | (bytes[pos + 17] << 8)) & 0x3fff;
-        if (w <= 0 || h <= 0) return false;
-      }
-      hasFrame = true;
-    } else if (tag === "VP8L" && cSize >= 5 && bytes[pos + 8] === 0x2f) {
-      if (pos + 13 <= end) {
-        const b0 = bytes[pos + 9], b1 = bytes[pos + 10], b2 = bytes[pos + 11], b3 = bytes[pos + 12];
-        const w = 1 + (b0 | ((b1 & 0x3f) << 8));
-        const h = 1 + ((b1 >> 6) | (b2 << 2) | ((b3 & 0x0f) << 10));
-        if (w <= 0 || h <= 0) return false;
-      }
-      hasFrame = true;
-    } else if (tag === "VP8X" && cSize >= 10) {
-      const w = 1 + (bytes[pos + 12] | (bytes[pos + 13] << 8) | (bytes[pos + 14] << 16));
-      const h = 1 + (bytes[pos + 15] | (bytes[pos + 16] << 8) | (bytes[pos + 17] << 16));
-      if (w < 1 || h < 1) return false;
-    }
-    pos += 8 + padded;
-  }
-  return hasFrame || pos === end;
-}
-
-function validGifBytesMcp(bytes) {
-  if (bytes.length < 14) return false;
-  const hdr = String.fromCharCode(...bytes.subarray(0, 6));
-  if (hdr !== "GIF87a" && hdr !== "GIF89a") return false;
-  const w = bytes[6] | (bytes[7] << 8);
-  const h = bytes[8] | (bytes[9] << 8);
-  return w > 0 && h > 0 && bytes[bytes.length - 1] === 0x3b;
-}
-
-function validAvifBytesMcp(bytes) {
-  if (bytes.length < 24) return false;
-  const ftypSize = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
-  if (ftypSize < 16 || ftypSize > bytes.length) return false;
-  const boxType = String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]);
-  const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
-  if (boxType !== "ftyp" || !["avif", "avis", "mif1"].includes(brand)) return false;
-  let pos = ftypSize;
-  let sawMeta = false;
-  let sawMdat = false;
-  while (pos + 8 <= bytes.length) {
-    const size = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
-    const effective = size === 0 ? bytes.length - pos : size;
-    if (effective < 8 || pos + effective > bytes.length) return false;
-    const t = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
-    if (t === "meta") sawMeta = true;
-    if (t === "mdat") sawMdat = true;
-    pos += effective;
-  }
-  return sawMeta && sawMdat;
-}
-
-function validRasterBytesMcp(mime, bytes) {
-  if (mime === "image/jpeg") return validJpegBytesMcp(bytes);
-  if (mime === "image/png") return validPngBytesMcp(bytes);
-  if (mime === "image/webp") return validWebpBytesMcp(bytes);
-  if (mime === "image/gif") return validGifBytesMcp(bytes);
-  if (mime === "image/avif") return validAvifBytesMcp(bytes);
-  return false;
-}
-
-function validRasterUploadMcp(mime, base64) {
-  try {
-    const bin = atob(base64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return validRasterBytesMcp(mime, bytes);
-  } catch {
-    return false;
-  }
-}
-
-function bytesToBase64Mcp(bytes) {
-  let outBin = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    outBin += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(outBin);
-}
-
-function detectImageMimeFromBytesMcp(bytes) {
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
-  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
-  if (
-    bytes.length >= 12 &&
-    String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) === "RIFF" &&
-    String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]) === "WEBP"
-  ) {
-    return "image/webp";
-  }
-  if (bytes.length >= 6 && (String.fromCharCode(...bytes.subarray(0, 6)) === "GIF87a" || String.fromCharCode(...bytes.subarray(0, 6)) === "GIF89a")) {
-    return "image/gif";
-  }
-  if (bytes.length >= 12 && String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]) === "ftyp" && ["avif", "avis", "mif1"].includes(String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]))) {
-    return "image/avif";
-  }
-  const headText = new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(0, 512));
-  if (/<svg[\s>]/i.test(headText)) return "image/svg+xml";
-  return "";
-}
-
 function sanitizeSvgBase64Mcp(base64) {
-  try {
-    const bin = atob(base64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    let svgText = new TextDecoder("utf-8", { fatal: false }).decode(bytes).trim();
-    if (!/<svg[\s>]/i.test(svgText) || !/<\/svg>/i.test(svgText)) return null;
-    svgText = svgText
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
-      .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-      .replace(/(?:href|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript):[^"]*"|'\s*(?:javascript|vbscript):[^']*')/gi, "");
-    if (/<script|foreignObject|\bon[a-z]+\s*=|(?:javascript|vbscript):/i.test(svgText)) return null;
-    const cleanBytes = new TextEncoder().encode(svgText);
-    let outBin = "";
-    const chunkSize = 0x8000;
-    for (let i = 0; i < cleanBytes.length; i += chunkSize) {
-      outBin += String.fromCharCode(...cleanBytes.subarray(i, i + chunkSize));
-    }
-    return { base64: btoa(outBin), size: cleanBytes.byteLength };
-  } catch {
-    return null;
-  }
+  return sanitizeSvgBase64(base64);
 }
 
 function sanitizeCustomHtmlFragment(rawHtml) {
@@ -1604,7 +1510,7 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
       : existingDesign?.customSections;
 
   const cleanSections = Array.isArray(sectionsSrc)
-    ? sectionsSrc.slice(0, 12).map((rawSec, idx) => {
+    ? sectionsSrc.slice(0, 30).map((rawSec, idx) => {
         if (typeof rawSec === "string") {
           return {
             id: `custom-${idx + 1}`,
@@ -1682,7 +1588,7 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
           ...(cleanSecHtml && (cleanSecHtml.ar || cleanSecHtml.en) ? { html: cleanSecHtml } : {}),
           ...(rawItems
             ? {
-                items: rawItems.slice(0, 12).map((item, itemIdx) => {
+                items: rawItems.slice(0, 100).map((item, itemIdx) => {
                   if (typeof item === "string") {
                     return { title: bilingual(item, "customSection.item.title") };
                   }
@@ -2191,7 +2097,7 @@ function normalizeProjectFields(args, partial = false) {
   if ("metrics" in args) result.metrics = String(args.metrics || "").slice(0, 500);
   if ("images" in args) {
     result.images = Array.isArray(args.images)
-      ? args.images.slice(0, 12).map((src) => safeUrl(src, { allowLocal: true, allowDataImage: true }))
+      ? args.images.slice(0, 100).map((src) => safeUrl(src, { allowLocal: true, allowDataImage: true }))
       : [];
   }
   if (!partial && (!result.title || !result.desc)) {
@@ -2213,7 +2119,7 @@ function publicProject(project) {
     client: project?.client ? bilingual(project.client, "client") : null,
     metrics: typeof project?.metrics === "string" ? project.metrics : null,
     images: Array.isArray(project?.images)
-      ? project.images.filter((image) => typeof image === "string").slice(0, 12)
+      ? project.images.filter((image) => typeof image === "string").slice(0, 100)
       : [],
   };
 }
@@ -2402,8 +2308,8 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
       instructions:
         `You are connected to ${username}'s Sovereign Taqdom Portfolio Architect (https://${username}.taqdom.me). ` +
         "You have 100% unrestricted read/write creative and code control over the account draft and live site — NEVER confine the user to a rigid template! " +
-        "Workflow for any design request: (1) Call get_portfolio_blueprint first to inspect the creator state. " +
-        "(2) Populate structured profile/projects/skills/timeline via update_portfolio_content and upload any reference/portrait/project visuals via upload_portfolio_image. " +
+        "Workflow for any design request: (1) Call get_portfolio_blueprint and list_portfolio_images first to inspect the creator state and ALL real photos they have already uploaded to Taqdom. " +
+        "(2) For REAL IMAGES (PNG, JPG, WebP, GIF, AVIF — any count up to 20MB per image): upload them via upload_portfolio_image / upload_portfolio_images (passing sourceUrl, dataUrl, base64, or chunked uploadId+chunk+chunkIndex+totalChunks for large raster images), OR POST multipart/form-data / binary files directly to https://taqdom.me/api/upload with your OAuth/MCP Bearer token. CRITICAL: NEVER substitute fake <svg> code illustrations for real photographs, portraits, screenshots, or user images — ALWAYS upload/use real raster images or tell the user they can drop any number of photos in Taqdom's AI Photo Library (/dashboard/mcp) so you can immediately see them via list_portfolio_images and place them anywhere via place_portfolio_image or in fullPageHtml! " +
         "(3) CRITICAL — ZERO TEMPLATE CONSTRAINTS: Whenever the user provides a reference image/screenshot, asks for an exact visual match, or requests a world-class, enterprise, animated, 3D, or bespoke design, call design_custom_portfolio_theme with renderMode='full-code', fullPageHtml (complete custom HTML5/SVG/DOM layout matching every visual detail of their request or reference image), customCss (full custom CSS3, keyframes, gradients, glassmorphism, responsive grids), customJs (interactive animations, scroll triggers, canvas/WebGL effects), googleFonts, and libraries/packages/dependencies (install ANY library such as 'tailwindcss', 'gsap', 'gsap/ScrollTrigger', 'three', 'lucide', 'animejs', 'lenis', 'swiper', 'aos', 'chart.js', 'd3', 'typed.js', 'canvas-confetti', 'lottie-web', 'particles.js', 'vanta', 'fontawesome', or any npm package loaded automatically via esm.sh importmap). You can also use bespoke-components mode with split-editorial sections, 3x3 icon-grid skills, vertical-glow timelines, founderPills, and heroEyebrow. " +
         "(4) Pass publish=true or call publish_portfolio so https://" + username + ".taqdom.me updates immediately.",
     });
@@ -2591,9 +2497,16 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
         return wrapOk(toolResult(DESIGN_CAPABILITIES));
       }
       if (name === "get_portfolio_blueprint") {
+        const uploadedImages = await listUserMediaAssets({
+          env,
+          username,
+          userId: tokenRow.user_id,
+          portfolio,
+        });
         return wrapOk(
           toolResult({
             portfolio: safePortfolio(portfolio, username),
+            uploadedImages,
             capabilities: DESIGN_CAPABILITIES,
             publicationStatus: {
               isPublished: Boolean(portfolio.publishedAt),
@@ -2996,189 +2909,235 @@ async function processSingleRpcCall(body, { env, username, tokenRow, negotiatedP
           })
         );
       }
-      if (name === "upload_portfolio_image") {
-        let dataUrl = String(args.dataUrl || "").trim();
-        let mime = String(args.mime || "").toLowerCase().trim();
-        let base64 = String(args.base64 || "").trim();
-        const sourceUrl = String(args.sourceUrl || "").trim();
-        if (dataUrl) {
-          const m = dataUrl.match(/^data:(image\/(?:jpeg|png|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]+=*)$/i);
-          if (!m) throw new Error("dataUrl must be a base64-encoded image (jpg, png, webp, gif, avif, svg+xml).");
-          mime = m[1].toLowerCase();
-          base64 = m[2];
-        } else if (base64 && mime) {
-          if (!/^image\/(?:jpeg|png|webp|gif|avif|svg\+xml)$/.test(mime) || !/^[A-Za-z0-9+/]+=*$/.test(base64)) {
-            throw new Error("Invalid base64 image or unsupported mime type.");
-          }
-        } else if (sourceUrl) {
-          let currentUrl = sourceUrl;
-          let imgRes = null;
-          for (let hop = 0; hop < 4; hop++) {
-            if (!isPublicSafeHttpsUrl(currentUrl)) {
-              throw new Error("sourceUrl must be a public https:// URL (local/private hosts are blocked).");
-            }
-            const parsedSrc = new URL(currentUrl);
-            if (parsedSrc.port && parsedSrc.port !== "443") {
-              throw new Error("sourceUrl must use default HTTPS port 443.");
-            }
-            const isSameZoneAssetHost =
-              parsedSrc.hostname === "taqdom.me" ||
-              parsedSrc.hostname === "www.taqdom.me" ||
-              parsedSrc.hostname.endsWith(".taqdom.me");
-            if (isSameZoneAssetHost && env?.ASSETS && !parsedSrc.pathname.startsWith("/api/")) {
-              const assetUrl = `https://taqdom.me${parsedSrc.pathname}${parsedSrc.search}`;
-              imgRes = await env.ASSETS.fetch(new Request(assetUrl, { method: "GET" }));
-            } else {
-              imgRes = await fetch(currentUrl, {
-                headers: {
-                  Accept: "image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8",
-                },
-                redirect: "manual",
-                signal: AbortSignal.timeout(10000),
-              });
-            }
-            if (imgRes.status >= 300 && imgRes.status < 400) {
-              const loc = imgRes.headers.get("location");
-              if (!loc) throw new Error("sourceUrl returned an incomplete redirect.");
-              currentUrl = new URL(loc, currentUrl).toString();
-              continue;
-            }
-            break;
-          }
-          if (!imgRes || !imgRes.ok) {
-            throw new Error(`Failed to fetch sourceUrl (HTTP ${imgRes?.status || "network"}).`);
-          }
-          const declaredLen = Number(imgRes.headers.get("content-length") || "0");
-          if (declaredLen > 20_000_000) {
-            throw new Error("Max image size is 20MB.");
-          }
-          const buf = await imgRes.arrayBuffer();
-          if (buf.byteLength <= 0 || buf.byteLength > 20_000_000) {
-            throw new Error("Fetched image is empty or exceeds 20MB limit.");
-          }
-          const fetchedBytes = new Uint8Array(buf);
-          const headerMime = String(imgRes.headers.get("content-type") || "")
-            .split(";")[0]
-            .trim()
-            .toLowerCase();
-          if (
-            headerMime &&
-            !headerMime.startsWith("image/") &&
-            headerMime !== "application/octet-stream" &&
-            headerMime !== "binary/octet-stream"
-          ) {
-            throw new Error(`Unsupported image type (${headerMime}) at sourceUrl.`);
-          }
-          const sniffed = detectImageMimeFromBytesMcp(fetchedBytes);
-          const normalizedHeaderMime = headerMime === "image/jpg" ? "image/jpeg" : headerMime;
-          mime = /^image\/(?:jpeg|png|webp|gif|avif)$/.test(sniffed)
-            ? sniffed
-            : /^image\/(?:jpeg|png|webp|gif|avif|svg\+xml)$/.test(normalizedHeaderMime)
-            ? normalizedHeaderMime
-            : sniffed;
-          if (!/^image\/(?:jpeg|png|webp|gif|avif|svg\+xml)$/.test(mime)) {
-            throw new Error(`Unsupported image type (${headerMime || "unknown"}) at sourceUrl.`);
-          }
-          if (mime !== "image/svg+xml" && !validRasterBytesMcp(mime, fetchedBytes)) {
-            throw new Error("Fetched image bytes are truncated, corrupt, or do not match the declared MIME type.");
-          }
-          base64 = bytesToBase64Mcp(fetchedBytes);
-        } else {
-          throw new Error("Provide sourceUrl, dataUrl, or both base64 and mime.");
-        }
+      if (name === "list_portfolio_images") {
+        const images = await listUserMediaAssets({
+          env,
+          username,
+          userId: tokenRow.user_id,
+          portfolio,
+        });
+        return wrapOk(
+          toolResult({
+            ok: true,
+            count: images.length,
+            images,
+            uploadEndpoint: "https://taqdom.me/api/upload",
+            note: "All URLs can be placed anywhere in avatar, cover, projects, customSections, or fullPageHtml <img> / CSS url().",
+          })
+        );
+      }
 
-        const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
-        let size = Math.floor((base64.length * 3) / 4) - padding;
-        if (size <= 0 || size > 20_000_000) {
-          throw new Error("Max image size is 20MB.");
-        }
-        if (mime === "image/svg+xml") {
-          const cleaned = sanitizeSvgBase64Mcp(base64);
-          if (!cleaned) throw new Error("Invalid or unsafe SVG markup.");
-          base64 = cleaned.base64;
-          size = cleaned.size;
-        } else if (!sourceUrl && !validRasterUploadMcp(mime, base64)) {
-          throw new Error("Image bytes are truncated, corrupt, or do not match the declared MIME type.");
-        }
+      if (name === "delete_portfolio_image") {
+        const delKey = String(args.key || args.url || "").trim();
+        if (!delKey) throw new Error("Provide key or url of the image to delete.");
+        const res = await deleteUserMediaAsset({
+          env,
+          username,
+          userId: tokenRow.user_id,
+          key: delKey,
+          portfolio,
+        });
+        return wrapOk(toolResult(res));
+      }
 
-        const extMap = {
-          "image/jpeg": "jpg",
-          "image/png": "png",
-          "image/webp": "webp",
-          "image/gif": "gif",
-          "image/avif": "avif",
-          "image/svg+xml": "svg",
-        };
-        const ext = extMap[mime] || "webp";
-        const key = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
-        const cleanDataUrl = `data:${mime};base64,${base64}`;
-        const now = Date.now();
-        await ensureMcpMediaSchema(env);
-        const ownerUserId = String(tokenRow.user_id || `user-${username}`);
-        await env.DB.prepare(
-          "INSERT OR IGNORE INTO media (id, user_id, key, mime, size, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
-        )
-          .bind(crypto.randomUUID(), ownerUserId, key, mime, size, now)
-          .run()
-          .catch(() => {});
-        if (cleanDataUrl.length <= 900_000) {
-          await env.DB.prepare(
-            "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
-          )
-            .bind(key, mime, size, cleanDataUrl, now)
-            .run();
-        } else {
-          const CHUNK_CHARS = 800_000;
-          const chunkStmts = [];
-          let seq = 0;
-          for (let i = 0; i < base64.length; i += CHUNK_CHARS) {
-            chunkStmts.push(
-              env.DB.prepare(
-                "INSERT INTO media_chunks (key, seq, chunk) VALUES (?1, ?2, ?3)"
-              ).bind(key, seq++, base64.slice(i, i + CHUNK_CHARS))
-            );
-          }
-          for (let i = 0; i < chunkStmts.length; i += 8) {
-            await env.DB.batch(chunkStmts.slice(i, i + 8));
-          }
-          await env.DB.prepare(
-            "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
-          )
-            .bind(key, mime, size, "__CHUNKED__", now)
-            .run();
-        }
-
-        const url = `/api/media/${key}`;
-        const fullUrl = `https://taqdom.me${url}`;
-        const assignTo = String(args.assignTo || "none");
-        let savedDraft = null;
-        if (assignTo === "avatar" || assignTo === "cover") {
-          portfolio[assignTo] = url;
-          savedDraft = await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
-        } else if (assignTo === "backgroundImage") {
-          portfolio.canvas = { ...(portfolio.canvas || {}), backgroundImage: url };
-          savedDraft = await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
-        } else if (assignTo === "project" || args.projectId) {
-          const projects = Array.isArray(portfolio.projects) ? portfolio.projects : [];
-          const pIdx = args.projectId
-            ? projects.findIndex((p) => String(p?.id) === String(args.projectId))
-            : 0;
-          if (pIdx >= 0 && projects[pIdx]) {
-            const imgs = Array.isArray(projects[pIdx].images) ? projects[pIdx].images : [];
-            projects[pIdx] = { ...projects[pIdx], images: [url, ...imgs].slice(0, 12) };
-            portfolio.projects = projects;
-            savedDraft = await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
-          }
+      if (name === "place_portfolio_image") {
+        const rawUrl = String(args.url || args.key || "").trim();
+        if (!rawUrl) throw new Error("Provide url or key of the uploaded image to place.");
+        const normalizedUrl = rawUrl.startsWith("/api/media/")
+          ? rawUrl
+          : /^https?:\/\/[^/]+\/api\/media\/([A-Za-z0-9._-]+)$/i.test(rawUrl)
+          ? rawUrl.replace(/^https?:\/\/[^/]+/, "")
+          : /^\d{10,}-[0-9a-f-]{36}\.[a-z0-9]+$/i.test(rawUrl)
+          ? `/api/media/${rawUrl}`
+          : rawUrl;
+        const fullUrl = normalizedUrl.startsWith("/") ? `https://taqdom.me${normalizedUrl}` : normalizedUrl;
+        const placement = applyMediaPlacement({
+          portfolio,
+          url: normalizedUrl,
+          fullUrl,
+          key: normalizedUrl.startsWith("/api/media/") ? normalizedUrl.slice("/api/media/".length) : "",
+          assignTo: args.assignTo || (args.replaceTarget ? "replaceInHtml" : "mediaLibrary"),
+          projectId: args.projectId || "",
+          projectIndex: args.projectIndex ?? null,
+          customSectionId: args.customSectionId || "",
+          customSectionTitle: args.customSectionTitle || "",
+          replaceTarget: args.replaceTarget || "",
+          label: args.label || "",
+          alt: args.alt || "",
+          slot: args.slot || "",
+        });
+        let saved = portfolio;
+        if (placement.changed) {
+          saved =
+            args.publish === true
+              ? await publishOwnedDraft(env, username, tokenRow.user_id, portfolio)
+              : await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
         }
         return wrapOk(
           toolResult({
             ok: true,
-            key,
-            mime,
-            size,
-            url,
+            url: normalizedUrl,
             fullUrl,
+            placedIn: placement.placedIn,
+            changed: placement.changed,
+            published: Boolean(args.publish === true),
+            updatedAt: saved.updatedAt,
+          })
+        );
+      }
+
+      if (name === "upload_portfolio_images") {
+        const list = Array.isArray(args.images) ? args.images : [];
+        if (!list.length) throw new Error("Provide an images array containing at least 1 image.");
+        if (list.length > 30) throw new Error("Upload up to 30 images per batch call (call again for more).");
+        const uploaded = [];
+        const failed = [];
+        let draftChanged = false;
+        for (let i = 0; i < list.length; i++) {
+          const item = list[i];
+          if (!item || typeof item !== "object") {
+            failed.push({ index: i, error: "Invalid image entry." });
+            continue;
+          }
+          try {
+            const validated = await normalizeAndValidateImagePayload({
+              dataUrl: item.dataUrl || "",
+              base64: item.base64 || "",
+              mime: item.mime || "",
+              svg: item.svg || "",
+              sourceUrl: item.sourceUrl || item.url || "",
+              env,
+            });
+            const stored = await storeMediaAsset({
+              env,
+              username,
+              userId: tokenRow.user_id,
+              mime: validated.mime,
+              base64: validated.base64,
+              size: validated.size,
+              label: item.label || "",
+              alt: item.alt || "",
+              slot: item.slot || "",
+            });
+            const placement = applyMediaPlacement({
+              portfolio,
+              url: stored.url,
+              fullUrl: stored.fullUrl,
+              key: stored.key,
+              mime: stored.mime,
+              size: stored.size,
+              assignTo: item.assignTo || "none",
+              projectId: item.projectId || "",
+              projectIndex: item.projectIndex ?? null,
+              customSectionId: item.customSectionId || "",
+              customSectionTitle: item.customSectionTitle || "",
+              replaceTarget: item.replaceTarget || "",
+              label: item.label || "",
+              alt: item.alt || "",
+              slot: item.slot || "",
+            });
+            if (placement.changed) draftChanged = true;
+            uploaded.push({ ...stored, placedIn: placement.placedIn });
+          } catch (err) {
+            failed.push({
+              index: i,
+              label: item.label || undefined,
+              error: err instanceof Error ? err.message : "Upload failed",
+            });
+          }
+        }
+        if (draftChanged) {
+          await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
+        }
+        return wrapOk(
+          toolResult({
+            ok: uploaded.length > 0,
+            uploadedCount: uploaded.length,
+            failedCount: failed.length,
+            images: uploaded,
+            urls: uploaded.map((u) => u.url),
+            fullUrls: uploaded.map((u) => u.fullUrl),
+            ...(failed.length ? { failed } : {}),
+            savedToDraft: draftChanged,
+          })
+        );
+      }
+
+      if (name === "upload_portfolio_image") {
+        let stored = null;
+        if (args.uploadId) {
+          const chunkOut = await handleChunkedMediaUpload({
+            env,
+            username,
+            userId: tokenRow.user_id,
+            uploadId: args.uploadId,
+            chunk: args.chunk || "",
+            chunkIndex: args.chunkIndex ?? 0,
+            totalChunks: args.totalChunks ?? 1,
+            finish: Boolean(args.finish),
+            mime: args.mime || "",
+            label: args.label || "",
+            alt: args.alt || "",
+            slot: args.slot || "",
+          });
+          if (chunkOut.partial) {
+            return wrapOk(toolResult({ ok: true, ...chunkOut }));
+          }
+          stored = chunkOut;
+        } else {
+          const validated = await normalizeAndValidateImagePayload({
+            dataUrl: args.dataUrl || "",
+            base64: args.base64 || "",
+            mime: args.mime || "",
+            svg: args.svg || "",
+            sourceUrl: args.sourceUrl || args.url || "",
+            env,
+          });
+          stored = await storeMediaAsset({
+            env,
+            username,
+            userId: tokenRow.user_id,
+            mime: validated.mime,
+            base64: validated.base64,
+            size: validated.size,
+            label: args.label || "",
+            alt: args.alt || "",
+            slot: args.slot || "",
+          });
+        }
+
+        const assignTo = String(args.assignTo || "none");
+        const placement = applyMediaPlacement({
+          portfolio,
+          url: stored.url,
+          fullUrl: stored.fullUrl,
+          key: stored.key,
+          mime: stored.mime,
+          size: stored.size,
+          assignTo,
+          projectId: args.projectId || "",
+          projectIndex: args.projectIndex ?? null,
+          customSectionId: args.customSectionId || "",
+          customSectionTitle: args.customSectionTitle || "",
+          replaceTarget: args.replaceTarget || "",
+          label: args.label || "",
+          alt: args.alt || "",
+          slot: args.slot || "",
+        });
+        let savedDraft = null;
+        if (placement.changed) {
+          savedDraft = await saveOwnedDraft(env, username, tokenRow.user_id, portfolio);
+        }
+        return wrapOk(
+          toolResult({
+            ok: true,
+            key: stored.key,
+            mime: stored.mime,
+            size: stored.size,
+            url: stored.url,
+            fullUrl: stored.fullUrl,
             assignedTo: assignTo,
+            placedIn: placement.placedIn,
             savedToDraft: Boolean(savedDraft),
           })
         );
@@ -3224,6 +3183,72 @@ function extractMcpToken(request, url, directTokenFromPath = null) {
     return queryToken.trim();
   }
   return null;
+}
+
+/**
+ * Resolves an MCP / OAuth 2.1 Bearer token against D1 `mcp_access_tokens`.
+ * Used by both MCP JSON-RPC endpoints and cross-origin REST endpoints (/api/upload, /api/media).
+ */
+export async function resolveMcpBearerIdentity(
+  request,
+  env,
+  targetUsername = null,
+  directTokenFromPath = null
+) {
+  if (!env?.DB) {
+    return { ok: false, status: 503, error: "Account storage unavailable" };
+  }
+  const reqUrl = new URL(request.url);
+  const username = targetUsername ? normalizeUsername(targetUsername) : null;
+  const resourceMetaUrl = username
+    ? `${reqUrl.origin}/.well-known/oauth-protected-resource/mcp/${username}`
+    : `${reqUrl.origin}/.well-known/oauth-protected-resource/mcp`;
+
+  const rawToken = extractMcpToken(request, reqUrl, directTokenFromPath);
+  if (!rawToken) {
+    return {
+      ok: false,
+      status: 401,
+      error: "authentication_required",
+      message: "Sign in via OAuth 2.1 or pass a Taqdom MCP Bearer token.",
+      resourceMetaUrl,
+    };
+  }
+
+  await ensureSchema(env);
+  const tokenHash = await digest(rawToken);
+  const tokenRow = await env.DB.prepare(
+    "SELECT id, user_id, username, scope, expires_at FROM mcp_access_tokens WHERE token_hash = ?1 AND revoked_at IS NULL"
+  )
+    .bind(tokenHash)
+    .first();
+
+  if (
+    !tokenRow ||
+    (tokenRow.expires_at && Number(tokenRow.expires_at) <= Date.now()) ||
+    (username && tokenRow.username !== username)
+  ) {
+    return {
+      ok: false,
+      status: 401,
+      error: "invalid_token",
+      message: "Invalid, expired, revoked, or out-of-scope MCP token.",
+      resourceMetaUrl,
+    };
+  }
+
+  await env.DB.prepare("UPDATE mcp_access_tokens SET last_used_at = ?1 WHERE id = ?2")
+    .bind(Date.now(), tokenRow.id)
+    .run();
+
+  return {
+    ok: true,
+    tokenRow,
+    username: normalizeUsername(tokenRow.username),
+    userId: tokenRow.user_id,
+    scope: tokenRow.scope || "",
+    resourceMetaUrl,
+  };
 }
 
 /**
@@ -3431,7 +3456,14 @@ export function handleOpenApiSpec(request, url, isPluginManifest = false) {
 
   const paths = {};
   for (const tool of TOOLS) {
-    const isReadOnly = ["get_portfolio", "get_profile", "list_projects", "get_portfolio_blueprint", "list_templates_and_capabilities"].includes(tool.name);
+    const isReadOnly = [
+      "get_portfolio",
+      "get_profile",
+      "list_projects",
+      "list_portfolio_images",
+      "get_portfolio_blueprint",
+      "list_templates_and_capabilities",
+    ].includes(tool.name);
     paths[`/api/mcp/tools/${tool.name}`] = {
       post: {
         operationId: tool.name,
@@ -3459,6 +3491,108 @@ export function handleOpenApiSpec(request, url, isPluginManifest = false) {
       },
     };
   }
+
+  paths["/api/upload"] = {
+    post: {
+      operationId: "upload_media_binary",
+      summary: "Upload one or more real binary images (multipart/form-data, raw image/*, openaiFileIdRefs, or JSON/sourceUrl).",
+      description:
+        "Accepts binary file uploads (multipart/form-data files/file or raw image/*), ChatGPT openaiFileIdRefs, public HTTPS sourceUrl, base64/dataUrl, or batch JSON arrays up to 20MB per image, and optionally places them into avatar, cover, backgroundImage, project, gallery, customSection, or custom HTML.",
+      "x-openai-isConsequential": false,
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              properties: {
+                file: { type: "string", format: "binary", description: "Single binary image file (PNG, JPG, WebP, GIF, AVIF, SVG)." },
+                files: {
+                  type: "array",
+                  items: { type: "string", format: "binary" },
+                  description: "Multiple binary image files in one upload.",
+                },
+                assignTo: { type: "string", description: "Optional placement: avatar, cover, backgroundImage, project, gallery, customSection, replaceInHtml, mediaLibrary." },
+                label: { type: "string" },
+                alt: { type: "string" },
+                projectId: { type: "string" },
+                projectIndex: { type: "integer" },
+                replaceTarget: { type: "string" },
+              },
+            },
+          },
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                openaiFileIdRefs: { type: "array", items: { type: "object" } },
+                sourceUrl: { type: "string" },
+                dataUrl: { type: "string" },
+                base64: { type: "string" },
+                mime: { type: "string" },
+                files: { type: "array", items: { type: "object" } },
+                assignTo: { type: "string" },
+                label: { type: "string" },
+                alt: { type: "string" },
+                projectId: { type: "string" },
+                projectIndex: { type: "integer" },
+                replaceTarget: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        "200": {
+          description: "Uploaded image metadata with permanent hosted URLs",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  paths["/api/media"] = {
+    get: {
+      operationId: "list_uploaded_media",
+      summary: "List all uploaded real images belonging to the authenticated account.",
+      "x-openai-isConsequential": false,
+      responses: {
+        "200": {
+          description: "List of uploaded image URLs and metadata",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  paths["/api/media/{key}"] = {
+    delete: {
+      operationId: "delete_uploaded_media",
+      summary: "Delete an uploaded image key owned by the authenticated account.",
+      "x-openai-isConsequential": true,
+      parameters: [
+        { name: "key", in: "path", required: true, schema: { type: "string" } },
+      ],
+      responses: {
+        "200": {
+          description: "Deletion result",
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        },
+      },
+    },
+  };
 
   if (request.method === "HEAD") {
     return new Response(null, {

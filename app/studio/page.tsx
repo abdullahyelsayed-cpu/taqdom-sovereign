@@ -114,12 +114,22 @@ const DEFAULT_CANVAS_LAYOUT: CanvasSectionLayout = { x: 0, y: 0, width: 100, sca
 const MAX_STUDIO_UPLOAD_BYTES = 20_000_000;
 const ACCEPTED_IMAGE_MIMES = new Set([
   "image/jpeg",
+  "image/jpg",
+  "image/pjpeg",
   "image/png",
+  "image/x-png",
   "image/webp",
   "image/gif",
   "image/avif",
   "image/svg+xml",
 ]);
+const ACCEPTED_IMAGE_EXT_RE = /\.(?:jpe?g|png|webp|gif|avif|svg)$/i;
+
+function isAcceptedImageFile(file: File): boolean {
+  const mime = (file.type || "").toLowerCase().split(";")[0].trim();
+  if (ACCEPTED_IMAGE_MIMES.has(mime)) return true;
+  return (!mime || mime === "application/octet-stream") && ACCEPTED_IMAGE_EXT_RE.test(file.name || "");
+}
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -740,6 +750,51 @@ function StudioContent() {
     });
   };
 
+  const uploadStudioImageFile = async (file: File): Promise<string> => {
+    if (!isAcceptedImageFile(file)) {
+      throw new Error(
+        t("استخدم صورة JPG أو PNG أو WebP أو GIF أو AVIF أو SVG.", "Choose a JPG, PNG, WebP, GIF, AVIF, or SVG image.")
+      );
+    }
+    if (file.size <= 0 || file.size > MAX_STUDIO_UPLOAD_BYTES) {
+      throw new Error(t("الحد الأقصى للصورة 20 ميجابايت.", "Images must be 20 MB or smaller."));
+    }
+
+    const mime = (file.type || "").toLowerCase().split(";")[0].trim();
+    const shouldCompressLargePhoto =
+      file.size > 1_100_000 &&
+      (mime === "image/jpeg" || mime === "image/jpg" || mime === "image/png" || mime === "image/webp");
+
+    let response: Response;
+    if (shouldCompressLargePhoto) {
+      const prepared = await prepareImageUpload(file);
+      response = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dataUrl: prepared.dataUrl,
+          mime: prepared.mime,
+          label: file.name || "",
+          username: !isDemoReadOnly && user?.username ? user.username : draft.username,
+        }),
+      });
+    } else {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (file.name) formData.append("label", file.name);
+      response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+    }
+
+    const uploaded = await response.json().catch(() => null);
+    if (!response.ok || !uploaded?.url) {
+      throw new Error(uploaded?.error || t("تعذر حفظ الصورة. حاول مرة أخرى.", "Image upload failed. Please try again."));
+    }
+    return uploaded.url as string;
+  };
+
   const handleFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
     onLoaded: (url: string) => void
@@ -751,36 +806,48 @@ function StudioContent() {
       e.target.value = "";
       return;
     }
-    if (!ACCEPTED_IMAGE_MIMES.has(file.type.toLowerCase())) {
-      toast.error(t("استخدم صورة JPG أو PNG أو WebP أو GIF أو AVIF أو SVG.", "Choose a JPG, PNG, WebP, GIF, AVIF, or SVG image."));
+
+    setHasInteracted(true);
+    try {
+      const url = await uploadStudioImageFile(file);
+      onLoaded(url);
+      toast.success(t("تم رفع الصورة وحفظها.", "Image uploaded and saved."));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("تعذر رفع الصورة.", "Could not upload image."));
+    } finally {
       e.target.value = "";
-      return;
     }
-    if (file.size <= 0 || file.size > MAX_STUDIO_UPLOAD_BYTES) {
-      toast.error(t("الحد الأقصى للصورة 20 ميجابايت.", "Images must be 20 MB or smaller."));
+  };
+
+  const handleMultiFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    onLoaded: (urls: string[]) => void
+  ) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    if (isDemoReadOnly) {
+      toast.info(t("حساب المعاينة للعرض فقط.", "The demo account is read-only."));
       e.target.value = "";
       return;
     }
 
     setHasInteracted(true);
+    const urls: string[] = [];
     try {
-      const { dataUrl, mime } = await prepareImageUpload(file);
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          dataUrl,
-          mime,
-          username: !isDemoReadOnly && user?.username ? user.username : draft.username,
-        }),
-      });
-      const uploaded = await response.json().catch(() => null);
-      if (!response.ok || !uploaded?.url) {
-        throw new Error(uploaded?.error || t("تعذر حفظ الصورة. حاول مرة أخرى.", "Image upload failed. Please try again."));
+      for (const file of files) {
+        const url = await uploadStudioImageFile(file);
+        urls.push(url);
       }
-      onLoaded(uploaded.url);
-      toast.success(t("تم رفع الصورة وحفظها.", "Image uploaded and saved."));
+      if (urls.length > 0) {
+        onLoaded(urls);
+        toast.success(
+          urls.length === 1
+            ? t("تم رفع الصورة وحفظها.", "Image uploaded and saved.")
+            : t(`تم رفع ${urls.length} صور وحفظها.`, `${urls.length} images uploaded and saved.`)
+        );
+      }
     } catch (error) {
+      if (urls.length > 0) onLoaded(urls);
       toast.error(error instanceof Error ? error.message : t("تعذر رفع الصورة.", "Could not upload image."));
     } finally {
       e.target.value = "";
@@ -898,30 +965,15 @@ function StudioContent() {
       toast.info(t("حساب المعاينة للعرض فقط.", "The demo account is read-only."));
       return;
     }
-    if (!ACCEPTED_IMAGE_MIMES.has(file.type.toLowerCase())) {
-      toast.error(t("استخدم صورة JPG أو PNG أو WebP أو GIF أو AVIF أو SVG.", "Choose a JPG, PNG, WebP, GIF, AVIF, or SVG image."));
-      return;
-    }
-    if (file.size <= 0 || file.size > MAX_STUDIO_UPLOAD_BYTES) {
-      toast.error(t("الحد الأقصى لصورة الخلفية 20 ميجابايت.", "Background images must be 20 MB or smaller."));
-      return;
-    }
     setBackgroundUploading(true);
     try {
-      const { dataUrl, mime } = await prepareImageUpload(file);
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl, mime, username: !isDemoReadOnly && user?.username ? user.username : draft.username }),
-      });
-      const payload = await response.json();
-      if (!response.ok || !payload.url) throw new Error(payload.error || "Upload failed");
+      const url = await uploadStudioImageFile(file);
       setHasInteracted(true);
       setDraft((prev) => ({
         ...prev,
         canvas: {
           ...prev.canvas,
-          backgroundImage: payload.url,
+          backgroundImage: url,
           backgroundOverlay: prev.canvas?.backgroundOverlay ?? 28,
         },
       }));
@@ -2325,18 +2377,19 @@ function StudioContent() {
                               />
                             </label>
                             <label className="cursor-pointer rounded-lg border border-[#9A7B4F]/40 bg-[#9A7B4F]/10 px-2.5 py-1 text-[11px] font-bold hover:border-[#9A7B4F]">
-                              <span>+ {t("صورة إضافية", "Add Slide")}</span>
+                              <span>+ {t("صور إضافية", "Add Images")}</span>
                               <input
                                 type="file"
-                                accept="image/*"
+                                multiple
+                                accept="image/*,.avif,.webp,.svg"
                                 className="hidden"
                                 onChange={(e) =>
-                                  handleFileUpload(e, (url) =>
+                                  handleMultiFileUpload(e, (urls) =>
                                     setDraft((prev) => ({
                                       ...prev,
                                       projects: prev.projects.map((item) =>
                                         item.id === proj.id
-                                          ? { ...item, images: [...(item.images || []), url] }
+                                          ? { ...item, images: [...(item.images || []), ...urls] }
                                           : item
                                       ),
                                     }))

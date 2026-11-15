@@ -1,9 +1,27 @@
 // cloudflare/worker.mjs — Sovereign Edge Worker for taqdom.me & *.taqdom.me backed by Cloudflare D1
 import { SEED_PORTFOLIOS, createStarterPortfolio, TEMPLATES_CATALOG } from "../lib/seed-data.ts";
 import { ALL_TEMPLATE_IDS, RESERVED_USERNAMES, normalizeUsername, validateUsername } from "../lib/types.ts";
-import { handleMcpRequest, handleMcpRestRequest, handleMcpTokenApi, handleOpenApiSpec } from "./mcp.mjs";
-import { handleOAuthRequest, isOAuthRoute } from "./oauth.mjs";
+import {
+  handleMcpRequest,
+  handleMcpRestRequest,
+  handleMcpTokenApi,
+  handleOpenApiSpec,
+  resolveMcpBearerIdentity,
+} from "./mcp.mjs";
+import { handleOAuthRequest, isOAuthRoute, oauthCorsHeaders } from "./oauth.mjs";
 import { DEFAULT_FIREBASE_PROJECT_ID, suggestAvailableUsername, verifyFirebaseIdToken } from "./firebase-auth.mjs";
+import {
+  MAX_IMAGE_BYTES,
+  applyMediaPlacement,
+  base64ToBytes,
+  deleteUserMediaAsset,
+  ensureMediaTables,
+  listUserMediaAssets,
+  normalizeAndValidateImagePayload,
+  normalizeImageMime,
+  storeMediaAsset,
+  validRasterBytes,
+} from "./media-utils.mjs";
 
 const APP_ROUTES = new Set([
   ...RESERVED_USERNAMES,
@@ -394,203 +412,10 @@ function toExploreSummaryPortfolio(portfolio) {
   return clean;
 }
 
-function validJpegBytes(bytes) {
-  if (bytes.length < 16 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return false;
-  let pos = 2;
-  let hasSof = false;
-  let hasSos = false;
-  let hasEoi = false;
-
-  while (pos < bytes.length) {
-    while (pos < bytes.length && bytes[pos] !== 0xff) pos++;
-    if (pos >= bytes.length) break;
-    while (pos < bytes.length && bytes[pos] === 0xff) pos++;
-    if (pos >= bytes.length) return false;
-    const marker = bytes[pos++];
-    if (marker === 0x00 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
-    if (marker === 0xd8) return false;
-    if (marker === 0xd9) {
-      hasEoi = true;
-      break;
-    }
-    if (pos + 2 > bytes.length) return false;
-    const segLen = (bytes[pos] << 8) | bytes[pos + 1];
-    if (segLen < 2 || pos + segLen > bytes.length) return false;
-
-    const isSof =
-      marker >= 0xc0 &&
-      marker <= 0xcf &&
-      marker !== 0xc4 &&
-      marker !== 0xc8 &&
-      marker !== 0xcc;
-    if (isSof) {
-      if (segLen < 8 || pos + 7 > bytes.length) return false;
-      const height = (bytes[pos + 3] << 8) | bytes[pos + 4];
-      const width = (bytes[pos + 5] << 8) | bytes[pos + 6];
-      if (width <= 0 || height <= 0) return false;
-      hasSof = true;
-    }
-
-    pos += segLen;
-    if (marker === 0xda) {
-      hasSos = true;
-      while (pos + 1 < bytes.length) {
-        if (bytes[pos] === 0xff) {
-          const next = bytes[pos + 1];
-          if (next === 0x00 || next === 0xff || (next >= 0xd0 && next <= 0xd7)) {
-            pos += next === 0xff ? 1 : 2;
-            continue;
-          }
-          break;
-        }
-        pos++;
-      }
-      if (pos >= bytes.length - 1) return false;
-    }
-  }
-
-  return hasSof && hasSos && hasEoi;
-}
-
-function validPngBytes(bytes) {
-  const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-  if (bytes.length < 33 || !signature.every((byte, index) => bytes[index] === byte)) return false;
-  let pos = 8;
-  let hasIhdr = false;
-  let hasIdat = false;
-  let hasIend = false;
-  while (pos + 12 <= bytes.length) {
-    const chunkLen = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
-    const type = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
-    if (pos + 12 + chunkLen > bytes.length) return false;
-    if (pos === 8) {
-      if (type !== "IHDR" || chunkLen !== 13) return false;
-      const w = ((bytes[pos + 8] << 24) | (bytes[pos + 9] << 16) | (bytes[pos + 10] << 8) | bytes[pos + 11]) >>> 0;
-      const h = ((bytes[pos + 12] << 24) | (bytes[pos + 13] << 16) | (bytes[pos + 14] << 8) | bytes[pos + 15]) >>> 0;
-      if (w === 0 || h === 0) return false;
-      hasIhdr = true;
-    } else if (type === "IDAT" && chunkLen > 0) {
-      hasIdat = true;
-    } else if (type === "IEND") {
-      hasIend = chunkLen === 0;
-      break;
-    }
-    pos += 12 + chunkLen;
-  }
-  return hasIhdr && hasIdat && hasIend;
-}
-
-function validWebpBytes(bytes) {
-  if (bytes.length < 20) return false;
-  if (String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]) !== "RIFF") return false;
-  if (String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]) !== "WEBP") return false;
-  const riffSize = (bytes[4] | (bytes[5] << 8) | (bytes[6] << 16) | (bytes[7] << 24)) >>> 0;
-  if (riffSize < 12 || riffSize + 8 > bytes.length) return false;
-  const end = 8 + riffSize;
-  let pos = 12;
-  let hasFrame = false;
-  while (pos + 8 <= end) {
-    const cc = String.fromCharCode(bytes[pos], bytes[pos + 1], bytes[pos + 2], bytes[pos + 3]);
-    const chunkSize = (bytes[pos + 4] | (bytes[pos + 5] << 8) | (bytes[pos + 6] << 16) | (bytes[pos + 7] << 24)) >>> 0;
-    const padded = chunkSize + (chunkSize & 1);
-    if (pos + 8 + chunkSize > end) return false;
-    if (cc === "VP8 " && chunkSize >= 10) {
-      hasFrame = true;
-    } else if (cc === "VP8L" && chunkSize >= 5 && bytes[pos + 8] === 0x2f) {
-      hasFrame = true;
-    } else if (cc === "VP8X" && chunkSize >= 10) {
-      const w = 1 + (bytes[pos + 12] | (bytes[pos + 13] << 8) | (bytes[pos + 14] << 16));
-      const h = 1 + (bytes[pos + 15] | (bytes[pos + 16] << 8) | (bytes[pos + 17] << 16));
-      if (w <= 0 || h <= 0) return false;
-    }
-    pos += 8 + padded;
-  }
-  return hasFrame || pos === end;
-}
-
-function validGifBytes(bytes) {
-  if (bytes.length < 14) return false;
-  const hdr = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5]);
-  if (hdr !== "GIF87a" && hdr !== "GIF89a") return false;
-  const w = bytes[6] | (bytes[7] << 8);
-  const h = bytes[8] | (bytes[9] << 8);
-  if (w === 0 || h === 0) return false;
-  return bytes[bytes.length - 1] === 0x3b;
-}
-
-function validAvifBytes(bytes) {
-  if (bytes.length < 16) return false;
-  const ftypSize = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
-  if (ftypSize < 16 || ftypSize > bytes.length) return false;
-  if (String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]) !== "ftyp") return false;
-  const brand = String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
-  if (!["avif", "avis", "mif1"].includes(brand)) return false;
-  let pos = ftypSize;
-  let hasMeta = false;
-  let hasMdat = false;
-  while (pos + 8 <= bytes.length) {
-    const boxSize = ((bytes[pos] << 24) | (bytes[pos + 1] << 16) | (bytes[pos + 2] << 8) | bytes[pos + 3]) >>> 0;
-    const boxType = String.fromCharCode(bytes[pos + 4], bytes[pos + 5], bytes[pos + 6], bytes[pos + 7]);
-    const effective = boxSize === 0 ? bytes.length - pos : boxSize;
-    if (effective < 8 || pos + effective > bytes.length) return false;
-    if (boxType === "meta") hasMeta = true;
-    if (boxType === "mdat") hasMdat = true;
-    pos += effective;
-  }
-  return hasMeta && hasMdat;
-}
-
-function validRasterBytes(mime, bytes) {
-  if (!(bytes instanceof Uint8Array) || bytes.length < 12) return false;
-  if (mime === "image/jpeg") return validJpegBytes(bytes);
-  if (mime === "image/png") return validPngBytes(bytes);
-  if (mime === "image/webp") return validWebpBytes(bytes);
-  if (mime === "image/gif") return validGifBytes(bytes);
-  if (mime === "image/avif") return validAvifBytes(bytes);
-  return false;
-}
-
 function validRasterImageData(mime, base64) {
-  try {
-    const clean = String(base64 || "").replace(/\s+/g, "");
-    if (!clean || clean.length > 28_000_000) return false;
-    const raw = atob(clean);
-    const bytes = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-    return validRasterBytes(mime, bytes);
-  } catch {
-    return false;
-  }
-}
-
-function sanitizeSvgBase64(base64) {
-  try {
-    const bin = atob(base64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    let svgText = new TextDecoder("utf-8", { fatal: false }).decode(bytes).trim();
-    if (!/<svg[\s>]/i.test(svgText) || !/<\/svg>/i.test(svgText)) return null;
-    svgText = svgText
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
-      .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-      .replace(/(?:href|xlink:href)\s*=\s*(?:"\s*(?:javascript|vbscript):[^"]*"|'\s*(?:javascript|vbscript):[^']*')/gi, "");
-    if (/<script|foreignObject|\bon[a-z]+\s*=|(?:javascript|vbscript):/i.test(svgText)) {
-      return null;
-    }
-    const cleanBytes = new TextEncoder().encode(svgText);
-    let outBin = "";
-    const chunkSize = 0x8000;
-    for (let i = 0; i < cleanBytes.length; i += chunkSize) {
-      outBin += String.fromCharCode(...cleanBytes.subarray(i, i + chunkSize));
-    }
-    return {
-      base64: btoa(outBin),
-      size: cleanBytes.byteLength,
-    };
-  } catch {
-    return null;
-  }
+  const bytes = base64ToBytes(base64);
+  if (!bytes) return false;
+  return validRasterBytes(normalizeImageMime(mime), bytes);
 }
 
 async function hashPasswordEdge(password, storedSalt) {
@@ -710,12 +535,7 @@ const initializedWorkerMediaDbs = new WeakSet();
 
 async function ensureWorkerMediaSchema(env) {
   if (!env?.DB || initializedWorkerMediaDbs.has(env.DB)) return;
-  await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS media_blobs (key TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, data_url TEXT NOT NULL, created_at INTEGER NOT NULL)"
-  ).run();
-  await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
-  ).run();
+  await ensureMediaTables(env);
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS portfolio_chunks (username TEXT NOT NULL, kind TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (username, kind, seq))"
   ).run();
@@ -1355,11 +1175,23 @@ async function handleApiRequest(request, url, env) {
     }
   }
 
+  const isBearerMediaRoute =
+    pathname === "/api/upload" ||
+    pathname === "/api/media" ||
+    pathname.startsWith("/api/media/");
+  if (request.method === "OPTIONS" && isBearerMediaRoute) {
+    return new Response(null, { status: 204, headers: oauthCorsHeaders() });
+  }
+
   const isSecure = url.protocol === "https:";
   const origin = request.headers.get("origin");
   const isWriteMethod = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method);
   const fetchSite = request.headers.get("sec-fetch-site");
+  const authHeader = request.headers.get("authorization") || "";
+  const hasBearerMediaAuth =
+    isBearerMediaRoute && /^Bearer\s+tqd_(?:mcp|oat)_[a-f0-9]{64}$/i.test(authHeader.trim());
   if (
+    !hasBearerMediaAuth &&
     isWriteMethod &&
     ((origin && origin !== url.origin) || (!origin && fetchSite === "cross-site"))
   ) {
@@ -2205,105 +2037,370 @@ async function handleApiRequest(request, url, env) {
     }
   }
 
+  const resolveMediaActor = async () => {
+    if (hasBearerMediaAuth) {
+      const bearer = await resolveMcpBearerIdentity(request, env);
+      if (!bearer.ok) {
+        return {
+          errorResponse: jsonResponse(
+            { error: bearer.message || bearer.error },
+            bearer.status || 401,
+            {
+              ...oauthCorsHeaders(),
+              ...(bearer.resourceMetaUrl
+                ? { "www-authenticate": `Bearer realm="Taqdom MCP", resource_metadata="${bearer.resourceMetaUrl}"` }
+                : {}),
+            }
+          ),
+        };
+      }
+      if (SEED_PORTFOLIOS[bearer.username]) {
+        return { errorResponse: forbidden() };
+      }
+      return {
+        username: bearer.username,
+        userId: bearer.userId || `user-${bearer.username}`,
+        corsHeaders: oauthCorsHeaders(),
+        isBearer: true,
+      };
+    }
+    if (!session?.username) return { errorResponse: unauthorized() };
+    if (!ownsUsername(session.username)) return { errorResponse: forbidden() };
+    return {
+      username: normalizeUsername(session.username),
+      userId: String(session.userId || session.id || `user-${session.username}`),
+      corsHeaders: {},
+      isBearer: false,
+    };
+  };
+
   if (pathname === "/api/upload" && request.method === "POST") {
-    if (!session?.username) return unauthorized();
-    if (!ownsUsername(session.username)) return forbidden();
-    if (!env.DB) return jsonResponse({ error: "Image storage is unavailable." }, 503);
-    const parsed = await parseJsonBody(request, 28_500_000);
-    if (!parsed.ok) return rateLimitBodyError(parsed);
-    const body = parsed.value;
-    const dataUrl = String(body.dataUrl || "");
-    const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp|gif|avif|svg\+xml));base64,([A-Za-z0-9+/]+=*)$/i);
-    if (!match) {
+    const actor = await resolveMediaActor();
+    if (actor.errorResponse) return actor.errorResponse;
+    if (!env.DB) return jsonResponse({ error: "Image storage is unavailable." }, 503, actor.corsHeaders);
+
+    const reqContentType = (request.headers.get("content-type") || "").toLowerCase();
+    const q = url.searchParams;
+    let placementOpts = {
+      assignTo: q.get("assignTo") || "none",
+      projectId: q.get("projectId") || "",
+      projectIndex: q.has("projectIndex") ? Number(q.get("projectIndex")) : null,
+      customSectionId: q.get("customSectionId") || "",
+      customSectionTitle: q.get("customSectionTitle") || "",
+      replaceTarget: q.get("replaceTarget") || "",
+      label: q.get("label") || "",
+      alt: q.get("alt") || "",
+      slot: q.get("slot") || "",
+      publish: q.get("publish") === "true",
+    };
+
+    const rawItems = [];
+    if (reqContentType.includes("multipart/form-data")) {
+      let formData;
+      try {
+        formData = await request.formData();
+      } catch {
+        return jsonResponse({ error: "Invalid multipart form data." }, 400, actor.corsHeaders);
+      }
+      const getStr = (k) => {
+        const v = formData.get(k);
+        return typeof v === "string" ? v : "";
+      };
+      if (getStr("assignTo")) placementOpts.assignTo = getStr("assignTo");
+      if (getStr("projectId")) placementOpts.projectId = getStr("projectId");
+      if (getStr("projectIndex")) placementOpts.projectIndex = Number(getStr("projectIndex"));
+      if (getStr("customSectionId")) placementOpts.customSectionId = getStr("customSectionId");
+      if (getStr("customSectionTitle")) placementOpts.customSectionTitle = getStr("customSectionTitle");
+      if (getStr("replaceTarget")) placementOpts.replaceTarget = getStr("replaceTarget");
+      if (getStr("label")) placementOpts.label = getStr("label");
+      if (getStr("alt")) placementOpts.alt = getStr("alt");
+      if (getStr("slot")) placementOpts.slot = getStr("slot");
+      if (getStr("publish") === "true") placementOpts.publish = true;
+
+      for (const [, val] of formData.entries()) {
+        if (val && typeof val === "object" && typeof val.arrayBuffer === "function") {
+          const ab = await val.arrayBuffer();
+          if (ab.byteLength > MAX_IMAGE_BYTES) {
+            return jsonResponse({ error: "Max image size is 20MB." }, 413, actor.corsHeaders);
+          }
+          rawItems.push({
+            bytes: new Uint8Array(ab),
+            mime: val.type || getStr("mime") || "",
+            label: placementOpts.label || val.name || "",
+            alt: placementOpts.alt || "",
+            slot: placementOpts.slot || "",
+          });
+        }
+      }
+      if (!rawItems.length && (getStr("dataUrl") || getStr("base64") || getStr("sourceUrl") || getStr("svg"))) {
+        rawItems.push({
+          dataUrl: getStr("dataUrl"),
+          base64: getStr("base64"),
+          mime: getStr("mime"),
+          svg: getStr("svg"),
+          sourceUrl: getStr("sourceUrl"),
+          label: placementOpts.label,
+          alt: placementOpts.alt,
+          slot: placementOpts.slot,
+        });
+      }
+    } else if (
+      reqContentType.startsWith("image/") ||
+      reqContentType.startsWith("application/octet-stream") ||
+      reqContentType.startsWith("binary/octet-stream")
+    ) {
+      const contentLen = Number(request.headers.get("content-length") || 0);
+      if (contentLen > MAX_IMAGE_BYTES + 1024) {
+        return jsonResponse({ error: "Max image size is 20MB." }, 413, actor.corsHeaders);
+      }
+      const ab = await request.arrayBuffer();
+      if (ab.byteLength > MAX_IMAGE_BYTES) {
+        return jsonResponse({ error: "Max image size is 20MB." }, 413, actor.corsHeaders);
+      }
+      rawItems.push({
+        bytes: new Uint8Array(ab),
+        mime: reqContentType.split(";")[0].trim() || q.get("mime") || "",
+        label: placementOpts.label,
+        alt: placementOpts.alt,
+        slot: placementOpts.slot,
+      });
+    } else {
+      const parsed = await parseJsonBody(request, 28_500_000);
+      if (!parsed.ok) return rateLimitBodyError(parsed);
+      const body = parsed.value || {};
+      if (body.assignTo) placementOpts.assignTo = String(body.assignTo);
+      if (body.projectId) placementOpts.projectId = String(body.projectId);
+      if (body.projectIndex !== undefined && body.projectIndex !== null) {
+        placementOpts.projectIndex = Number(body.projectIndex);
+      }
+      if (body.customSectionId) placementOpts.customSectionId = String(body.customSectionId);
+      if (body.customSectionTitle) placementOpts.customSectionTitle = String(body.customSectionTitle);
+      if (body.replaceTarget) placementOpts.replaceTarget = String(body.replaceTarget);
+      if (body.label) placementOpts.label = String(body.label);
+      if (body.alt) placementOpts.alt = String(body.alt);
+      if (body.slot) placementOpts.slot = String(body.slot);
+      if (body.publish === true) placementOpts.publish = true;
+
+      const batchArrays = [body.files, body.images, body.items].find((a) => Array.isArray(a) && a.length > 0);
+      if (batchArrays) {
+        for (const item of batchArrays) {
+          if (typeof item === "string") {
+            rawItems.push(
+              item.startsWith("data:")
+                ? { dataUrl: item, label: placementOpts.label, alt: placementOpts.alt, slot: placementOpts.slot }
+                : { sourceUrl: item, label: placementOpts.label, alt: placementOpts.alt, slot: placementOpts.slot }
+            );
+          } else if (item && typeof item === "object") {
+            rawItems.push({
+              dataUrl: item.dataUrl || "",
+              base64: item.base64 || "",
+              mime: item.mime || item.mime_type || "",
+              svg: item.svg || "",
+              sourceUrl: item.sourceUrl || item.url || item.download_link || "",
+              label: item.label || item.name || placementOpts.label || "",
+              alt: item.alt || placementOpts.alt || "",
+              slot: item.slot || placementOpts.slot || "",
+              assignTo: item.assignTo || placementOpts.assignTo,
+              replaceTarget: item.replaceTarget || placementOpts.replaceTarget,
+            });
+          }
+        }
+      } else if (Array.isArray(body.openaiFileIdRefs) && body.openaiFileIdRefs.length > 0) {
+        for (const ref of body.openaiFileIdRefs) {
+          if (typeof ref === "string" && /^https?:\/\//i.test(ref)) {
+            rawItems.push({ sourceUrl: ref, label: placementOpts.label });
+          } else if (ref && typeof ref === "object") {
+            rawItems.push({
+              sourceUrl: ref.download_link || ref.url || ref.sourceUrl || "",
+              mime: ref.mime_type || ref.mime || "",
+              label: ref.name || ref.label || placementOpts.label || "",
+              alt: placementOpts.alt || "",
+              slot: placementOpts.slot || "",
+            });
+          }
+        }
+      } else {
+        rawItems.push({
+          dataUrl: String(body.dataUrl || ""),
+          base64: String(body.base64 || ""),
+          mime: String(body.mime || ""),
+          svg: typeof body.svg === "string" ? body.svg : "",
+          sourceUrl: String(body.sourceUrl || body.url || body.download_link || ""),
+          label: placementOpts.label,
+          alt: placementOpts.alt,
+          slot: placementOpts.slot,
+        });
+      }
+    }
+
+    if (!rawItems.length) {
       return jsonResponse(
-        { error: "صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP أو GIF أو AVIF أو SVG / Unsupported image format." },
-        400
+        { error: "Provide at least one image file, sourceUrl, dataUrl, or base64 payload." },
+        400,
+        actor.corsHeaders
       );
     }
-    const mime = match[1].toLowerCase();
-    if (body.mime && String(body.mime).toLowerCase() !== mime) {
-      return jsonResponse({ error: "Image type mismatch" }, 400);
-    }
-    let cleanBase64 = match[2];
-    const padding = cleanBase64.endsWith("==") ? 2 : cleanBase64.endsWith("=") ? 1 : 0;
-    let size = Math.floor((cleanBase64.length * 3) / 4) - padding;
-    if (size <= 0 || size > 20_000_000) {
-      return jsonResponse({ error: "Max image size is 20MB." }, 413);
-    }
-    if (mime === "image/svg+xml") {
-      const cleanedSvg = sanitizeSvgBase64(cleanBase64);
-      if (!cleanedSvg) {
-        return jsonResponse({ error: "ملف SVG غير صالح أو يحتوي على أكواد غير آمنة / Unsafe or invalid SVG image." }, 415);
-      }
-      cleanBase64 = cleanedSvg.base64;
-      size = cleanedSvg.size;
-      if (size <= 0 || size > 20_000_000) {
-        return jsonResponse({ error: "Max image size is 20MB." }, 413);
-      }
-    } else if (!validRasterImageData(mime, cleanBase64)) {
-      return jsonResponse({ error: "محتوى الصورة لا يطابق الصيغة المحددة / Image bytes do not match declared type." }, 415);
+    if (rawItems.length > 20) {
+      return jsonResponse({ error: "Upload up to 20 images per request (send additional requests for more)." }, 400, actor.corsHeaders);
     }
 
-    const extMap = {
-      "image/jpeg": "jpg",
-      "image/png": "png",
-      "image/webp": "webp",
-      "image/gif": "gif",
-      "image/avif": "avif",
-      "image/svg+xml": "svg",
-    };
-    const ext = extMap[mime] || "webp";
-    const key = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
-    const cleanDataUrl = `data:${mime};base64,${cleanBase64}`;
-    const now = Date.now();
     await ensureWorkerMediaSchema(env);
-    const ownerUserId = String(session.userId || session.id || `user-${session.username}`);
-    await env.DB.prepare(
-      "CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, user_id TEXT, key TEXT, mime TEXT, size INTEGER, created_at INTEGER)"
-    )
-      .run()
-      .catch(() => {});
-    await env.DB.prepare(
-      "INSERT OR IGNORE INTO media (id, user_id, key, mime, size, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
-    )
-      .bind(crypto.randomUUID(), ownerUserId, key, mime, size, now)
-      .run()
-      .catch(() => {});
-
-    if (cleanDataUrl.length <= 900_000) {
-      await env.DB.prepare(
-        "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
-      )
-        .bind(key, mime, size, cleanDataUrl, now)
-        .run();
-    } else {
-      const CHUNK_CHARS = 800_000;
-      const chunkStmts = [];
-      let seq = 0;
-      for (let i = 0; i < cleanBase64.length; i += CHUNK_CHARS) {
-        chunkStmts.push(
-          env.DB.prepare(
-            "INSERT INTO media_chunks (key, seq, chunk) VALUES (?1, ?2, ?3)"
-          ).bind(key, seq++, cleanBase64.slice(i, i + CHUNK_CHARS))
-        );
+    const uploaded = [];
+    const errors = [];
+    for (let i = 0; i < rawItems.length; i++) {
+      const item = rawItems[i];
+      try {
+        const validated = await normalizeAndValidateImagePayload({
+          dataUrl: item.dataUrl || "",
+          base64: item.base64 || "",
+          mime: item.mime || "",
+          svg: item.svg || "",
+          sourceUrl: item.sourceUrl || "",
+          bytes: item.bytes || null,
+          env,
+        });
+        const stored = await storeMediaAsset({
+          env,
+          edgeStore,
+          username: actor.username,
+          userId: actor.userId,
+          mime: validated.mime,
+          base64: validated.base64,
+          size: validated.size,
+          label: item.label || "",
+          alt: item.alt || "",
+          slot: item.slot || "",
+        });
+        uploaded.push({
+          ...stored,
+          _placement: {
+            assignTo: item.assignTo || placementOpts.assignTo,
+            replaceTarget: item.replaceTarget || placementOpts.replaceTarget,
+          },
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Invalid image payload.";
+        if (rawItems.length === 1) {
+          const status = /Max image size is 20MB/i.test(msg)
+            ? 413
+            : /SVG|truncated|corrupt|bytes/i.test(msg)
+            ? 415
+            : 400;
+          return jsonResponse({ error: msg }, status, actor.corsHeaders);
+        }
+        errors.push({ index: i, error: msg });
       }
-      for (let i = 0; i < chunkStmts.length; i += 8) {
-        await env.DB.batch(chunkStmts.slice(i, i + 8));
-      }
-      await env.DB.prepare(
-        "INSERT INTO media_blobs (key, mime, size, data_url, created_at) VALUES (?1, ?2, ?3, ?4, ?5)"
-      )
-        .bind(key, mime, size, "__CHUNKED__", now)
-        .run();
     }
 
-    return jsonResponse({
-      ok: true,
-      key,
-      size,
-      mime,
-      url: `/api/media/${key}`,
+    if (!uploaded.length) {
+      return jsonResponse({ error: errors[0]?.error || "All uploaded images failed validation.", errors }, 400, actor.corsHeaders);
+    }
+
+    const allPlacedIn = [];
+    const shouldPlace =
+      (placementOpts.assignTo && placementOpts.assignTo !== "none") ||
+      Boolean(placementOpts.replaceTarget) ||
+      uploaded.some((u) => (u._placement.assignTo && u._placement.assignTo !== "none") || u._placement.replaceTarget);
+
+    if (shouldPlace) {
+      const draft = await getDraftPortfolioFromD1(env, actor.username);
+      if (draft) {
+        let draftChanged = false;
+        for (const item of uploaded) {
+          const p = applyMediaPlacement({
+            portfolio: draft,
+            url: item.url,
+            fullUrl: item.fullUrl,
+            key: item.key,
+            mime: item.mime,
+            size: item.size,
+            assignTo: item._placement.assignTo || placementOpts.assignTo,
+            projectId: placementOpts.projectId,
+            projectIndex: placementOpts.projectIndex,
+            customSectionId: placementOpts.customSectionId,
+            customSectionTitle: placementOpts.customSectionTitle,
+            replaceTarget: item._placement.replaceTarget || placementOpts.replaceTarget,
+            label: item.label || "",
+            alt: item.alt || "",
+            slot: item.slot || "",
+          });
+          if (p.changed) {
+            draftChanged = true;
+            allPlacedIn.push(...p.placedIn);
+          }
+        }
+        if (draftChanged) {
+          await savePortfolioToD1AndMemory(env, draft, placementOpts.publish === true, null);
+        }
+      }
+    }
+
+    const cleanItems = uploaded.map(({ _placement, ...rest }) => rest);
+    const first = cleanItems[0];
+    return jsonResponse(
+      {
+        ok: true,
+        key: first.key,
+        size: first.size,
+        mime: first.mime,
+        url: first.url,
+        fullUrl: first.fullUrl,
+        count: cleanItems.length,
+        items: cleanItems,
+        urls: cleanItems.map((it) => it.url),
+        fullUrls: cleanItems.map((it) => it.fullUrl),
+        placedIn: Array.from(new Set(allPlacedIn)),
+        ...(errors.length ? { errors } : {}),
+      },
+      200,
+      actor.corsHeaders
+    );
+  }
+
+  if (pathname === "/api/media" && request.method === "GET") {
+    const actor = await resolveMediaActor();
+    if (actor.errorResponse) return actor.errorResponse;
+    await ensureWorkerMediaSchema(env);
+    const draft = await getDraftPortfolioFromD1(env, actor.username);
+    const images = await listUserMediaAssets({
+      env,
+      edgeStore,
+      username: actor.username,
+      userId: actor.userId,
+      portfolio: draft,
     });
+    return jsonResponse(
+      {
+        ok: true,
+        username: actor.username,
+        count: images.length,
+        images,
+      },
+      200,
+      actor.corsHeaders
+    );
+  }
+
+  if (pathname.startsWith("/api/media/") && request.method === "DELETE") {
+    const actor = await resolveMediaActor();
+    if (actor.errorResponse) return actor.errorResponse;
+    await ensureWorkerMediaSchema(env);
+    const key = pathname.slice("/api/media/".length);
+    const draft = await getDraftPortfolioFromD1(env, actor.username);
+    try {
+      const deleted = await deleteUserMediaAsset({
+        env,
+        edgeStore,
+        username: actor.username,
+        userId: actor.userId,
+        key,
+        portfolio: draft,
+      });
+      return jsonResponse(deleted, 200, actor.corsHeaders);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not delete image.";
+      return jsonResponse({ error: msg }, /not found/i.test(msg) ? 404 : 400, actor.corsHeaders);
+    }
   }
 
   if (pathname.startsWith("/api/media/") && request.method === "GET") {
@@ -2360,6 +2457,7 @@ async function handleApiRequest(request, url, env) {
     }
     if (!bytes) return new Response("Not found", { status: 404 });
     const responseHeaders = {
+      ...oauthCorsHeaders(),
       "Content-Type": mime,
       "Content-Disposition": "inline",
       "X-Content-Type-Options": "nosniff",
