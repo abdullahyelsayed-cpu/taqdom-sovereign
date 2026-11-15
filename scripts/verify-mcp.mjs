@@ -8,6 +8,9 @@ const tokens = new Map();
 const oauthClients = new Map();
 const oauthCodes = new Map();
 const oauthRefreshTokens = new Map();
+const portfolioChunks = new Map();
+let rawDraftJson = null;
+let rawPublishedJson = null;
 let portfolio = {
   username: "mcp-owner",
   name: { ar: "عبدالله", en: "Abdullah" },
@@ -39,9 +42,26 @@ const db = {
   prepare(sql) {
     return {
       values: [],
-      bind(...values) { this.values = values; return this; },
+      bind(...values) {
+        for (const v of values) {
+          if (typeof v === "string" && v.length > 1_000_000) {
+            throw new Error(`SQLITE_TOOBIG: bound SQL parameter length ${v.length} exceeds D1 1MB limit`);
+          }
+        }
+        this.values = values;
+        return this;
+      },
       async run() {
-        if (sql.includes("INSERT INTO mcp_access_tokens")) {
+        if (sql.includes("DELETE FROM portfolio_chunks")) {
+          const [u, kind] = this.values;
+          portfolioChunks.delete(`${u}:${kind}`);
+        } else if (sql.includes("INSERT INTO portfolio_chunks")) {
+          const [u, kind, seq, chunk] = this.values;
+          const k = `${u}:${kind}`;
+          const arr = portfolioChunks.get(k) || [];
+          arr.push({ seq, chunk });
+          portfolioChunks.set(k, arr);
+        } else if (sql.includes("INSERT INTO mcp_access_tokens")) {
           const [id, user_id, username, token_hash, label, created_at, client_id, scope, expires_at] = this.values;
           tokens.set(id, {
             id, user_id, username, token_hash, label, created_at,
@@ -83,12 +103,31 @@ const db = {
           rec.revoked_at = revoked_at;
         } else if (sql.includes("UPDATE portfolios SET draft_json = ?1, published_json")) {
           const [draft, publishedAt] = this.values;
-          portfolio = JSON.parse(draft);
+          rawDraftJson = draft;
+          rawPublishedJson = draft;
+          if (draft === "__CHUNKED__") {
+            const chunks = (portfolioChunks.get("mcp-owner:draft") || [])
+              .sort((a, b) => a.seq - b.seq)
+              .map((c) => c.chunk)
+              .join("");
+            portfolio = JSON.parse(chunks);
+          } else {
+            portfolio = JSON.parse(draft);
+          }
           portfolio.publishedAt = publishedAt;
           return { success: true, meta: { changes: 1 } };
         } else if (sql.includes("UPDATE portfolios SET draft_json")) {
           const [draft, template, updatedAt] = this.values;
-          portfolio = JSON.parse(draft);
+          rawDraftJson = draft;
+          if (draft === "__CHUNKED__") {
+            const chunks = (portfolioChunks.get("mcp-owner:draft") || [])
+              .sort((a, b) => a.seq - b.seq)
+              .map((c) => c.chunk)
+              .join("");
+            portfolio = JSON.parse(chunks);
+          } else {
+            portfolio = JSON.parse(draft);
+          }
           portfolio.template = template || portfolio.template;
           portfolio.updatedAt = updatedAt;
           return { success: true, meta: { changes: 1 } };
@@ -117,11 +156,19 @@ const db = {
         }
         if (sql.includes("FROM portfolios")) {
           if (this.values[0] !== "mcp-owner" || this.values[1] !== "user-123") return null;
-          return { draft_json: JSON.stringify(portfolio), published_json: null };
+          return {
+            draft_json: rawDraftJson || JSON.stringify(portfolio),
+            published_json: rawPublishedJson,
+          };
         }
         return null;
       },
       async all() {
+        if (sql.includes("FROM portfolio_chunks")) {
+          const [u, kind] = this.values;
+          const arr = (portfolioChunks.get(`${u}:${kind}`) || []).sort((a, b) => a.seq - b.seq);
+          return { results: arr };
+        }
         const userId = this.values[0];
         return { results: [...tokens.values()].filter((t) => t.user_id === userId).map(({ id, label, created_at, last_used_at, revoked_at }) => ({ id, label, created_at, last_used_at, revoked_at })) };
       },
@@ -1011,6 +1058,71 @@ assert.equal(updatedCustomDesign.fullPageHtml.ar.includes("أبني منتجات
 assert.equal(updatedCustomDesign.fullPageHtml.en.includes("I build intelligent products"), true);
 assert.equal(updatedCustomDesign.libraries.includes("gsap@3.12.5"), true);
 assert.equal(updatedCustomDesign.libraries.includes("canvas-confetti@1.9.3"), true);
+
+// 7g. Verify 6MB+ per-language fullPageHtml chunked D1 persistence & reassembly (never hits SQLITE_TOOBIG)
+const sixMbHtmlEn = "<div class='enterprise-6mb'>" + "A".repeat(6_000_000) + "</div>";
+const sixMbHtmlAr = "<div class='enterprise-6mb' dir='rtl'>" + "ب".repeat(6_000_000) + "</div>";
+const sixMbRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 216,
+      method: "tools/call",
+      params: {
+        name: "deploy_custom_code_portfolio",
+        arguments: {
+          designName: "6MB Enterprise Sovereign",
+          fullPageHtml: { ar: sixMbHtmlAr, en: sixMbHtmlEn },
+          customCss: "body { margin: 0; }",
+          publish: true,
+        },
+      },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+assert.equal(sixMbRes.status, 200);
+const sixMbPayload = await sixMbRes.json();
+assert.equal(sixMbPayload.result.isError, undefined, "6MB per-language fullPageHtml must succeed without error");
+assert.equal(rawDraftJson, "__CHUNKED__", "Large >700KB portfolios must use __CHUNKED__ sentinel in D1");
+assert.equal(rawPublishedJson, "__CHUNKED__", "Published >700KB portfolios must use __CHUNKED__ sentinel in D1");
+assert.equal(
+  sixMbPayload.result.structuredContent.customDesign.fullPageHtml.en.length,
+  sixMbHtmlEn.length,
+  "6MB English HTML must not be truncated at 500KB"
+);
+assert.equal(
+  sixMbPayload.result.structuredContent.customDesign.fullPageHtml.ar.length,
+  sixMbHtmlAr.length,
+  "6MB Arabic HTML must not be truncated at 500KB"
+);
+
+// Verify subsequent get_portfolio reassembles the chunked 12MB+ bilingual portfolio from D1
+const readBack6MbRes = await handleMcpRequest(
+  new Request("https://taqdom.me/mcp", {
+    method: "POST",
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 217,
+      method: "tools/call",
+      params: { name: "get_portfolio", arguments: {} },
+    }),
+  }),
+  env,
+  null,
+  null
+);
+const readBack6MbPayload = await readBack6MbRes.json();
+assert.equal(
+  readBack6MbPayload.result.structuredContent.customDesign.fullPageHtml.en.length,
+  sixMbHtmlEn.length,
+  "Reassembled portfolio from portfolio_chunks must preserve full 6MB English HTML"
+);
 
 const tinyPngDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const uploadToolRes = await handleMcpRequest(

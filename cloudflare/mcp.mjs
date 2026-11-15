@@ -41,7 +41,52 @@ async function ensureMcpMediaSchema(env) {
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
   ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS portfolio_chunks (username TEXT NOT NULL, kind TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (username, kind, seq))"
+  ).run();
   initializedMcpMediaDbs.add(env.DB);
+}
+
+const PORTFOLIO_CHUNK_CHARS = 700_000;
+
+async function readPortfolioJsonFromD1(env, username, kind, rawVal) {
+  if (!rawVal) return null;
+  if (rawVal === "__CHUNKED__") {
+    await ensureMcpMediaSchema(env);
+    const { results = [] } = await env.DB.prepare(
+      "SELECT chunk FROM portfolio_chunks WHERE username = ?1 AND kind = ?2 ORDER BY seq ASC"
+    )
+      .bind(username, kind)
+      .all();
+    if (!results.length) return null;
+    return results.map((r) => r.chunk).join("");
+  }
+  return rawVal;
+}
+
+async function writePortfolioJsonToD1(env, username, kind, jsonStr) {
+  await ensureMcpMediaSchema(env);
+  await env.DB.prepare(
+    "DELETE FROM portfolio_chunks WHERE username = ?1 AND kind = ?2"
+  )
+    .bind(username, kind)
+    .run();
+  if (jsonStr.length <= PORTFOLIO_CHUNK_CHARS) {
+    return jsonStr;
+  }
+  const chunkStmts = [];
+  let seq = 0;
+  for (let i = 0; i < jsonStr.length; i += PORTFOLIO_CHUNK_CHARS) {
+    chunkStmts.push(
+      env.DB.prepare(
+        "INSERT INTO portfolio_chunks (username, kind, seq, chunk) VALUES (?1, ?2, ?3, ?4)"
+      ).bind(username, kind, seq++, jsonStr.slice(i, i + PORTFOLIO_CHUNK_CHARS))
+    );
+  }
+  for (let i = 0; i < chunkStmts.length; i += 8) {
+    await env.DB.batch(chunkStmts.slice(i, i + 8));
+  }
+  return "__CHUNKED__";
 }
 
 export async function handleMcpTokenApi(request, url, env, session) {
@@ -163,7 +208,7 @@ const DESIGN_CAPABILITIES = {
     renderModes: ["full-code", "bespoke-components"],
     fullCodeAndLibraryEngine: {
       description:
-        "Pass fullPageHtml (string or {ar, en} up to 500KB), customCss, customJs, googleFonts, and libraries/packages/dependencies to render a 100% custom DOM, animation pipeline, WebGL/Three.js canvas, or pixel-exact reference clone.",
+        "Pass fullPageHtml (string or {ar, en} up to 6MB+ per language / 6,500,000 chars each), customCss (up to 6MB), customJs (up to 6MB), googleFonts, and libraries/packages/dependencies to render a 100% custom DOM, animation pipeline, WebGL/Three.js canvas, or pixel-exact reference clone.",
       builtInLibraryShortcuts: [
         "tailwindcss",
         "gsap",
@@ -217,8 +262,8 @@ const BILINGUAL = {
 const BILINGUAL_LARGE = {
   type: ["object", "string"],
   properties: {
-    ar: { type: "string", maxLength: 500000 },
-    en: { type: "string", maxLength: 500000 },
+    ar: { type: "string", maxLength: 6500000 },
+    en: { type: "string", maxLength: 6500000 },
   },
   additionalProperties: true,
 };
@@ -422,7 +467,7 @@ const TOOLS = [
   {
     name: "design_custom_portfolio_theme",
     description:
-      "Design and apply a 100% bespoke portfolio (completely free of preset templates). Supports TWO modes: (1) renderMode='full-code' — pass fullPageHtml (up to 500KB HTML5/CSS/SVG/Canvas), customCss, customJs, googleFonts, and ANY external library or npm package in libraries/packages/dependencies (Tailwind CSS, GSAP + ScrollTrigger, Three.js, Anime.js, Lenis, Lucide, Chart.js, D3, Swiper, AOS, Lottie, Vanta, FontAwesome, or any npm package loaded automatically via esm.sh importmap) to build any world-class animated, 3D, enterprise, or exact reference-image design; (2) renderMode='bespoke-components' — parameterized layouts with split-showcase/agency-spotlight/terminal-bento heroes, heroEyebrow, heroHeadline, heroHighlight, founderPills, split-editorial 2-column sections, 3x3 icon-grid skills, vertical-glow timelines, and customSections. Pass enabled=false to revert to a preset template.",
+      "Design and apply a 100% bespoke portfolio (completely free of preset templates). Supports TWO modes: (1) renderMode='full-code' — pass fullPageHtml (up to 6MB+ per language / 6,500,000 chars HTML5/CSS/SVG/Canvas), customCss (up to 6MB), customJs (up to 6MB), googleFonts, and ANY external library or npm package in libraries/packages/dependencies (Tailwind CSS, GSAP + ScrollTrigger, Three.js, Anime.js, Lenis, Lucide, Chart.js, D3, Swiper, AOS, Lottie, Vanta, FontAwesome, or any npm package loaded automatically via esm.sh importmap) to build any world-class animated, 3D, enterprise, or exact reference-image design; (2) renderMode='bespoke-components' — parameterized layouts with split-showcase/agency-spotlight/terminal-bento heroes, heroEyebrow, heroHeadline, heroHighlight, founderPills, split-editorial 2-column sections, 3x3 icon-grid skills, vertical-glow timelines, and customSections. Pass enabled=false to revert to a preset template.",
     inputSchema: {
       type: "object",
       properties: {
@@ -461,11 +506,11 @@ const TOOLS = [
         navCta: { type: "object", additionalProperties: true },
         fullPageHtml: BILINGUAL_LARGE,
         html: BILINGUAL_LARGE,
-        customCss: { type: "string", maxLength: 300000 },
-        css: { type: "string", maxLength: 300000 },
-        customJs: { type: "string", maxLength: 300000 },
-        js: { type: "string", maxLength: 300000 },
-        headHtml: { type: "string", maxLength: 60000 },
+        customCss: { type: "string", maxLength: 6000000 },
+        css: { type: "string", maxLength: 6000000 },
+        customJs: { type: "string", maxLength: 6000000 },
+        js: { type: "string", maxLength: 6000000 },
+        headHtml: { type: "string", maxLength: 1000000 },
         libraries: {
           type: ["array", "string"],
           items: { type: ["string", "object"], additionalProperties: true },
@@ -501,18 +546,18 @@ const TOOLS = [
   {
     name: "deploy_custom_code_portfolio",
     description:
-      "Deploy a 100% freeform, world-class, animated, 3D, enterprise, or 1:1 visual reference-clone portfolio using raw HTML5, CSS3, JavaScript/ESModules, SVG, and Canvas/WebGL (up to 500KB per language) with ZERO preset template restrictions. Automatically loads any requested libraries or npm packages (Tailwind CSS, GSAP + ScrollTrigger, Three.js, Anime.js, Lenis, Lucide, Chart.js, D3, Swiper, AOS, Lottie, Vanta, FontAwesome, or any npm package via esm.sh importmap) and Google Fonts.",
+      "Deploy a 100% freeform, world-class, animated, 3D, enterprise, or 1:1 visual reference-clone portfolio using raw HTML5, CSS3, JavaScript/ESModules, SVG, and Canvas/WebGL (up to 6MB+ / 6,500,000 chars per language) with ZERO preset template restrictions. Automatically loads any requested libraries or npm packages (Tailwind CSS, GSAP + ScrollTrigger, Three.js, Anime.js, Lenis, Lucide, Chart.js, D3, Swiper, AOS, Lottie, Vanta, FontAwesome, or any npm package via esm.sh importmap) and Google Fonts.",
     inputSchema: {
       type: "object",
       properties: {
         designName: { type: "string", maxLength: 120 },
         fullPageHtml: BILINGUAL_LARGE,
         html: BILINGUAL_LARGE,
-        customCss: { type: "string", maxLength: 300000 },
-        css: { type: "string", maxLength: 300000 },
-        customJs: { type: "string", maxLength: 300000 },
-        js: { type: "string", maxLength: 300000 },
-        headHtml: { type: "string", maxLength: 60000 },
+        customCss: { type: "string", maxLength: 6000000 },
+        css: { type: "string", maxLength: 6000000 },
+        customJs: { type: "string", maxLength: 6000000 },
+        js: { type: "string", maxLength: 6000000 },
+        headHtml: { type: "string", maxLength: 1000000 },
         libraries: {
           type: ["array", "string"],
           items: { type: ["string", "object"], additionalProperties: true },
@@ -552,8 +597,8 @@ const TOOLS = [
           type: ["array", "string"],
           items: { type: "string", maxLength: 180 },
         },
-        customJs: { type: "string", maxLength: 300000 },
-        customCss: { type: "string", maxLength: 300000 },
+        customJs: { type: "string", maxLength: 6000000 },
+        customCss: { type: "string", maxLength: 6000000 },
         publish: { type: "boolean" },
       },
       additionalProperties: true,
@@ -666,7 +711,7 @@ function bilingual(value, fieldName) {
 
 function bilingualLarge(value, fieldName) {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    const str = String(value).slice(0, 500000);
+    const str = String(value).slice(0, 6500000);
     return { ar: str, en: str };
   }
   if (!value || typeof value !== "object") {
@@ -675,8 +720,8 @@ function bilingualLarge(value, fieldName) {
   const ar = value.ar ?? value.arabic ?? value.text ?? value.html ?? value.code ?? value.en ?? value.english ?? "";
   const en = value.en ?? value.english ?? value.text ?? value.html ?? value.code ?? value.ar ?? value.arabic ?? "";
   return {
-    ar: String(ar).slice(0, 500000),
-    en: String(en).slice(0, 500000),
+    ar: String(ar).slice(0, 6500000),
+    en: String(en).slice(0, 6500000),
   };
 }
 
@@ -1728,7 +1773,7 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     "stylesheet" in args ||
     "css" in codeSrc
   ) {
-    cleanCustomCss = rawCssInput ? String(rawCssInput).slice(0, 300000) : undefined;
+    cleanCustomCss = rawCssInput ? String(rawCssInput).slice(0, 6000000) : undefined;
   }
 
   let cleanCustomJs = existingDesign?.customJs ?? existingDesign?.customCode?.js;
@@ -1740,13 +1785,13 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     "javascript" in args ||
     "js" in codeSrc
   ) {
-    cleanCustomJs = rawJsInput ? String(rawJsInput).slice(0, 300000) : undefined;
+    cleanCustomJs = rawJsInput ? String(rawJsInput).slice(0, 6000000) : undefined;
   }
 
   let cleanHeadHtml = existingDesign?.headHtml ?? existingDesign?.customCode?.headHtml;
   const rawHeadInput = args.headHtml ?? args.head ?? codeSrc.headHtml;
   if ("headHtml" in args || "head" in args || "headHtml" in codeSrc) {
-    cleanHeadHtml = rawHeadInput ? String(rawHeadInput).slice(0, 60000) : undefined;
+    cleanHeadHtml = rawHeadInput ? String(rawHeadInput).slice(0, 1000000) : undefined;
   }
 
   const hasLibsInArgs =
@@ -1828,6 +1873,8 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
       ? existingDesign?.renderMode || "full-code"
       : existingDesign?.renderMode || "bespoke-components";
 
+  const totalFullHtmlLen =
+    (cleanFullPageHtml?.ar?.length || 0) + (cleanFullPageHtml?.en?.length || 0);
   const cleanCustomCode =
     hasFullCodePayload ||
     cleanCustomCss ||
@@ -1836,10 +1883,10 @@ function validateAndSanitizeCustomDesign(rawArgs, existingDesign = null) {
     cleanLibraries.length > 0 ||
     cleanGoogleFonts.length > 0
       ? {
-          ...(cleanFullPageHtml ? { html: cleanFullPageHtml } : {}),
-          ...(cleanCustomCss ? { css: cleanCustomCss } : {}),
-          ...(cleanCustomJs ? { js: cleanCustomJs } : {}),
-          ...(cleanHeadHtml ? { headHtml: cleanHeadHtml } : {}),
+          ...(cleanFullPageHtml && totalFullHtmlLen <= 100000 ? { html: cleanFullPageHtml } : {}),
+          ...(cleanCustomCss && cleanCustomCss.length <= 100000 ? { css: cleanCustomCss } : {}),
+          ...(cleanCustomJs && cleanCustomJs.length <= 100000 ? { js: cleanCustomJs } : {}),
+          ...(cleanHeadHtml && cleanHeadHtml.length <= 100000 ? { headHtml: cleanHeadHtml } : {}),
           ...(cleanLibraries.length > 0 ? { libraries: cleanLibraries } : {}),
           ...(cleanGoogleFonts.length > 0 ? { googleFonts: cleanGoogleFonts } : {}),
         }
@@ -2009,7 +2056,14 @@ async function loadOwnedPortfolio(env, username, userId) {
   )
     .bind(username, userId)
     .first();
-  const raw = row?.draft_json || row?.published_json;
+  if (!row) throw new Error("Portfolio not found for this account.");
+  const kind = row.draft_json ? "draft" : "published";
+  const raw = await readPortfolioJsonFromD1(
+    env,
+    username,
+    kind,
+    row.draft_json || row.published_json
+  );
   if (!raw) throw new Error("Portfolio not found for this account.");
   let portfolio;
   try {
@@ -2023,10 +2077,24 @@ async function loadOwnedPortfolio(env, username, userId) {
 async function saveOwnedDraft(env, username, userId, portfolio) {
   const now = Date.now();
   const updated = { ...portfolio, username, updatedAt: now };
+  const own = await env.DB.prepare(
+    "SELECT draft_json FROM portfolios WHERE username = ?1 AND user_id = ?2"
+  )
+    .bind(username, userId)
+    .first();
+  if (!own) {
+    throw new Error("Draft was not saved. The account ownership check failed.");
+  }
+  const storedDraftVal = await writePortfolioJsonToD1(
+    env,
+    username,
+    "draft",
+    JSON.stringify(updated)
+  );
   const result = await env.DB.prepare(
     "UPDATE portfolios SET draft_json = ?1, template = ?2, updated_at = ?3 WHERE username = ?4 AND user_id = ?5"
   )
-    .bind(JSON.stringify(updated), String(updated.template || "haven"), now, username, userId)
+    .bind(storedDraftVal, String(updated.template || "haven"), now, username, userId)
     .run();
   if (result?.meta?.changes === 0 || result?.changes === 0) {
     throw new Error("Draft was not saved. The account ownership check failed.");
@@ -2037,10 +2105,21 @@ async function saveOwnedDraft(env, username, userId, portfolio) {
 async function publishOwnedDraft(env, username, userId, portfolio) {
   const now = Date.now();
   const published = { ...portfolio, username, updatedAt: now, publishedAt: now };
+  const own = await env.DB.prepare(
+    "SELECT draft_json FROM portfolios WHERE username = ?1 AND user_id = ?2"
+  )
+    .bind(username, userId)
+    .first();
+  if (!own) {
+    throw new Error("Publish failed. The account ownership check failed.");
+  }
+  const serialized = JSON.stringify(published);
+  const storedDraftVal = await writePortfolioJsonToD1(env, username, "draft", serialized);
+  await writePortfolioJsonToD1(env, username, "published", serialized);
   const result = await env.DB.prepare(
     "UPDATE portfolios SET draft_json = ?1, published_json = ?1, published_at = ?2, updated_at = ?2, template = ?5 WHERE username = ?3 AND user_id = ?4"
   )
-    .bind(JSON.stringify(published), now, username, userId, String(published.template || "haven"))
+    .bind(storedDraftVal, now, username, userId, String(published.template || "haven"))
     .run();
   if (result?.meta?.changes === 0 || result?.changes === 0) {
     throw new Error("Publish failed. The account ownership check failed.");

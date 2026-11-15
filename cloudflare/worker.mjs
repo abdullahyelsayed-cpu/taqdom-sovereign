@@ -550,7 +550,52 @@ async function ensureWorkerMediaSchema(env) {
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS media_chunks (key TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (key, seq))"
   ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS portfolio_chunks (username TEXT NOT NULL, kind TEXT NOT NULL, seq INTEGER NOT NULL, chunk TEXT NOT NULL, PRIMARY KEY (username, kind, seq))"
+  ).run();
   initializedWorkerMediaDbs.add(env.DB);
+}
+
+const PORTFOLIO_CHUNK_CHARS = 700_000;
+
+async function resolveChunkedPortfolioJson(env, username, kind, rawJson) {
+  if (!rawJson) return null;
+  if (rawJson === "__CHUNKED__") {
+    await ensureWorkerMediaSchema(env);
+    const { results = [] } = await env.DB.prepare(
+      "SELECT chunk FROM portfolio_chunks WHERE username = ?1 AND kind = ?2 ORDER BY seq ASC"
+    )
+      .bind(username, kind)
+      .all();
+    if (!results.length) return null;
+    return results.map((r) => r.chunk).join("");
+  }
+  return rawJson;
+}
+
+async function storeChunkedPortfolioJson(env, username, kind, jsonStr) {
+  await ensureWorkerMediaSchema(env);
+  await env.DB.prepare(
+    "DELETE FROM portfolio_chunks WHERE username = ?1 AND kind = ?2"
+  )
+    .bind(username, kind)
+    .run();
+  if (jsonStr.length <= PORTFOLIO_CHUNK_CHARS) {
+    return jsonStr;
+  }
+  const chunkStmts = [];
+  let seq = 0;
+  for (let i = 0; i < jsonStr.length; i += PORTFOLIO_CHUNK_CHARS) {
+    chunkStmts.push(
+      env.DB.prepare(
+        "INSERT INTO portfolio_chunks (username, kind, seq, chunk) VALUES (?1, ?2, ?3, ?4)"
+      ).bind(username, kind, seq++, jsonStr.slice(i, i + PORTFOLIO_CHUNK_CHARS))
+    );
+  }
+  for (let i = 0; i < chunkStmts.length; i += 8) {
+    await env.DB.batch(chunkStmts.slice(i, i + 8));
+  }
+  return "__CHUNKED__";
 }
 
 async function parseSessionFromRequest(request, env) {
@@ -621,9 +666,15 @@ async function getPublishedPortfolioFromD1(env, username) {
         .bind(clean)
         .first();
       if (row) {
-        if (!row.published_json) return null;
+        const resolved = await resolveChunkedPortfolioJson(
+          env,
+          clean,
+          "published",
+          row.published_json
+        );
+        if (!resolved) return null;
         edgeStore.unpublished.delete(clean);
-        return toPublicPortfolio(JSON.parse(row.published_json));
+        return toPublicPortfolio(JSON.parse(resolved));
       }
       if (edgeStore.unpublished.has(clean)) return null;
       return SEED_PORTFOLIOS[clean] ? toPublicPortfolio(SEED_PORTFOLIOS[clean]) : null;
@@ -656,7 +707,13 @@ async function getDraftPortfolioFromD1(env, username) {
         .bind(clean)
         .first();
       if (row) {
-        const raw = row.draft_json || row.published_json;
+        const kind = row.draft_json ? "draft" : "published";
+        const raw = await resolveChunkedPortfolioJson(
+          env,
+          clean,
+          kind,
+          row.draft_json || row.published_json
+        );
         if (raw) return JSON.parse(raw);
       }
     } catch {
@@ -686,7 +743,13 @@ async function getAllPublishedPortfoliosFromD1(env) {
         for (const row of results) {
           if (!row.username || !row.published_json) continue;
           try {
-            map[row.username] = JSON.parse(row.published_json);
+            const resolved = await resolveChunkedPortfolioJson(
+              env,
+              row.username,
+              "published",
+              row.published_json
+            );
+            if (resolved) map[row.username] = JSON.parse(resolved);
           } catch {
             // Ignore a single malformed portfolio rather than failing the entire directory.
           }
@@ -764,6 +827,11 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
         .run();
     }
 
+    const storedDraftVal = await storeChunkedPortfolioJson(env, clean, "draft", jsonStr);
+    const storedPublishedVal = isPublish
+      ? await storeChunkedPortfolioJson(env, clean, "published", jsonStr)
+      : storedDraftVal;
+
     await env.DB.prepare(
       `INSERT INTO portfolios (user_id, username, template, draft_json, published_json, published_at, updated_at)
        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
@@ -779,8 +847,8 @@ async function savePortfolioToD1AndMemory(env, portfolio, isPublish = false, use
         targetUserId,
         clean,
         updated.template || "haven",
-        jsonStr,
-        jsonStr,
+        storedDraftVal,
+        storedPublishedVal,
         now,
         now,
         isPublish ? 1 : 0
@@ -890,18 +958,43 @@ async function renameAndSaveAccountInD1(env, curUsername, targetRawUsername, opt
   if (targetUsername !== cur) {
     let publishedJson = null;
     if (options.isPublish) {
-      publishedJson = JSON.stringify(currentPortfolio);
+      publishedJson = await storeChunkedPortfolioJson(
+        env,
+        targetUsername,
+        "published",
+        JSON.stringify(currentPortfolio)
+      );
     } else if (wasPublished && portfolioRow?.published_json) {
-      publishedJson = JSON.stringify({
-        ...JSON.parse(portfolioRow.published_json),
-        username: targetUsername,
-        email: preservedEmail,
-      });
+      const resolvedPrevPub = await resolveChunkedPortfolioJson(
+        env,
+        cur,
+        "published",
+        portfolioRow.published_json
+      );
+      if (resolvedPrevPub) {
+        publishedJson = await storeChunkedPortfolioJson(
+          env,
+          targetUsername,
+          "published",
+          JSON.stringify({
+            ...JSON.parse(resolvedPrevPub),
+            username: targetUsername,
+            email: preservedEmail,
+          })
+        );
+      }
     }
+    const storedDraftRename = await storeChunkedPortfolioJson(
+      env,
+      targetUsername,
+      "draft",
+      JSON.stringify(currentPortfolio)
+    );
     const renameStatements = [
       env.DB.prepare(
         "UPDATE users SET username = ?1, password_hash = ?2, salt = ?3 WHERE username = ?4"
       ).bind(targetUsername, preservedHash, preservedSalt, cur),
+      env.DB.prepare("DELETE FROM portfolio_chunks WHERE username = ?1").bind(cur),
     ];
     if (portfolioRow) {
       renameStatements.push(
@@ -909,7 +1002,7 @@ async function renameAndSaveAccountInD1(env, curUsername, targetRawUsername, opt
           "UPDATE portfolios SET username = ?1, draft_json = ?2, published_json = ?3, updated_at = ?4 WHERE username = ?5"
         ).bind(
           targetUsername,
-          JSON.stringify(currentPortfolio),
+          storedDraftRename,
           publishedJson,
           Date.now(),
           cur
@@ -1624,7 +1717,7 @@ async function handleApiRequest(request, url, env) {
         .first()
         .catch(() => null);
       const { results: oauthTables = [] } = await env.DB.prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes')"
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('mcp_access_tokens', 'oauth_refresh_tokens', 'oauth_codes', 'portfolio_chunks')"
       )
         .all()
         .catch(() => ({ results: [] }));
@@ -1633,6 +1726,11 @@ async function handleApiRequest(request, url, env) {
         env.DB.prepare("DELETE FROM portfolios WHERE username = ?1").bind(u),
         env.DB.prepare("DELETE FROM users WHERE username = ?1").bind(u),
       ];
+      if (tableNames.has("portfolio_chunks")) {
+        deleteStatements.unshift(
+          env.DB.prepare("DELETE FROM portfolio_chunks WHERE username = ?1").bind(u)
+        );
+      }
       const uid = String(targetUserRow?.id || session?.userId || session?.id || "");
       for (const tbl of ["mcp_access_tokens", "oauth_refresh_tokens", "oauth_codes"]) {
         if (!tableNames.has(tbl)) continue;
@@ -1677,7 +1775,7 @@ async function handleApiRequest(request, url, env) {
     if (request.method === "PUT") {
       if (!session?.username) return unauthorized();
       if (!ownsUsername(session.username)) return forbidden();
-      const parsed = await parseJsonBody(request, 5_000_000);
+      const parsed = await parseJsonBody(request, 25_000_000);
       if (!parsed.ok) return rateLimitBodyError(parsed);
       let portfolio = parsed.value?.portfolio;
       if (!portfolio?.username) return jsonResponse({ error: "Invalid payload" }, 400);
@@ -1718,7 +1816,7 @@ async function handleApiRequest(request, url, env) {
     if (request.method === "POST") {
       if (!session?.username) return unauthorized();
       if (!ownsUsername(session.username)) return forbidden();
-      const parsed = await parseJsonBody(request, 5_000_000);
+      const parsed = await parseJsonBody(request, 25_000_000);
       if (!parsed.ok) return rateLimitBodyError(parsed);
       let portfolio = parsed.value?.portfolio;
       if (!portfolio?.username) return jsonResponse({ error: "Missing portfolio" }, 400);
@@ -1780,6 +1878,12 @@ async function handleApiRequest(request, url, env) {
         .first();
       if (!existing) return jsonResponse({ error: "Portfolio not found" }, 404);
 
+      await ensureWorkerMediaSchema(env);
+      await env.DB.prepare(
+        "DELETE FROM portfolio_chunks WHERE username = ?1 AND kind = 'published'"
+      )
+        .bind(clean)
+        .run();
       await env.DB.prepare(
         "UPDATE portfolios SET published_json = NULL, published_at = NULL WHERE username = ?1"
       )

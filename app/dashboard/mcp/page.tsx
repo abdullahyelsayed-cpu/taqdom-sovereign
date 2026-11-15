@@ -233,7 +233,7 @@ Build a 100% freeform, world-class personal portfolio for me — completely unco
   );
 
   const toolsCatalog = [
-    ["deploy_custom_code_portfolio", t("بناء أي تصميم عالمي حر بالكامل (HTML/CSS/JS/WebGL) بدون أي قوالب", "Deploy 100% freeform HTML5/CSS3/JS/WebGL portfolio with zero template limits")],
+    ["deploy_custom_code_portfolio", t("بناء أي تصميم عالمي حر بالكامل (HTML/CSS/JS/WebGL حتى 6MB+ لكل لغة) بدون أي قوالب", "Deploy 100% freeform HTML5/CSS3/JS/WebGL portfolio (up to 6MB+ per language) with zero template limits")],
     ["install_portfolio_libraries", t("تثبيت أي مكتبة خارجية أو حزمة npm (GSAP, Three.js, Tailwind, Lucide...)", "Install external libraries & npm packages (GSAP, Three.js, Tailwind, esm.sh)")],
     ["design_custom_portfolio_theme", t("تصميم ثيم وتخطيط وأقسام مخصصة بالكامل (Full-Code أو Bespoke Components)", "Design bespoke full-code or parameterized portfolio themes beyond presets")],
     ["upload_portfolio_image", t("رفع الصور والخلفيات والشعارات حتى 20MB مباشرة إلى قاعدة البيانات", "Upload portfolio & project images up to 20MB to D1 media storage")],
